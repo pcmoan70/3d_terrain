@@ -8,6 +8,10 @@ dtm1_tiles = "~/.cache/terrain3d/dtm1"
 # The base-map tiles (Kartverket topo) draped onto each view. Default ~/.cache/terrain3d/maps.
 map_tiles = "~/.cache/terrain3d/maps"
 
+# Optional: Kartverket's national DTM10 on disk (a GeoTIFF or VRT in EPSG:25833) — used for the 10 m model
+# instead of asking the WCS for 10 km tiles.
+# dtm10 = "/data/DTM10/dtm10.vrt"
+
 # Optional: Kartverket's N250 map data as a file geodatabase (Basisdata_0000_Norge_25833_N250Kartdata_FGDB.gdb,
 # free from geonorge.no). With it, the habitat rules know each cliff's distance to the nearest building and
 # road, tell quarries apart, and leave out islands with a building. Without it those are unknown.

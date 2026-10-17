@@ -10,14 +10,17 @@ from .config import CFG
 
 WCS = ("https://wcs.geonorge.no/skwms1/wcs.hoyde-dtm-nhm-25833?service=WCS&version=1.0.0&request=GetCoverage"
        "&coverage=NHM_DTM_25833&CRS=EPSG:25833&RESPONSE_CRS=EPSG:25833&FORMAT=GeoTIFF&BBOX={x0},{y0},{x1},{y1}&WIDTH=1000&HEIGHT=1000")
+# the same model resampled by the server to 10 m: 10 km tiles at 1000 px (checked 2026-10-16 against the national
+# DTM10: median −0.7 m, 95 % within 5 m). Kept as <dtm1_tiles>/tiles10/E<10 km>_N<10 km>.tif.
+RES_TILE = {1: 1000, 10: 10000}
 UA = "terrain3d (https://github.com/pcmoan70/3d_terrain)"
 
 
-def tiles_for(X, Y, R):
-    """Every 1 km tile (E km, N km) of the whole ±R SQUARE round (X, Y) — the block shows its corners, so a
+def tiles_for(X, Y, R, T=1000):
+    """Every T m tile (E, N in tile units) of the whole ±R SQUARE round (X, Y) — the block shows its corners, so a
     missing corner tile would leave a jump."""
-    return [(e, n) for e in range(int((X - R) // 1000), int((X + R - 1e-6) // 1000) + 1)
-            for n in range(int((Y - R) // 1000), int((Y + R - 1e-6) // 1000) + 1)]
+    return [(e, n) for e in range(int((X - R) // T), int((X + R - 1e-6) // T) + 1)
+            for n in range(int((Y - R) // T), int((Y + R - 1e-6) // T) + 1)]
 
 
 def fetch_backoff(url, ok=lambda d: True, headers=None, timeout=60, cap=60, label=""):
@@ -44,13 +47,16 @@ def fetch_backoff(url, ok=lambda d: True, headers=None, timeout=60, cap=60, labe
         time.sleep(waits[k])
 
 
-def fetch_tiles(X, Y, R):
-    """The tile files of the ±R square round (X, Y) (EPSG:25833), missing ones fetched; the ones that exist."""
-    td = os.path.join(CFG["dtm1_tiles"], "tiles"); os.makedirs(td, exist_ok=True); got = []
-    for e, n in tiles_for(X, Y, R):
+def fetch_tiles(X, Y, R, res=1):
+    """The tile files of the ±R square round (X, Y) (EPSG:25833) at 1 m (1 km tiles) or 10 m (10 km tiles), missing
+    ones fetched; the ones that exist. At 10 m a local DTM10 (config `dtm10`, a GeoTIFF / VRT) is read instead."""
+    if res == 10 and CFG.get("dtm10"): return [CFG["dtm10"]]
+    T = RES_TILE[res]
+    td = os.path.join(CFG["dtm1_tiles"], "tiles" if res == 1 else "tiles10"); os.makedirs(td, exist_ok=True); got = []
+    for e, n in tiles_for(X, Y, R, T):
         fn = os.path.join(td, f"E{e}_N{n}.tif"); got.append(fn)
         if os.path.exists(fn): continue
-        data = fetch_backoff(WCS.format(x0=e * 1000, y0=n * 1000, x1=(e + 1) * 1000, y1=(n + 1) * 1000),
+        data = fetch_backoff(WCS.format(x0=e * T, y0=n * T, x1=(e + 1) * T, y1=(n + 1) * T),
                              ok=lambda d: d[:2] in (b"II", b"MM"), timeout=120, label=f"E{e}_N{n}")
         if data is None:   # no data there (sea, abroad) or the service keeps failing: the tile stays missing
             print("  NO TILE", f"E{e}_N{n}"); got.pop(); continue

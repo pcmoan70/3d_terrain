@@ -5,6 +5,7 @@ import os, tomllib
 D = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULTS = {"dtm1_tiles": "~/.cache/terrain3d/dtm1",   # the 1 km DTM tiles, fetched once: <dtm1_tiles>/tiles/E<km>_N<km>.tif
             "map_tiles": "~/.cache/terrain3d/maps",    # the base-map tiles draped onto a view
+            "dtm10": "",                               # optional: a local DTM10 (GeoTIFF / VRT, EPSG:25833) instead of the WCS at 10 m
             "n250": ""}                                # Kartverket N250 (FGDB): buildings, roads, quarries for the habitat rules; "" = without
 
 
