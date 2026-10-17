@@ -1,8 +1,8 @@
 # Changes
 
-## 2026-10-17 — the habitat rules in the browser (step D)
+## 2026-10-17 — the nesting-habitat rules run in the browser on map-built views
 
-`rules.json` holds every tunable constant of the nesting-habitat rules (thresholds, facing bands, windows, colours, legend); `lib/habitat.py` reads it (same names, `viz3d.py` unchanged, same results). `viewer/habitat.js` is the rules in plain browser JS — `window.Habitat.compute(h, n, c, {X, Y, R, people})` returns the steepest point and the habitat areas with the same names, descriptions and colours as the Python — with its own copies of the scipy / rasterio / shapely pieces (gaussian filter, gradient, EDT, 4-connected labels, polygonise, rotating calipers, Douglas–Peucker). `tests/parity.py` compares the two: Preikestolen gives the same 104 cliffs, 99.8 % area overlap, the same steepest pixel, identical texts; a synthetic scene checks islets, a quarry and distances to people. The viewer does not use it yet.
+`viewer/habitat.js` (a JavaScript copy of `lib/habitat.py`, both reading `rules.json`; `tests/parity.py` holds them together: 99.8 % area overlap, identical names and texts on the Preikestolen demo) is inlined into the viewer like the libraries. After a map-built 1 m view renders, the rules run on its fine grid (1–2 m cells); OpenStreetMap buildings, roads (a point every 25 m) and quarries from Overpass (three mirrors, 20 s each) stand in for N250; the areas, the steepest point and the layer's legend are added to the view and its files, so Save keeps them. The Birds group starts switched off as before.
 
 ## 2026-10-17 — one path box: Load and Save
 

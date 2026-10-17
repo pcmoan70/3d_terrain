@@ -159,6 +159,7 @@
 <script>/*THREE*/</script>
 <script>/*ORBIT*/</script>
 <script>/*GEOTIFF*/</script>
+<script>/*HABITAT*/</script>
 <script id="embed" type="application/json">/*EMBED*/</script>
 <script>
 "use strict";
@@ -376,7 +377,7 @@ async function makeGrid(tiles, X, Y, R, c, sig) {
     gx[k] = (hs[iR] - hs[iL]) / (((iR - iL) || 1) * c); gyN[k] = (hs[jU] - hs[jD]) / ((((jD - jU) / n) || 1) * c);   // dh/dEast, dh/dNorth (per metre)
     slope[k] = Math.atan(Math.hypot(gx[k], gyN[k])) / RAD;
   }
-  return { n, c, R, hs, bad, nMiss, slope, gx, gyN, lo, hi };
+  return { n, c, R, h, hs, bad, nMiss, slope, gx, gyN, lo, hi };
 }
 // The view: one grid, or — fine and coarse tiles together (owner, 2026-10-16: "1m dtm in a smaller central area and
 // 10m dtm around in a larger area") — a fine grid S over ±R1 nested in a coarse grid S.out over ±R. Everything that
@@ -1608,10 +1609,65 @@ async function buildAt(lat, lon, R, res, R1) {
     source: "Kartverket NHM DTM " + res + " m (CC BY 4.0), fetched from the Geonorge WCS" + (missing ? "; " + missing + " tile(s) have no data" : "") };
   items.push({ name: "scene.json", blob: new Blob([JSON.stringify(scene)], { type: "application/json" }) });
   SRC = null; await loadFolder(items);
-  $("dsrc").textContent += " · No habitat areas on a position-loaded view: they come with packaged folders.";
+  await webHabitat();
   const q = new URL(location.href); ["folder", "drive", "res", "r1"].forEach(k => q.searchParams.delete(k));
   q.searchParams.set("lat", lat.toFixed(5)); q.searchParams.set("lon", lon.toFixed(5)); q.searchParams.set("r", R); if (res !== 1) q.searchParams.set("res", res); if (res === "n") q.searchParams.set("r1", R1);
   history.replaceState(null, "", q);
+}
+// ---- the nesting-habitat rules in the browser (viewer/habitat.js, the same rules.json as the Python; tests/parity.py):
+// run on a map-built view's fine grid (1–2 m cells) once the terrain shows. OpenStreetMap (Overpass) stands in for N250:
+// buildings, roads and quarries within the grid; when no mirror answers, the distances are "unknown".
+const OVERPASS = ["https://overpass-api.de/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
+async function osmPeople(G) {
+  const cs = [[-G.R, -G.R], [G.R, -G.R], [-G.R, G.R], [G.R, G.R]].map(([x, y]) => UTM.inv(S.X + x, S.Y + y, S.zone));
+  const bb = [Math.min(...cs.map(c => c[0])), Math.min(...cs.map(c => c[1])), Math.max(...cs.map(c => c[0])), Math.max(...cs.map(c => c[1]))].map(v => v.toFixed(5)).join(",");
+  const q = '[out:json][timeout:40];(way["building"](' + bb + ');node["building"](' + bb + ');way["highway"](' + bb + ');way["landuse"="quarry"](' + bb + '););out geom;';
+  // every mirror at once, the first good answer wins (they are slow and flaky; 45 s each)
+  const ask = async url => {
+    const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), 45000);
+    try { const r = await fetch(url + "?data=" + encodeURIComponent(q), { signal: ctl.signal }); if (!r.ok) throw new Error("HTTP " + r.status); const j = await r.json(); if (!j.elements) throw new Error("no elements"); return j.elements; }
+    finally { clearTimeout(tm); }
+  };
+  let els;
+  try { els = await Promise.any(OVERPASS.map(ask)); } catch (e) { return null; }
+  const P = (la, lo) => UTM.fwd(la, lo, S.zone), people = { buildings: [], roads: [], quarries: [] };
+  for (const e of els) {
+    const t = e.tags || {};
+    if (e.type === "node" && t.building) people.buildings.push(P(e.lat, e.lon));
+    else if (e.type === "way" && e.geometry && e.geometry.length) {
+      const pts = e.geometry.map(g => P(g.lat, g.lon));
+      if (t.building) people.buildings.push([pts.reduce((a, p) => a + p[0], 0) / pts.length, pts.reduce((a, p) => a + p[1], 0) / pts.length]);
+      else if (t.landuse === "quarry") people.quarries.push(pts);
+      else if (t.highway) for (let i = 0; i < pts.length - 1; i++) {   // a point every ~25 m along the road
+        const [a, b] = [pts[i], pts[i + 1]], L = Math.hypot(b[0] - a[0], b[1] - a[1]), k = Math.max(1, Math.ceil(L / 25));
+        for (let j = 0; j < k; j++) people.roads.push([a[0] + (b[0] - a[0]) * j / k, a[1] + (b[1] - a[1]) * j / k]);
+        if (i === pts.length - 2) people.roads.push(b);
+      }
+    }
+  }
+  return people;
+}
+async function webHabitat() {
+  if (!S || !window.Habitat || !S.h || S.c > 2 || SRC.overlays.some(o => o.src === "habitat.geojson")) return;
+  busy("Looking up OpenStreetMap buildings, roads and quarries…"); await tick();
+  const people = navigator.onLine ? await osmPeople(S) : null;
+  busy("Nesting-habitat rules on the " + S.c + " m model…"); await tick();
+  let res;
+  try { res = Habitat.compute(S.h, S.n, S.c, { X: S.X, Y: S.Y, R: S.R, people }); }
+  catch (e) { busy(false); $("dsrc").textContent += " · Habitat rules failed: " + e.message; return; }
+  const ll = (x, y) => { const [la, lo] = UTM.inv(S.X + x, S.Y + y, S.zone); return [+lo.toFixed(7), +la.toFixed(7)]; };
+  const hab = { type: "FeatureCollection", features: res.areas.map(a => ({ type: "Feature", properties: { name: a.name, desc: a.desc, color: a.color, kind: a.kind }, geometry: { type: "Polygon", coordinates: [a.ring.map(p => ll(p[0], p[1]))] } })) };
+  const pts = { type: "FeatureCollection", features: res.best ? [{ type: "Feature", properties: { name: "steepest point on a nesting cliff, " + Math.round(res.best.slope) + "°", role: "steepest", color: "#dc1414" }, geometry: { type: "Point", coordinates: ll(res.best.x, res.best.y) } }] : [] };
+  const R = Habitat.rules;
+  SRC.scene.layers = Object.assign(SRC.scene.layers || {}, { "habitat.geojson": { title: R.TITLE, group: "birds", legend: R.LEGEND } });
+  SRC.scene.habitat = people ? "OpenStreetMap buildings, roads and quarries (© OpenStreetMap contributors, ODbL)" : "no OpenStreetMap data reached: distances to buildings and roads unknown";
+  const jb = o => new Blob([JSON.stringify(o)], { type: "application/json" });
+  SRC.items = SRC.items.filter(it => !/^(habitat|points|scene)\.json$|^(habitat|points)\.geojson$/.test(it.name)).concat([{ name: "habitat.geojson", blob: jb(hab) }, { name: "points.geojson", blob: jb(pts) }, { name: "scene.json", blob: jb(SRC.scene) }]);
+  SRC.overlays = SRC.overlays.filter(o => o.src !== "points.geojson").concat(parseGeoJSON(hab).map(o => (o.src = "habitat.geojson", o)), parseGeoJSON(pts).map(o => (o.src = "points.geojson", o)));
+  if (fileOn["habitat.geojson"] === undefined) fileOn["habitat.geojson"] = false;   // the Birds group starts switched off
+  busy(false);
+  keepCam = true; await render();
+  $("dsrc").textContent = $("dsrc").textContent.replace(/, \d+ overlay feature\(s\)/, ", " + res.areas.length + " habitat areas computed here") + " · " + SRC.scene.habitat;
 }
 let lmap = null, lmark = null, lcirc = null, pickLL = null;
 function leafletLoad() {

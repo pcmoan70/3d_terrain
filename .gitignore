@@ -1,3 +1,4 @@
 config.toml
 *_3dterrain.html
 __pycache__/
+tests/fixtures/*.f32

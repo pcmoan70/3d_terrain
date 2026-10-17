@@ -34,7 +34,7 @@ from lib import dtm, habitat
 from lib.config import CFG
 
 D = os.path.dirname(os.path.abspath(__file__))
-LIBS = {"/*THREE*/": "three.min.js", "/*ORBIT*/": "OrbitControls.js", "/*GEOTIFF*/": "geotiff.js"}
+LIBS = {"/*THREE*/": "vendor/three.min.js", "/*ORBIT*/": "vendor/OrbitControls.js", "/*GEOTIFF*/": "vendor/geotiff.js", "/*HABITAT*/": "viewer/habitat.js"}
 ap = argparse.ArgumentParser(description=__doc__.splitlines()[0]); ap.add_argument("lat", type=float); ap.add_argument("lon", type=float)
 ap.add_argument("--name", default="site"); ap.add_argument("--radius", type=float, default=1000.0)
 ap.add_argument("--res", type=int, choices=(1, 10), default=1, help="the model's resolution, m (10: radius up to 15 km, no habitat)")
@@ -53,7 +53,7 @@ X, Y = to_u.transform(a.lon, a.lat)
 
 def page(embed=""):
     p = open(os.path.join(D, "viewer", "viewer3d_template.html")).read()
-    for k, f in LIBS.items(): p = p.replace(k, open(os.path.join(D, "vendor", f)).read())
+    for k, f in LIBS.items(): p = p.replace(k, open(os.path.join(D, f)).read())
     return p.replace("/*EMBED*/", embed)
 
 

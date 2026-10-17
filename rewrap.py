@@ -8,12 +8,12 @@ files, keeping each file's embedded folder — no recomputation.
 top-level "layer" member names the layer). --viewer DIR: also rewrite DIR/index.html (the empty viewer)."""
 import base64, json, math, os, re, sys
 D = os.path.dirname(os.path.abspath(__file__))
-LIBS = {"/*THREE*/": "three.min.js", "/*ORBIT*/": "OrbitControls.js", "/*GEOTIFF*/": "geotiff.js"}
+LIBS = {"/*THREE*/": "vendor/three.min.js", "/*ORBIT*/": "vendor/OrbitControls.js", "/*GEOTIFF*/": "vendor/geotiff.js", "/*HABITAT*/": "viewer/habitat.js"}
 
 
 def page(embed=""):
     p = open(os.path.join(D, "viewer", "viewer3d_template.html")).read()
-    for k, f in LIBS.items(): p = p.replace(k, open(os.path.join(D, "vendor", f)).read())
+    for k, f in LIBS.items(): p = p.replace(k, open(os.path.join(D, f)).read())
     return p.replace("/*EMBED*/", embed)
 
 
