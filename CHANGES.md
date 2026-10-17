@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-17 — Save as one file or as a folder
+
+Owner: "user should be given option to save full, standalone html file (like now), or a folder containing dtm tiles and point-lists etc that should annotate the 3d view." "Save as" chooses: one offline file (as before) or a folder `<name>/` with the DTM tiles, habitat.geojson, points.geojson, scene.json and index.json — written into a folder the user picks (File System Access in Chrome / Edge), elsewhere downloaded as a stored zip (a tiny zip writer in the page). Load with an empty path opens the folder again; more .geojson / .kml / .kmz files dropped into it annotate the view.
+
 ## 2026-10-17 — the map opens from the coordinates in the title
 
 Owner: "The pick place on map, should be removed and be executed when user clicks on coordinates in title on top of pane." The 🗺 button is gone; the panel's title reads "Terrain 3D — <scene title ·> 58.98634, 6.19051" and tapping the coordinates opens the map picker (before any view: "pick a place on the map").

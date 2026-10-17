@@ -124,7 +124,8 @@
            single buttons save/load"): Load reads a web folder or built file (URL), a Google Drive link, a scene on this site (its
            name — the box suggests them), or, empty, a folder picked from the device; Save writes the view as one offline file -->
       <div class="row w">Path <input id="path" type="text" list="catList" placeholder="URL · Drive link · scene name · empty = pick a folder" style="flex:1;width:auto;min-width:150px" autocomplete="off"><datalist id="catList"></datalist>
-        <button id="load" title="Load the terrain at this path (empty: pick a folder on this device)">Load</button><button id="save" title="Save this view as one file (name_3dterrain.html) that opens offline">Save</button></div>
+        <button id="load" title="Load the terrain at this path (empty: pick a folder on this device)">Load</button>
+        <label>Save as <select id="saveAs" style="width:auto"><option value="html">one offline file</option><option value="folder">folder: DTM tiles + layers</option></select></label><button id="save" title="Save this view: one name_3dterrain.html that opens offline, or a folder (name/) with the DTM tiles, the layers and scene.json that Load opens again">Save</button></div>
       <input id="fdir" type="file" webkitdirectory directory multiple hidden><input id="ffiles" type="file" multiple accept=".tif,.tiff,.json,.geojson,.kml,.kmz,.html" hidden>
       <div class="row w">Centre <input id="clat" type="number" step="0.00001" placeholder="lat"><input id="clon" type="number" step="0.00001" placeholder="lon"></div>
       <!-- the model, the view radius and the detail radius as text (owner, 2026-10-17); the inputs behind them feed render() -->
@@ -1437,27 +1438,64 @@ async function loadPath() {
   const c = (CAT || []).find(c => c.name === v || c.title === v);   // a scene on this site, by name
   await loadURL(c ? new URL(c.path, location.href).href : "scenes/" + v + "/");
 }
-// Save: this view as one file that opens offline — the page as served with the folder built in, named from the path box
+// Save: this view as one file that opens offline — the page as served with the folder built in — or as a folder of its
+// files (the DTM tiles, the layers, scene.json, index.json) that Load opens again or a site can serve; named from the path box
+const saveName = () => ($("path").value.trim().replace(/\.(html?|zip)$/i, "").replace(/\/+$/, "").replace(/^.*\//, "").replace(/[^\w.\-]+/g, "_").replace(/_3dterrain$/, "") || (S && S.title) || "terrain").replace(/[^\w.\-]+/g, "_");   // the path's last segment, else the title
+async function viewFiles() {   // name → Blob, every file of the view (a url item is fetched whole)
+  const out = {};
+  for (const it of SRC.items) {
+    let blob = it.blob;
+    if (!blob) { const r = await fetch(it.url, { headers: it.headers || {} }); if (!r.ok) throw new Error(it.name + ": HTTP " + r.status); blob = await r.blob(); }
+    out[it.name] = blob;
+  }
+  if (!("scene.json" in out) && S) out["scene.json"] = new Blob([JSON.stringify({ title: S.title, lat: S.lat, lon: S.lon, radius: S.RB })], { type: "application/json" });
+  return out;
+}
+async function saveFile(blob, name, types) {
+  if (window.showSaveFilePicker) {   // Chrome / Edge: the user picks where; elsewhere a download
+    try { const h = await showSaveFilePicker({ suggestedName: name, types }); const w = await h.createWritable(); await w.write(blob); await w.close(); return "Saved " + h.name + " (" + (blob.size / 1e6).toFixed(1) + " MB)."; }
+    catch (e) { if (e.name === "AbortError") return ""; }
+  }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  return "Saved " + name + " (" + (blob.size / 1e6).toFixed(1) + " MB) to your downloads.";
+}
+// a zip of the files, stored (no compression: the tiles are deflated already, the rest is small)
+async function zipOf(files) {
+  const CRC = new Int32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; CRC[n] = c; }
+  const crc32 = b => { let c = -1; for (let i = 0; i < b.length; i++) c = CRC[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ -1) >>> 0; };
+  const parts = [], cen = []; let off = 0; const enc = new TextEncoder(), u16 = v => [v & 255, v >> 8 & 255], u32 = v => [v & 255, v >> 8 & 255, v >> 16 & 255, v >>> 24 & 255];
+  for (const name in files) {
+    const data = new Uint8Array(await files[name].arrayBuffer()), nm = enc.encode(name), crc = crc32(data);
+    const head = new Uint8Array([80, 75, 3, 4, 20, 0, 0, 8, 0, 0, 0, 0, 33, 0, ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), 0, 0]);
+    parts.push(head, nm, data);
+    cen.push(new Uint8Array([80, 75, 1, 2, 20, 0, 20, 0, 0, 8, 0, 0, 0, 0, 33, 0, ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nm.length), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ...u32(off)]), nm);
+    off += head.length + nm.length + data.length;
+  }
+  const cl = cen.reduce((a, c) => a + c.length, 0);
+  parts.push(...cen, new Uint8Array([80, 75, 5, 6, 0, 0, 0, 0, ...u16(Object.keys(files).length), ...u16(Object.keys(files).length), ...u32(cl), ...u32(off), 0, 0]));
+  return new Blob(parts, { type: "application/zip" });
+}
 async function savePath() {
   if (!SRC || !SRC.items) { $("dsrc").textContent = "Nothing to save yet: build or load a terrain first."; return; }
   busy("Saving…");
   try {
-    const files = {};
-    for (const it of SRC.items) {
-      let blob = it.blob;
-      if (!blob) { const r = await fetch(it.url, { headers: it.headers || {} }); if (!r.ok) throw new Error(it.name + ": HTTP " + r.status); blob = await r.blob(); }
-      files[it.name] = await new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(fr.result.split(",")[1]); fr.onerror = no; fr.readAsDataURL(blob); });
+    const files = await viewFiles(), name = saveName();
+    if ($("saveAs").value === "folder") {
+      files["index.json"] = new Blob([JSON.stringify({ files: Object.keys(files).sort() })], { type: "application/json" });
+      if (window.showDirectoryPicker) {   // Chrome / Edge: a folder <name>/ inside the one the user picks
+        try {
+          const root = await showDirectoryPicker({ mode: "readwrite" }), dir = await root.getDirectoryHandle(name, { create: true });
+          let n = 0, bytes = 0; for (const f in files) { const w = await (await dir.getFileHandle(f, { create: true })).createWritable(); await w.write(files[f]); await w.close(); n++; bytes += files[f].size; }
+          $("dsrc").textContent = "Saved the folder " + name + "/ (" + n + " files, " + (bytes / 1e6).toFixed(1) + " MB) — Load with an empty path opens it again."; return;
+        } catch (e) { if (e.name === "AbortError") return; }
+      }
+      $("dsrc").textContent = (await saveFile(await zipOf(files), name + ".zip", [{ description: "Terrain folder (zip)", accept: { "application/zip": [".zip"] } }])) + " Unzip it; Load with an empty path opens the folder.";
+      return;
     }
-    if (!("scene.json" in files) && S) files["scene.json"] = btoa(unescape(encodeURIComponent(JSON.stringify({ title: S.title, lat: S.lat, lon: S.lon, radius: S.RB }))));
-    const html = PAGE_SRC.replace(/<script id="embed" type="application\/json">.*?<\/script>/s, '<script id="embed" type="application/json">' + JSON.stringify({ files }) + "<\/script>");   // escaped: a bare closing tag would end this script element
-    const name = ($("path").value.trim().replace(/^https?:\/\/.*\//, "").replace(/\.html?$/i, "").replace(/[^\w.\-]+/g, "_").replace(/_3dterrain$/, "") || (S && S.title) || "terrain").replace(/[^\w.\-]+/g, "_") + "_3dterrain.html";
-    const blob = new Blob([html], { type: "text/html" });
-    if (window.showSaveFilePicker) {   // Chrome / Edge: the user picks where; elsewhere a download
-      try { const h = await showSaveFilePicker({ suggestedName: name, types: [{ description: "Terrain 3D file", accept: { "text/html": [".html"] } }] }); const w = await h.createWritable(); await w.write(blob); await w.close(); $("dsrc").textContent = "Saved " + h.name + " (" + (blob.size / 1e6).toFixed(1) + " MB)."; return; }
-      catch (e) { if (e.name === "AbortError") return; }
-    }
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
-    $("dsrc").textContent = "Saved " + name + " (" + (blob.size / 1e6).toFixed(1) + " MB) to your downloads.";
+    const b64 = {};
+    for (const f in files) b64[f] = await new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(fr.result.split(",")[1]); fr.onerror = no; fr.readAsDataURL(files[f]); });
+    const html = PAGE_SRC.replace(/<script id="embed" type="application\/json">.*?<\/script>/s, '<script id="embed" type="application/json">' + JSON.stringify({ files: b64 }) + "<\/script>");   // escaped: a bare closing tag would end this script element
+    $("dsrc").textContent = await saveFile(new Blob([html], { type: "text/html" }), name + "_3dterrain.html", [{ description: "Terrain 3D file", accept: { "text/html": [".html"] } }]);
   } catch (e) { $("dsrc").textContent = "Could not save: " + e.message; }
   finally { busy(false); }
 }
