@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-17 — CORINE land cover overlay
+
+Owner: "add support for the CORINE land cover as a map overlay in the 3d terrain view". Map section → *CORINE land cover 2018 (NIBIO)*: NIBIO's CLC WMS (`wms.nibio.no/cgi-bin/clc`, EPSG:25833, CORS open) is asked for the view's square per grid (≤ 1500 px) and blended at 55 % over the base map; the legend lists the classes in view by share (nearest standard CLC colour per pixel), hovering shows the class under the pointer, a tap adds the exact class from GetFeatureInfo (English + Norwegian, code) to the popup; the attribution line credits NIBIO / Copernicus. The EEA's own tile service was tried first but answers 404 for tiles. Checked at Preikestolen: colour lookup and the WMS agree (333 Sparsely vegetated areas); legend 57 % sparsely vegetated, 31 % sea, 12 % broad-leaved forest.
+
 ## 2026-10-17 — no "nesting habitat" wording
 
 Owner: "Terrain 3d should not mention nesting habitat anywhere." The layer is "Cliffs, quarries and islets" (rules.json TITLE, the demo scene too), the point is "steepest point on a cliff", islets read "islet 1.1 ha — Small island, 1.1 ha, no building on it.", the status texts say "cliff rules" / "cliff areas". Python and JS texts changed alike (the parity test compares them).

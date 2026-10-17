@@ -89,6 +89,8 @@
 </div>
     <div class="row w" id="wbRow" hidden>Photo <select id="wbSel" style="width:auto;max-width:230px"></select></div>
       <div class="row"><label class="ly"><input type="checkbox" id="lyContours" checked> Contours (5 m, labelled every 25 m)</label></div>
+      <div class="row"><label class="ly"><input type="checkbox" id="lyClc"> CORINE land cover 2018 (NIBIO)</label></div>
+      <div class="row lg" id="lgClc" hidden></div>
       <div id="lyFiles"></div>
       <div class="row"><label class="ly"><input type="checkbox" id="lyMarkers" checked> Centre, circles &amp; steepest point</label></div>
       <!-- owner, 2026-10-15: "Add an option to make point, pins and other map objects show better on 3d face" -->
@@ -551,6 +553,10 @@ function paintBase(G, base) {   // G: the fine grid S or the coarse surround S.o
       d[o] = d[o] * (1 - al) + col[0] * al; d[o + 1] = d[o + 1] * (1 - al) + col[1] * al; d[o + 2] = d[o + 2] * (1 - al) + col[2] * al;
     }
   }
+  if ($("lyClc").checked && G.clc) {   // CORINE land cover at 55 % over the map
+    const q = G.clc.data;
+    for (let k = 0; k < n * n; k++) { const o = 4 * k; if (q[o + 3] < 128 || bad[k]) continue; d[o] = d[o] * .45 + q[o] * .55; d[o + 1] = d[o + 1] * .45 + q[o + 1] * .55; d[o + 2] = d[o + 2] * .45 + q[o + 2] * .55; }
+  }
   if (lyS || lyF) {
     const SC = SLOPE_CL.map(x => hexRgb(x[1])), FC = FACE_CL.map(x => hexRgb(x[1]));
     for (let k = 0; k < n * n; k++) {
@@ -770,6 +776,51 @@ function sunLegend(S) {
   $("sunLeg").innerHTML = '<span style="display:inline-block;width:110px;height:10px;vertical-align:middle;border-radius:2px;background:' + g + '"></span> ' +
     S.sunLo.toFixed(1) + " – " + S.sunHi.toFixed(1) + " kWh/m² per day (clear sky, direct)";
 }
+// ---- CORINE Land Cover 2018 as an overlay (owner, 2026-10-17): NIBIO's WMS serves Norway's CLC in EPSG:25833 with CORS
+// open, so one GetMap per grid gives the view's square pixel for pixel; it is blended over the base map. The legend lists
+// the classes in view (each pixel's colour matched to the nearest standard CLC colour), hovering names the class the same
+// way, and a tap asks the WMS (GetFeatureInfo) for the exact class.
+const CLC_WMS = "https://wms.nibio.no/cgi-bin/clc?service=WMS&version=1.3.0&layers=CORINE_Land_Cover_2018&styles=&crs=EPSG:25833";
+const CLC = [[111, "Continuous urban fabric", 230, 0, 77], [112, "Discontinuous urban fabric", 255, 0, 0], [121, "Industrial or commercial units", 204, 77, 242], [122, "Road and rail networks", 204, 0, 0], [123, "Port areas", 230, 204, 204], [124, "Airports", 230, 204, 230],
+  [131, "Mineral extraction sites", 166, 0, 204], [132, "Dump sites", 166, 77, 0], [133, "Construction sites", 255, 77, 255], [141, "Green urban areas", 255, 166, 255], [142, "Sport and leisure facilities", 255, 230, 255],
+  [211, "Non-irrigated arable land", 255, 255, 168], [212, "Permanently irrigated land", 255, 255, 0], [213, "Rice fields", 230, 230, 0], [221, "Vineyards", 230, 128, 0], [222, "Fruit trees and berry plantations", 242, 166, 77], [223, "Olive groves", 230, 166, 0],
+  [231, "Pastures", 230, 230, 77], [241, "Annual crops with permanent crops", 255, 230, 166], [242, "Complex cultivation patterns", 255, 230, 77], [243, "Agriculture with natural vegetation", 230, 204, 77], [244, "Agro-forestry areas", 242, 204, 166],
+  [311, "Broad-leaved forest", 128, 255, 0], [312, "Coniferous forest", 0, 166, 0], [313, "Mixed forest", 77, 255, 0], [321, "Natural grasslands", 204, 242, 77], [322, "Moors and heathland", 166, 255, 128], [323, "Sclerophyllous vegetation", 166, 230, 77], [324, "Transitional woodland-shrub", 166, 242, 0],
+  [331, "Beaches, dunes, sands", 230, 230, 230], [332, "Bare rocks", 204, 204, 204], [333, "Sparsely vegetated areas", 204, 255, 204], [334, "Burnt areas", 0, 0, 0], [335, "Glaciers and perpetual snow", 166, 230, 204],
+  [411, "Inland marshes", 166, 166, 255], [412, "Peat bogs", 77, 77, 255], [421, "Salt marshes", 204, 204, 255], [422, "Salines", 230, 230, 255], [423, "Intertidal flats", 166, 166, 230],
+  [511, "Water courses", 0, 204, 242], [512, "Water bodies", 128, 242, 230], [521, "Coastal lagoons", 0, 255, 166], [522, "Estuaries", 166, 255, 230], [523, "Sea and ocean", 230, 242, 255]];
+const clcClass = (r, g, b) => { let best = null, bd = 1e9; for (const c of CLC) { const d = (c[2] - r) ** 2 + (c[3] - g) ** 2 + (c[4] - b) ** 2; if (d < bd) { bd = d; best = c; } } return bd < 60 * 60 ? best : null; };
+async function clcImage(G) {   // the overlay for one grid as ImageData at the grid's size (undefined → not asked yet, null → failed)
+  if (G.clc !== undefined) return G.clc;
+  const px = Math.min(G.n, 1500), bb = [S.X - G.R, S.Y - G.R, S.X + G.R, S.Y + G.R].map(v => v.toFixed(1)).join(",");
+  try {
+    const r = await fetch(CLC_WMS + "&request=GetMap&bbox=" + bb + "&width=" + px + "&height=" + px + "&format=image/png&transparent=true"); if (!r.ok) throw new Error("HTTP " + r.status);
+    const bm = await createImageBitmap(await r.blob()), cv = document.createElement("canvas"); cv.width = cv.height = G.n; const cx = cv.getContext("2d"); cx.imageSmoothingEnabled = false; cx.drawImage(bm, 0, 0, G.n, G.n);
+    G.clc = cx.getImageData(0, 0, G.n, G.n);
+  } catch (e) { G.clc = null; $("dsrc").textContent = "CORINE: NIBIO's map service did not answer (" + e.message + ")."; }
+  return G.clc;
+}
+function clcAt(G, x, y) {   // the class under a point, by its colour
+  if (!G || !G.clc) return null;
+  const n = G.n, i = Math.max(0, Math.min(n - 1, Math.floor((x + G.R) / G.c))), j = Math.max(0, Math.min(n - 1, Math.floor((G.R - y) / G.c))), o = 4 * (j * n + i), d = G.clc.data;
+  return d[o + 3] < 128 ? null : clcClass(d[o], d[o + 1], d[o + 2]);
+}
+function clcLegend() {   // the classes in view (both grids), by share
+  const cnt = new Map(); let tot = 0;
+  for (const G of S.out ? [S, S.out] : [S]) { if (!G.clc) continue; const d = G.clc.data, w = G.c * G.c; for (let k = 0; k < d.length; k += 4 * 5) { if (d[k + 3] < 128) continue; const c = clcClass(d[k], d[k + 1], d[k + 2]); if (c) { cnt.set(c, (cnt.get(c) || 0) + w); tot += w; } } }
+  $("lgClc").innerHTML = tot ? [...cnt].sort((a, b) => b[1] - a[1]).filter(e => e[1] / tot >= 0.003).map(([c, w]) => '<span><span class="sw" style="background:rgb(' + c[2] + "," + c[3] + "," + c[4] + ')"></span> ' + esc(c[1]) + " " + (100 * w / tot).toFixed(100 * w / tot < 1 ? 1 : 0) + " %</span>").join("") : "No CORINE data in view.";
+}
+$("lyClc").onchange = async () => {
+  const on = $("lyClc").checked; $("lgClc").hidden = !on;
+  if (on && S) { busy("Loading CORINE land cover…"); await tick(); for (const G of S.out ? [S, S.out] : [S]) await clcImage(G); busy(false); clcLegend(); }
+  setAttr($("basemap").value); repaint();
+};
+async function clcInfo(x, y) {   // the exact class at a point, from the WMS
+  const h = 50, X = S.X + x, Y = S.Y + y;
+  const r = await fetch(CLC_WMS + "&request=GetFeatureInfo&query_layers=CORINE_Land_Cover_2018&bbox=" + [X - h, Y - h, X + h, Y + h].map(v => v.toFixed(1)).join(",") + "&width=100&height=100&i=50&j=50&info_format=application/vnd.ogc.gml");
+  const t = await r.text(), code = /<clc18_kode_tre>(\d+)</.exec(t), en = /<description_en>([^<]*)</.exec(t), no = /<description_no>([^<]*)</.exec(t);
+  return code ? { code: code[1], en: en ? en[1] : "", no: no ? no[1] : "" } : null;
+}
 // ---- base maps (owner, 2026-10-13: "lay the OSM streets map or other tiled maps on top"). A map is
 // fetched as Web-Mercator XYZ tiles for the view's box, at the zoom whose pixel is about one grid cell,
 // mosaicked, and resampled onto the UTM grid (a coarse lattice of exact UTM → lat/lon, interpolated) —
@@ -871,7 +922,7 @@ async function wbUI(S) {
     attr: "Imagery: Esri World Imagery Wayback (" + (p ? p.label : wbDate(r)) + ") · Esri, Maxar, Earthstar Geographics, and the GIS User Community" };
   return id;
 }
-function setAttr(id) { $("attr").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0)" + (BASEMAPS[id] ? " · " + BASEMAPS[id].attr : ""); }
+function setAttr(id) { $("attr").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0)" + ($("lyClc").checked ? " · CORINE Land Cover 2018 © NIBIO / Copernicus" : "") + (BASEMAPS[id] ? " · " + BASEMAPS[id].attr : ""); }
 async function getBase(G, id) {   // the map for one grid (a packaged map covers the fine grid: radius_1m, else radius)
   setAttr(id);
   if (!BASEMAPS[id]) return null;
@@ -1163,6 +1214,7 @@ function build(s) {
   $("radTxt").textContent = "Terrain model: " + (O ? "1 m centre + 10 m around" : native + " m" + (S.c > native ? " (shown on a " + S.c + " m grid)" : "")) + " · view radius " + km(R) + (O ? " · 1 m detail within " + km(S.R) : "");
   fileLayersUI(); restoreScroll();   // the panel's content is in place: back to where it was scrolled
   if ($("lySun").checked) setTimeout(() => $("lySun").onchange(), 0);
+  if ($("lyClc").checked) setTimeout(() => $("lyClc").onchange(), 0);
   applyBold(); applyVis();
   shadowFrame(); setEx(); if (!keepCam) home(); keepCam = false; updateSun(); daylightIfNight(); resize();
 }
@@ -1314,6 +1366,7 @@ canvas.addEventListener("pointermove", ev => {
   const fx = (sample(x + e, y) - sample(x - e, y)) / (2 * e), fy = (sample(x, y + e) - sample(x, y - e)) / (2 * e);
   const face = sl >= 3 ? " facing " + FACE_CL[Math.round(facingOf(fx, fy, S.gam) / 45) % 8][0] + " (" + Math.round(facingOf(fx, fy, S.gam)) + "°)" : "";
   let html = (miss ? "<b>No DTM data here</b> — the surface is a smooth fill · " : "") + Math.round(sample(x, y)) + " m a.s.l. · slope " + Math.round(sl) + "°" + face + " · " + Math.round(Math.hypot(x, y)) + " m from centre";
+  const cc = $("lyClc").checked ? clcAt(G, x, y) : null; if (cc) html += "<br>CORINE 2018: " + esc(cc[1]) + " (" + cc[0] + ")";
   if ($("lySun").checked && G.sunAvg) html += "<br>Sun, average " + $("mLbl").textContent.replace(/ \(.*\)/, "") + ": <b>" + sunAt(G, x, y).toFixed(2) + " kWh/m² per day</b> (clear sky, direct)";
   if (SUN && $("lmode").value === "sun") {
     const r = surfIrr(x, y, SUN.p.el, SUN.p.az, SUN.Ib);
@@ -1341,6 +1394,10 @@ function pointMenu(x, y, cx, cy, v) {   // v: a file's point → its name and te
     (v ? "" : "<b>") + la.toFixed(5) + ", " + lo.toFixed(5) + (v ? "" : "</b>") + " · " + Math.round(sample(x, y)) + " m a.s.l.";
   const m = $("pmenu"); m.hidden = false;
   m.style.left = Math.max(8, Math.min(innerWidth - m.offsetWidth - 8, cx + 10)) + "px"; m.style.top = Math.max(8, Math.min(innerHeight - m.offsetHeight - 8, cy + 10)) + "px";
+  if ($("lyClc").checked) {   // the exact CORINE class, from the WMS, when it answers
+    const el = document.createElement("div"); el.textContent = "CORINE 2018: …"; $("pmenuT").appendChild(el);
+    clcInfo(x, y).then(c => { el.textContent = "CORINE 2018: " + (c ? c.en + " (" + c.code + (c.no ? ", " + c.no : "") + ")" : "no data here"); }, () => { el.textContent = "CORINE 2018: no answer from NIBIO"; });
+  }
 }
 $("pmenuX").onclick = () => { $("pmenu").hidden = true; };
 // 🛰: norgeskart.no's aerial photo (Kartverket's Norge i bilder — it cannot be draped here: its tile service needs a
