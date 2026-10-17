@@ -1,12 +1,12 @@
-"""Nesting-habitat rules on the 1 m terrain: the steep areas (≥ STEEP_DEG) as polygons, which of them are
-nesting CLIFFS, the steepest point near the centre.
+"""Cliff rules on the 1 m terrain: the steep areas (≥ STEEP_DEG) as polygons, which of them are CLIFFS
+worth the name, the steepest point near the centre.
 
-A steep area counts as a nesting cliff only when its face is ≥ CLIFF_MIN_H high (nests sit 10–30 m up the
+A steep area counts as a cliff only when its face is ≥ CLIFF_MIN_H high (a usable face is 10–30 m up the
 face; road cuts and banks drop out) and it looks E … S … W (FACING: more sun, less snow in the breeding
 season). Each cliff gets its facing, its height, and — with Kartverket's N250 configured (config.toml
 `n250`) — its distance to the nearest building and road (disturbance); steep areas inside an N250 quarry
 are kept as "quarry" (artificial cliffs are used). Small islands (< ISLET_MAX_HA, no N250 building on
-them) are "islet" areas: on the outer coast cliff-nesters nest on the ground there. Without N250 the
+them) are "islet" areas. Without N250 the
 distances are unknown, no quarries are told apart, and every small island counts.
 Nothing within EDGE_M of the data's edge (the view's border, a missing tile) is detected: the slope there
 is made of the border's padding, not the ground."""
@@ -78,7 +78,7 @@ def edge_band(T):
 
 
 def habitat(T):
-    """Label the read square's nesting habitat. Returns (cliff_lab, cliffs, islet_mask): cliffs =
+    """Label the read square's cliffs and islets. Returns (cliff_lab, cliffs, islet_mask): cliffs =
     {label: dict(height, aspect, pref, quarry)} for steep areas whose face is ≥ CLIFF_MIN_H high.
     Nothing within EDGE_M of the data's edge counts (edge_band)."""
     h, slope, tf, aspect, bad = T
@@ -103,7 +103,7 @@ def habitat(T):
             quarry = qtree is not None and any(qg[j].contains(Point(cx, cy)) for j in qtree.query(Point(cx, cy)))
             if ht < CLIFF_MIN_H and not quarry: continue
             asp = float((np.degrees(np.arctan2(a_s[i], a_c[i])) + 360) % 360)
-            if not (FACING[0] <= asp <= FACING[1]): continue                # N / NE / NW faces are not nesting cliffs here
+            if not (FACING[0] <= asp <= FACING[1]): continue                # N / NE / NW faces do not count here
             cliffs[i + 1] = dict(height=ht, aspect=asp, pref=PREF_FACING[0] <= asp <= PREF_FACING[1], quarry=quarry, cx=cx, cy=cy,
                                  top=float(hmax[i]), foot=float(hmin[i]), drop10=float(d10[i]), vertical=float(vert[i]))
     # islets: land patches not touching the square's edge. The 1 m model fills the SEA with ~0 m (it
@@ -148,8 +148,8 @@ def _m(v):
 def describe(pr):
     """(name, description, ExtendedData fields) of one habitat area, in plain words."""
     if pr["kind"] == "islet":
-        return ("islet %.1f ha (ground nests)" % (pr["area"] / 1e4),
-                "Small island, %.1f ha, no building on it: cliff-nesters nest on the ground on such islets." % (pr["area"] / 1e4), [])
+        return ("islet %.1f ha" % (pr["area"] / 1e4),
+                "Small island, %.1f ha, no building on it." % (pr["area"] / 1e4), [])
     fit = {3: "good", 2: "fair"}.get(min(pr["score"], 3), "poor")
     shape_w = {"band": "a cliff band (wall)", "outcrop": "a compact rock outcrop", "broken": "broken, scattered steep ground"}[pr["shape"]]
     name = "%s %.0f m drop, %s %.0f m long, faces %s (%s)" % (pr["kind"], pr["height"], pr["shape"], pr["length"], pr["aspect"], fit)
@@ -168,7 +168,7 @@ def describe(pr):
 
 
 def near(T, X, Y, H=None):
-    """Within NEAR_R of (X, Y): the steepest pixel ON A NESTING CLIFF (X, Y, slope°, distance m; the
+    """Within NEAR_R of (X, Y): the steepest pixel ON A CLIFF (X, Y, slope°, distance m; the
     steepest pixel anywhere when there is no cliff) and the habitat areas [(shapely polygon in
     EPSG:25833, props)] — cliffs with height, facing, distances to people and a suitability class, and
     islets."""

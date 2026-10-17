@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-17 — no "nesting habitat" wording
+
+Owner: "Terrain 3d should not mention nesting habitat anywhere." The layer is "Cliffs, quarries and islets" (rules.json TITLE, the demo scene too), the point is "steepest point on a cliff", islets read "islet 1.1 ha — Small island, 1.1 ha, no building on it.", the status texts say "cliff rules" / "cliff areas". Python and JS texts changed alike (the parity test compares them).
+
 ## 2026-10-17 — Save as one file or as a folder
 
 Owner: "user should be given option to save full, standalone html file (like now), or a folder containing dtm tiles and point-lists etc that should annotate the 3d view." "Save as" chooses: one offline file (as before) or a folder `<name>/` with the DTM tiles, habitat.geojson, points.geojson, scene.json and index.json — written into a folder the user picks (File System Access in Chrome / Edge), elsewhere downloaded as a stored zip (a tiny zip writer in the page). Load with an empty path opens the folder again; more .geojson / .kml / .kmz files dropped into it annotate the view.

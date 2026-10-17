@@ -14,8 +14,8 @@ server cannot list a directory), and scenes/index.json is the catalog the picker
           scenes/<name>/dtm_10m.tif          --res 10: the model at 10 m instead (radius ≤ 15 km, no habitat); with --radius-1m R1
                                              both: 1 m over ±R1 (habitat there) inside 10 m over ±R — the viewer nests the two
           scenes/<name>/basemap_kv_topo.jpg  Kartverket topo draped on the view's grid (so the standalone file works offline)
-          scenes/<name>/habitat.geojson      nesting-habitat areas (lib/habitat.py rules, coloured by facing)
-          scenes/<name>/points.geojson       the steepest point on a nesting cliff + the --points within the radius
+          scenes/<name>/habitat.geojson      cliff areas (lib/habitat.py rules, coloured by facing)
+          scenes/<name>/points.geojson       the steepest point on a cliff + the --points within the radius
           scenes/<name>/scene.json           title, centre, radius, sigma (the suggested smoothing, m), layers, basemap
       → <out>/<name>_3dterrain.html          the same viewer with that folder built in (one file, opens offline)
 
@@ -147,7 +147,7 @@ if FINE: json.dump({"type": "FeatureCollection", "features": feats}, open(os.pat
 
 pts = []
 if best:
-    pts.append({"type": "Feature", "properties": {"name": "steepest point on a nesting cliff, %.0f°" % best[2], "role": "steepest", "color": "#dc1414"},
+    pts.append({"type": "Feature", "properties": {"name": "steepest point on a cliff, %.0f°" % best[2], "role": "steepest", "color": "#dc1414"},
                 "geometry": {"type": "Point", "coordinates": ll(best[0], best[1])}})
 layers = {"habitat.geojson": {"title": habitat.TITLE, "group": "birds", "legend": habitat.LEGEND}} if FINE else {}
 if a.points:

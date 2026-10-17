@@ -1,18 +1,18 @@
 {
   "_doc": {
-    "": "Nesting-habitat rules (cliff-nesters) shared by lib/habitat.py and viewer/habitat.js; tests/parity.py keeps the JS copy in step. Metres on the 1 m grid, degrees with 0 = north clockwise.",
+    "": "Cliff rules shared by lib/habitat.py and viewer/habitat.js; tests/parity.py keeps the JS copy in step. Metres on the 1 m grid, degrees with 0 = north clockwise.",
     "STEEP_DEG": "a 1 m pixel this steep (degrees) counts as cliff",
     "SMOOTH_M": "the DTM is smoothed by this sigma (m) before slopes: one odd pixel (a road edge) cannot win",
     "MIN_AREA": "m2: smaller steep specks are not drawn",
     "NEAR_R": "m: polygons + steepest point within this of the centre (viz3d sets it to the view's radius)",
-    "CLIFF_MIN_H": "m: a nesting cliff's face is at least this high",
+    "CLIFF_MIN_H": "m: a cliff's face is at least this high",
     "HIGH_FACE_M": "m: a face at least this high is a 'high face' (one point of fit)",
     "FACING": "degrees [from, to]: only faces looking E ... S ... W count - more sun, less snow in the breeding season",
     "PREF_FACING": "degrees [from, to]: the preferred, sun-facing band SE ... S ... SW (one point of fit)",
     "VERTICAL_DEG": "degrees: a pixel at least this steep is near-vertical (the face's vertical share)",
     "FACE_PAD_M": "m: the face plus this much round it gives its top and foot (grey dilation 2*pad+1, binary dilation pad)",
     "DROP_HALF_M": "m: the sharpest step = height range within +-this (max - min filter of size 2*half+1)",
-    "ISLET_MAX_HA": "ha: islands this small (inside the read square) are ground-nest islets",
+    "ISLET_MAX_HA": "ha: islands this small (inside the read square) are islets",
     "ISLET_MIN_M2": "m2: smaller islands (and islet polygons) are left out",
     "SEA_LEVEL_M": "m: the 1 m model fills the sea with ~0 m; ground at or below this is sea",
     "NEAR_BUILDING": "m: a cliff closer than this to a building is less suitable",
@@ -22,8 +22,8 @@
     "SIMPLIFY_ISLET_M": "m: Douglas-Peucker tolerance of the islet polygons",
     "COLOURS": "fill by kind (quarry, islet) and, as a fallback, by fit score 1..3",
     "FACE_COLOURS": "cliff fill by facing: S strongest, SE / SW orange, E / W pale",
-    "LEGEND": "[[colour, label], ...] of the habitat layer",
-    "TITLE": "the habitat layer's title"
+    "LEGEND": "[[colour, label], ...] of the cliff layer",
+    "TITLE": "the cliff layer's title"
   },
   "STEEP_DEG": 50.0,
   "SMOOTH_M": 1.5,
@@ -47,5 +47,5 @@
   "COLOURS": {"quarry": "#7b1fa2", "islet": "#1e88e5", "3": "#bf360c", "2": "#f57c00", "1": "#ffb74d"},
   "FACE_COLOURS": {"S": "#bf360c", "SE": "#f57c00", "SW": "#f57c00", "E": "#ffcc80", "W": "#ffcc80"},
   "LEGEND": [["#bf360c", "cliff faces S"], ["#f57c00", "SE / SW"], ["#ffcc80", "E / W"], ["#7b1fa2", "quarry"], ["#1e88e5", "islet"]],
-  "TITLE": "Nesting habitat (cliffs, quarries, islets)"
+  "TITLE": "Cliffs, quarries and islets"
 }

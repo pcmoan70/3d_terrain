@@ -1,4 +1,4 @@
-/* habitat.js - the nesting-habitat rules (cliff-nesters) on a square terrain grid, in the browser: a copy of
+/* habitat.js - the cliff rules on a square terrain grid, in the browser: a copy of
    lib/habitat.py plus the preprocessing viz3d.py does before it (smoothing, slope, facing). Plain ES2018, no
    imports, no build step. The constants below are a verbatim copy of rules.json; tests/parity.py checks that
    and compares the results with the Python on public data.
@@ -12,7 +12,7 @@
              R      NEAR_R: areas + steepest point within this of the centre (default rules.NEAR_R),
              people optional { buildings: [[x, y], ...], roads: [[x, y], ...] (points every ~25 m),
                                quarries: [[[x, y], ...], ...] (outer rings) } in EPSG:25833 metres }
-   -> { best:  { x, y, slope, dist } | null      the steepest pixel on a nesting cliff (anywhere, if none)
+   -> { best:  { x, y, slope, dist } | null      the steepest pixel on a cliff (anywhere, if none)
         areas: [{ ring: [[x, y], ...], kind: "cliff" | "quarry" | "islet", name, desc, color, props }] }
    x, y (best and the rings) are metres from the grid centre, x east, y north. Without `people` the distances
    are Infinity ("unknown (no N250)"), there are no quarries and every small island counts - as the Python
@@ -21,19 +21,19 @@
   'use strict';
   var RULES = /* rules.json */ {
     "_doc": {
-      "": "Nesting-habitat rules (cliff-nesters) shared by lib/habitat.py and viewer/habitat.js; tests/parity.py keeps the JS copy in step. Metres on the 1 m grid, degrees with 0 = north clockwise.",
+      "": "Cliff rules shared by lib/habitat.py and viewer/habitat.js; tests/parity.py keeps the JS copy in step. Metres on the 1 m grid, degrees with 0 = north clockwise.",
       "STEEP_DEG": "a 1 m pixel this steep (degrees) counts as cliff",
       "SMOOTH_M": "the DTM is smoothed by this sigma (m) before slopes: one odd pixel (a road edge) cannot win",
       "MIN_AREA": "m2: smaller steep specks are not drawn",
       "NEAR_R": "m: polygons + steepest point within this of the centre (viz3d sets it to the view's radius)",
-      "CLIFF_MIN_H": "m: a nesting cliff's face is at least this high",
+      "CLIFF_MIN_H": "m: a cliff's face is at least this high",
       "HIGH_FACE_M": "m: a face at least this high is a 'high face' (one point of fit)",
       "FACING": "degrees [from, to]: only faces looking E ... S ... W count - more sun, less snow in the breeding season",
       "PREF_FACING": "degrees [from, to]: the preferred, sun-facing band SE ... S ... SW (one point of fit)",
       "VERTICAL_DEG": "degrees: a pixel at least this steep is near-vertical (the face's vertical share)",
       "FACE_PAD_M": "m: the face plus this much round it gives its top and foot (grey dilation 2*pad+1, binary dilation pad)",
       "DROP_HALF_M": "m: the sharpest step = height range within +-this (max - min filter of size 2*half+1)",
-      "ISLET_MAX_HA": "ha: islands this small (inside the read square) are ground-nest islets",
+      "ISLET_MAX_HA": "ha: islands this small (inside the read square) are islets",
       "ISLET_MIN_M2": "m2: smaller islands (and islet polygons) are left out",
       "SEA_LEVEL_M": "m: the 1 m model fills the sea with ~0 m; ground at or below this is sea",
       "NEAR_BUILDING": "m: a cliff closer than this to a building is less suitable",
@@ -43,8 +43,8 @@
       "SIMPLIFY_ISLET_M": "m: Douglas-Peucker tolerance of the islet polygons",
       "COLOURS": "fill by kind (quarry, islet) and, as a fallback, by fit score 1..3",
       "FACE_COLOURS": "cliff fill by facing: S strongest, SE / SW orange, E / W pale",
-      "LEGEND": "[[colour, label], ...] of the habitat layer",
-      "TITLE": "the habitat layer's title"
+      "LEGEND": "[[colour, label], ...] of the cliff layer",
+      "TITLE": "the cliff layer's title"
     },
     "STEEP_DEG": 50.0,
     "SMOOTH_M": 1.5,
@@ -107,7 +107,7 @@
         "islet"
       ]
     ],
-    "TITLE": "Nesting habitat (cliffs, quarries, islets)"
+    "TITLE": "Cliffs, quarries and islets"
   }; /* end rules.json */
 
   var fr = Math.fround, DEG32 = 57.2957763671875;          // float32(180 / pi), as numpy's degrees on float32
@@ -363,8 +363,8 @@
   function describe(pr, R) {
     if (pr.kind === 'islet') {
       var ha = pyFixed(pr.area / 1e4, 1);
-      return { name: 'islet ' + ha + ' ha (ground nests)',
-               desc: 'Small island, ' + ha + ' ha, no building on it: cliff-nesters nest on the ground on such islets.' };
+      return { name: 'islet ' + ha + ' ha',
+               desc: 'Small island, ' + ha + ' ha, no building on it.' };
     }
     var fit = pr.score >= 3 ? 'good' : pr.score === 2 ? 'fair' : 'poor';
     var shapeW = { band: 'a cliff band (wall)', outcrop: 'a compact rock outcrop', broken: 'broken, scattered steep ground' }[pr.shape];
@@ -417,7 +417,7 @@
     for (i = 0; i < n; i++) for (j = 0; j < n; j++) band[i * n + j] = dist[(i + 1) * W2 + j + 1] <= epx * epx ? 1 : 0;
     pad = dist = null;
 
-    // -- habitat(): steep areas, which are nesting cliffs
+    // -- habitat(): steep areas, which are cliffs
     var steep = new Uint8Array(N);
     for (k = 0; k < N; k++) steep[k] = slope[k] >= R.STEEP_DEG ? 1 : 0;                // nan_to_num: NaN -> 0
     steep = closing(steep, n, n, 1);
@@ -448,7 +448,7 @@
         for (i = 0; i < quarries.length && !quarry; i++) quarry = pointInRing(cx, cy, quarries[i]);
         if (ht < R.CLIFF_MIN_H && !quarry) continue;
         var asp = (Math.atan2(aS[v], aC[v]) * 180 / Math.PI + 360) % 360;
-        if (!(R.FACING[0] <= asp && asp <= R.FACING[1])) continue;                  // N / NE / NW faces are not nesting cliffs here
+        if (!(R.FACING[0] <= asp && asp <= R.FACING[1])) continue;                  // N / NE / NW faces do not count here
         isCliff[v] = 1; isQuarry[v] = quarry ? 1 : 0;
       }
     }
@@ -479,7 +479,7 @@
     for (k = 0; k < N; k++) if (isIslet[il[k]]) islet[k] = 1;
     sea = land = il = null;
 
-    // -- near(): within NEAR_R of the centre - the steepest pixel on a nesting cliff, the areas
+    // -- near(): within NEAR_R of the centre - the steepest pixel on a cliff, the areas
     var inR = new Uint8Array(N), oncliff = new Uint8Array(N), bestK = -1, bestS = -Infinity, anyK = -1, anyS = -Infinity, xr, yr;
     for (i = 0; i < n; i++) for (j = 0; j < n; j++) {
       k = i * n + j; xr = xOf(j); yr = yOf(i);

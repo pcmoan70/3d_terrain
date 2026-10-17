@@ -94,7 +94,7 @@
       <!-- owner, 2026-10-15: "Add an option to make point, pins and other map objects show better on 3d face" -->
       <div class="row"><label class="ly"><input type="checkbox" id="lyBold"> Bold markers: bigger, seen through hills; areas outlined</label></div>
     </details>
-    <!-- owner, 2026-10-13: "Hide the options: Slope, Facing, Eagle-owl nesting behind a drop down called Birds"; a section of its own since 2026-10-15 -->
+    <!-- the Birds group (owner, 2026-10-13: Slope, Facing and the cliff layer behind a drop-down called Birds); a section of its own since 2026-10-15 -->
     <details class="sec" id="grpBirds"><summary>Birds</summary>
       <div class="row"><label class="ly"><input type="checkbox" id="lySlope"> Slope (NVE steepness classes)</label></div>
       <div class="row lg" id="lgSlope" hidden></div>
@@ -1661,7 +1661,7 @@ async function buildAt(lat, lon, R, res, R1) {
   q.searchParams.set("lat", lat.toFixed(5)); q.searchParams.set("lon", lon.toFixed(5)); q.searchParams.set("r", R); if (res !== 1) q.searchParams.set("res", res); if (res === "n") q.searchParams.set("r1", R1);
   history.replaceState(null, "", q);
 }
-// ---- the nesting-habitat rules in the browser (viewer/habitat.js, the same rules.json as the Python; tests/parity.py):
+// ---- the cliff rules in the browser (viewer/habitat.js, the same rules.json as the Python; tests/parity.py):
 // run on a map-built view's fine grid (1–2 m cells) once the terrain shows. OpenStreetMap (Overpass) stands in for N250:
 // buildings, roads and quarries within the grid; when no mirror answers, the distances are "unknown".
 const OVERPASS = ["https://overpass-api.de/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
@@ -1698,13 +1698,13 @@ async function webHabitat() {
   if (!S || !window.Habitat || !S.h || S.c > 2 || SRC.overlays.some(o => o.src === "habitat.geojson")) return;
   busy("Looking up OpenStreetMap buildings, roads and quarries…"); await tick();
   const people = navigator.onLine ? await osmPeople(S) : null;
-  busy("Nesting-habitat rules on the " + S.c + " m model…"); await tick();
+  busy("Cliff rules on the " + S.c + " m model…"); await tick();
   let res;
   try { res = Habitat.compute(S.h, S.n, S.c, { X: S.X, Y: S.Y, R: S.R, people }); }
-  catch (e) { busy(false); $("dsrc").textContent += " · Habitat rules failed: " + e.message; return; }
+  catch (e) { busy(false); $("dsrc").textContent += " · Cliff rules failed: " + e.message; return; }
   const ll = (x, y) => { const [la, lo] = UTM.inv(S.X + x, S.Y + y, S.zone); return [+lo.toFixed(7), +la.toFixed(7)]; };
   const hab = { type: "FeatureCollection", features: res.areas.map(a => ({ type: "Feature", properties: { name: a.name, desc: a.desc, color: a.color, kind: a.kind }, geometry: { type: "Polygon", coordinates: [a.ring.map(p => ll(p[0], p[1]))] } })) };
-  const pts = { type: "FeatureCollection", features: res.best ? [{ type: "Feature", properties: { name: "steepest point on a nesting cliff, " + Math.round(res.best.slope) + "°", role: "steepest", color: "#dc1414" }, geometry: { type: "Point", coordinates: ll(res.best.x, res.best.y) } }] : [] };
+  const pts = { type: "FeatureCollection", features: res.best ? [{ type: "Feature", properties: { name: "steepest point on a cliff, " + Math.round(res.best.slope) + "°", role: "steepest", color: "#dc1414" }, geometry: { type: "Point", coordinates: ll(res.best.x, res.best.y) } }] : [] };
   const R = Habitat.rules;
   SRC.scene.layers = Object.assign(SRC.scene.layers || {}, { "habitat.geojson": { title: R.TITLE, group: "birds", legend: R.LEGEND } });
   SRC.scene.habitat = people ? "OpenStreetMap buildings, roads and quarries (© OpenStreetMap contributors, ODbL)" : "no OpenStreetMap data reached: distances to buildings and roads unknown";
@@ -1714,7 +1714,7 @@ async function webHabitat() {
   if (fileOn["habitat.geojson"] === undefined) fileOn["habitat.geojson"] = false;   // the Birds group starts switched off
   busy(false);
   keepCam = true; await render();
-  $("dsrc").textContent = $("dsrc").textContent.replace(/, \d+ overlay feature\(s\)/, ", " + res.areas.length + " habitat areas computed here") + " · " + SRC.scene.habitat;
+  $("dsrc").textContent = $("dsrc").textContent.replace(/, \d+ overlay feature\(s\)/, ", " + res.areas.length + " cliff areas computed here") + " · " + SRC.scene.habitat;
 }
 let lmap = null, lmark = null, lsq = null, lsq1 = null, lh = null, lh1 = null, pickLL = null, lastDrag = 0;
 const snapR = r => r >= 1000 ? Math.round(r / 100) * 100 : Math.round(r / 50) * 50;   // radii in round steps: 100 m above 1 km, else 50 m
