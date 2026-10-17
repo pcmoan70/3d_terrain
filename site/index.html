@@ -62,6 +62,10 @@
   #pickMap{position:absolute;inset:0;background:#c8d4dc}
   #pickBar{position:absolute;left:10px;right:10px;bottom:10px;margin:auto;max-width:440px;z-index:1000;font-size:13px}
   #pickBar .minb{top:6px}
+  .pk-c{width:18px;height:18px;border-radius:50%;background:#e64a19;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6);box-sizing:border-box}
+  .pk-h{width:26px;height:26px;border-radius:5px;background:#ff6d00;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6);box-sizing:border-box;cursor:nwse-resize}
+  .pk-h1{background:#fff;border-color:#444;cursor:nesw-resize}
+  @media (pointer:coarse){#pickBar input,#pickBar select,#pickBar button{min-height:38px;font-size:16px}#pickBar{font-size:14px}.pk-c{width:22px;height:22px}.pk-h{width:34px;height:34px}}
 </style></head><body>
 <canvas id="c"></canvas>
 <!-- one column on the left (owner, 2026-10-15: "Let the controls on the left side … be one column, not two. Also make
@@ -149,10 +153,10 @@
      terrain from the Geonorge WCS (1 km tiles at 1 m, 10 km tiles at 10 m) -->
 <div id="pick" hidden><div id="pickMap"></div>
 <div id="pickBar" class="panel"><button class="minb" id="pickX" title="Close the map">×</button>
-  <div style="padding-right:30px;margin-bottom:4px"><b>Tap the map</b> where you want the 3-D view — the square is what you get; the mouse wheel changes its radius — then build it.</div>
+  <div style="padding-right:30px;margin-bottom:4px"><b>Tap the map</b> where you want the 3-D view — the square is what you get: drag its orange corner (or roll the mouse wheel) to change the radius, drag the red dot to move it — then build it.</div>
   <div class="row w"><label>Terrain model <select id="pickRes" style="width:auto"><option value="1">1 m (view radius up to 5 km)</option><option value="10">10 m (view radius up to 15 km)</option><option value="n">1 m centre + 10 m around (up to 15 km)</option></select></label></div>
-  <div class="row w"><label title="How far the 3-D view reaches from the tapped point — the yellow circle on the map">View radius <input id="pickRad" type="number" min="0.1" max="5" step="0.1" value="1" style="width:64px"> km from the point</label>
-    <label id="pickR1Box" hidden title="The 1 m model covers this far from the point; the 10 m model the rest of the view">1 m detail within <input id="pickRad1" type="number" min="0.1" max="1.5" step="0.1" value="1" style="width:56px"> km</label></div>
+  <div class="row w"><label title="How far the 3-D view reaches from the tapped point — the yellow circle on the map">View radius <input id="pickRad" type="number" inputmode="decimal" min="0.1" max="5" step="0.1" value="1" style="width:64px"> km from the point</label>
+    <label id="pickR1Box" hidden title="The 1 m model covers this far from the point; the 10 m model the rest of the view">1 m detail within <input id="pickRad1" type="number" inputmode="decimal" min="0.1" max="1.5" step="0.1" value="1" style="width:56px"> km</label></div>
   <div class="row w"><button id="pickGo" disabled>Build 3-D view</button></div>
   <div class="sub" id="pickS" style="margin:4px 0 0"></div>
 </div></div>
@@ -3295,7 +3299,8 @@ async function webHabitat() {
   keepCam = true; await render();
   $("dsrc").textContent = $("dsrc").textContent.replace(/, \d+ overlay feature\(s\)/, ", " + res.areas.length + " habitat areas computed here") + " · " + SRC.scene.habitat;
 }
-let lmap = null, lmark = null, lsq = null, lsq1 = null, pickLL = null;
+let lmap = null, lmark = null, lsq = null, lsq1 = null, lh = null, lh1 = null, pickLL = null, lastDrag = 0;
+const snapR = r => r >= 1000 ? Math.round(r / 100) * 100 : Math.round(r / 50) * 50;   // radii in round steps: 100 m above 1 km, else 50 m
 function leafletLoad() {
   if (window.L) return Promise.resolve();
   if (!navigator.onLine) return Promise.reject(new Error("No network: the map and the terrain need the internet."));
@@ -3310,9 +3315,10 @@ const pickRad = () => { const res = resOf(), r = Math.max(100, Math.min(RMAX[res
 const pickRad1 = () => { const r = Math.max(100, Math.min(1500, pickRad(), Math.round((+$("pickRad1").value || 1) * 20) * 50)); $("pickRad1").value = r / 1000; return r; };
 function pickInfo() {
   const R = pickRad(), res = resOf(), R1 = pickRad1(); $("pickR1Box").hidden = res !== "n";
-  if (lsq && pickLL) {   // the block's square (and the 1 m detail square), exact in the UTM grid
+  if (lsq && pickLL) {   // the block's square (and the 1 m detail square), exact in the UTM grid; a drag handle on a corner of each
     const [X, Y] = UTM.fwd(pickLL[0], pickLL[1], 33), sq = r => [[X - r, Y - r], [X + r, Y - r], [X + r, Y + r], [X - r, Y + r]].map(([x, y]) => UTM.inv(x, y, 33));
     lsq.setLatLngs(sq(R)); lsq1.setLatLngs(res === "n" ? sq(R1) : []);
+    lh.setLatLng(UTM.inv(X + R, Y - R, 33)); lh1.setLatLng(UTM.inv(X + R1, Y + R1, 33)); lh1.setOpacity(res === "n" ? 1 : 0); lh1.options.interactive = res === "n";
   }
   const ok = pickLL && inNorway(pickLL[0], pickLL[1]); $("pickGo").disabled = !ok;
   if (!pickLL) { $("pickS").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0), fetched when you build."; return; }
@@ -3323,8 +3329,18 @@ function pickInfo() {
 function pickSet(lat, lon) {
   pickLL = [lat, lon];
   if (!lmark) {
-    lmark = L.circleMarker(pickLL, { radius: 7, color: "#fff", weight: 2, fillColor: "#e64a19", fillOpacity: 1 }).addTo(lmap);
-    lsq = L.polygon([], { color: "#ff6d00", weight: 3, fillColor: "#ffd54f", fillOpacity: .15 }).addTo(lmap); lsq1 = L.polygon([], { color: "#fff", weight: 2, dashArray: "6 5", fillOpacity: 0 }).addTo(lmap);
+    const icon = (cls, px) => L.divIcon({ className: "", html: '<div class="' + cls + '"></div>', iconSize: [px, px], iconAnchor: [px / 2, px / 2] });
+    lsq = L.polygon([], { color: "#ff6d00", weight: 3, fillColor: "#ffd54f", fillOpacity: .15, interactive: false }).addTo(lmap); lsq1 = L.polygon([], { color: "#fff", weight: 2, dashArray: "6 5", fillOpacity: 0, interactive: false }).addTo(lmap);
+    // the centre: drag it to move the view (touch or mouse)
+    lmark = L.marker(pickLL, { icon: icon("pk-c", 22), draggable: true, zIndexOffset: 1000 }).addTo(lmap);
+    lmark.on("drag", () => { const p = lmark.getLatLng(); pickLL = [p.lat, p.lng]; pickInfo(); }); lmark.on("dragend", () => { lastDrag = Date.now(); });
+    // the square's south-east corner: drag it to set the view radius; the detail square's north-east corner its radius
+    const handle = (cls, set) => { const h = L.marker(pickLL, { icon: icon(cls, 34), draggable: true, zIndexOffset: 900 }).addTo(lmap);
+      h.on("drag", () => { const p = h.getLatLng(), [X, Y] = UTM.fwd(pickLL[0], pickLL[1], 33), [x, y] = UTM.fwd(p.lat, p.lng, 33); set(snapR(Math.max(Math.abs(x - X), Math.abs(y - Y)))); pickInfo(); });
+      h.on("dragend", () => { lastDrag = Date.now(); pickInfo(); });   // the handle snaps back onto the corner
+      return h; };
+    lh = handle("pk-h", r => { $("pickRad").value = Math.max(100, r) / 1000; });
+    lh1 = handle("pk-h pk-h1", r => { $("pickRad1").value = Math.max(100, r) / 1000; });
     lmap.scrollWheelZoom.disable();   // from now on the wheel sets the radius (+ / − and pinch still zoom the map)
   } else lmark.setLatLng(pickLL);
   pickInfo();
@@ -3335,11 +3351,11 @@ async function pickOpen() {
   if (!lmap) {
     lmap = L.map("pickMap", { worldCopyJump: false }).setView(S ? [S.lat, S.lon] : [64.5, 13], S ? 12 : 5);
     L.tileLayer(BASEMAPS.kv_topo.url, { maxZoom: 18, attribution: BASEMAPS.kv_topo.attr }).addTo(lmap);
-    lmap.on("click", e => pickSet(e.latlng.lat, e.latlng.lng));
+    lmap.on("click", e => { if (Date.now() - lastDrag > 400) pickSet(e.latlng.lat, e.latlng.lng); });   // not the tap that ends a drag
     // the wheel over the map, with a point chosen: the view radius (owner, 2026-10-17), in steps that suit its size
     $("pickMap").addEventListener("wheel", ev => {
       if (!pickLL) return; ev.preventDefault();
-      const r = pickRad(), step = r >= 5000 ? 1000 : r >= 2000 ? 500 : r >= 1000 ? 250 : 100, nr = ev.deltaY < 0 ? r + step : r - step;
+      const r = pickRad(), step = r >= 5000 ? 1000 : r >= 2000 ? 500 : r >= 1000 ? 200 : 100, nr = ev.deltaY < 0 ? r + step : r - step;
       $("pickRad").value = Math.max(100, nr) / 1000; pickInfo();
     }, { passive: false });
     if (S) pickSet(S.lat, S.lon);

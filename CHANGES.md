@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-17 — the picker by touch
+
+Owner: "Make sure mobile phone touch makes for good natural navigation too". The centre is a draggable red dot; the view's square has an orange handle on its south-east corner and the 1 m detail square a white one on its north-east corner — drag them (finger or mouse) to set the radii, which snap to 100 m (50 m under 1 km); one-finger drag pans, pinch zooms, a tap places the centre (a tap that ends a drag does not). On touch screens the bar's controls are finger-sized (38 px) and the number fields open the decimal keypad.
+
 ## 2026-10-17 — the picker: the wheel sets the radius, the square is drawn; radii as text in the Data section
 
 Owner: "In the map picture user gives center and radius. Radius in km, in settings pane the given radius and dtm resolution is show as text. When user selects in map he rolling mouse wheel changes radius. Also a indicative square is shown." On the map, once a point is tapped, the mouse wheel changes the view radius (100 m to 1 km steps by size; + / − and pinch still zoom the map) and the view's square — the block exactly, in the UTM grid — is drawn in yellow, the 1 m detail square dashed white in the nested model, instead of the circle. The Data section shows "Terrain model: … · view radius … · 1 m detail within …" as text; the inputs behind it feed Render.
