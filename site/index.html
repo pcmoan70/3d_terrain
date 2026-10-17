@@ -104,6 +104,12 @@
       <div class="row lg" id="lgFacing" hidden></div>
       <div id="lyFilesBirds"></div>
     </details>
+    <!-- terrain features worked out from the model and the sun (owner, 2026-10-17: "add the various features listed as possible
+         selections in the menu"); each a mask on the grid, painted at 70 % in its colour -->
+    <details class="sec" id="featSec"><summary>Terrain features</summary>
+      <div id="featRows"></div>
+      <div class="sub">Worked out from the terrain model (and the sun model for the last three — computed when first switched on). Not yet: streams and mires (flow accumulation), alpine plateaus, viewsheds, coastal wave exposure.</div>
+    </details>
     <details class="sec" id="sunSec" open><summary>Sun</summary>
       <div class="row w"><select id="lmode" style="width:auto"><option value="sun">Sun at date and time</option><option value="fixed">Fixed light (NW)</option></select>
         <select id="tz" style="width:auto"><option value="eu">Norway time (CET/CEST)</option><option value="utc">UTC</option></select></div>
@@ -157,7 +163,7 @@
      terrain from the Geonorge WCS (1 km tiles at 1 m, 10 km tiles at 10 m) -->
 <div id="pick" hidden><div id="pickMap"></div>
 <div id="pickBar" class="panel"><button class="minb" id="pickX" title="Close the map">×</button>
-  <div style="padding-right:30px;margin-bottom:4px"><b>Tap the map</b> where you want the 3-D view — the square is what you get: drag its orange corner (or roll the mouse wheel) to change the radius, drag the red dot to move it — then build it.</div>
+  <div style="padding-right:30px;margin-bottom:4px"><b>Tap the map</b> where you want the 3-D view — the square is what you get: drag its orange corner (or Shift + mouse wheel) to change the radius, drag the red dot to move it — then build it. The square follows the model's UTM grid, so it is turned a little against north.</div>
   <div class="row w"><label>Terrain model <select id="pickRes" style="width:auto"><option value="1">1 m (view radius up to 5 km)</option><option value="10">10 m (view radius up to 15 km)</option><option value="n">1 m centre + 10 m around (up to 15 km)</option></select></label></div>
   <div class="row w"><label title="How far the 3-D view reaches from the tapped point — the yellow circle on the map">View radius <input id="pickRad" type="number" inputmode="decimal" min="0.1" max="5" step="0.1" value="1" style="width:64px"> km from the point</label>
     <label id="pickR1Box" hidden title="The 1 m model covers this far from the point; the 10 m model the rest of the view">1 m detail within <input id="pickRad1" type="number" inputmode="decimal" min="0.1" max="1.5" step="0.1" value="1" style="width:56px"> km</label></div>
@@ -1800,7 +1806,9 @@ const PAGE_SRC = "<!doctype html>\n" + document.documentElement.outerHTML;
 // ======================================================================= helpers
 const $ = id => document.getElementById(id);
 const busy = t => { $("busy").hidden = !t; if (t) $("busyt").textContent = t; };
-const tick = () => new Promise(r => setTimeout(r, 0));
+// a yield to the event loop between work chunks (so the busy text paints): a MessageChannel message, which a hidden tab
+// does not throttle the way it throttles setTimeout (to one a second, then one a minute)
+const tick = () => new Promise(r => { const ch = new MessageChannel(); ch.port1.onmessage = () => r(); ch.port2.postMessage(0); });
 const RAD = Math.PI / 180;
 
 // ---- UTM (GRS80 / WGS84, Snyder) — overlays in lat/lon onto the DTM's grid; and back for the sun
@@ -2191,6 +2199,11 @@ function paintBase(G, base) {   // G: the fine grid S or the coarse surround S.o
       const o = 4 * k; d[o] = d[o] * (1 - al) + col[0] * al; d[o + 1] = d[o + 1] * (1 - al) + col[1] * al; d[o + 2] = d[o + 2] * (1 - al) + col[2] * al;
     }
   }
+  for (const f of FEATURES) {   // terrain features, 70 % in their colour
+    if (!$("ft_" + f.id).checked || !G.feat || !G.feat[f.id]) continue;
+    const mk = G.feat[f.id], col = hexRgb(f.col);
+    for (let k = 0; k < n * n; k++) { if (!mk[k] || bad[k]) continue; const o = 4 * k; d[o] = d[o] * .3 + col[0] * .7; d[o + 1] = d[o + 1] * .3 + col[1] * .7; d[o + 2] = d[o + 2] * .3 + col[2] * .7; }
+  }
   // contours: 5 m thin, 25 m bold on a 1–4 m grid; 20 m / 100 m on a coarser one (a 10 m view would drown in them)
   const CI = c >= 5 ? 20 : 5, CB = CI * 5;
   $("lyContours").parentNode.lastChild.textContent = " Contours (" + CI + " m, labelled every " + CB + " m)";
@@ -2359,7 +2372,7 @@ async function sunMonthly(G) {
     months.push(acc);
   }
   busy(false);
-  return G.sunM = { m, cs, months, H };
+  return G.sunM = { m, cs, months, H, hz, NS };
 }
 function monthsChosen() {   // the interval on the two-handle slider, wrapping the new year when From > To
   const a = +$("mFrom").value, b = +$("mTo").value, out = [];
@@ -2398,6 +2411,84 @@ function sunLegend(S) {
   const g = "linear-gradient(90deg," + [0, .25, .5, .75, 1].map(t => "rgb(" + sunRamp(t).map(Math.round).join(",") + ")").join(",") + ")";
   $("sunLeg").innerHTML = '<span style="display:inline-block;width:110px;height:10px;vertical-align:middle;border-radius:2px;background:' + g + '"></span> ' +
     S.sunLo.toFixed(1) + " – " + S.sunHi.toFixed(1) + " kWh/m² per day (clear sky, direct)";
+}
+// ---- terrain features (owner, 2026-10-17): masks on a grid, from its heights, slopes, a terrain position index (height
+// above the mean within 25 m) and, for the last three, the sun model's monthly maps and horizons. Thresholds are plain
+// and stated in each feature's note; they are starting points, not calibrated habitat models.
+const FEATURES = [
+  { id: "ridge", name: "Ridges and crests", col: "#ffb300", note: "ground more than 3 m above its surroundings within 25 m (cliff faces left out)" },
+  { id: "gully", name: "Gullies and ravines", col: "#3f51b5", note: "ground more than 3 m below its surroundings within 25 m (cliff faces left out)" },
+  { id: "ledge", name: "Ledges on cliffs", col: "#ff4081", note: "a near-flat step (< 20°) with cliff (≥ 45°) within 3 m both above and below it — 1 m grids only", fine: true },
+  { id: "scree", name: "Scree and boulder fields", col: "#8d6e63", note: "rough ground (height residue ≥ 0.35 m over 5 m) on 15–40° slopes — 1 m grids only", fine: true },
+  { id: "water", name: "Lakes and ponds", col: "#4fc3f7", note: "level ground (< 0.5°) above sea level in patches ≥ 400 m²: the model is flat on water" },
+  { id: "updraft", name: "Updraft slopes", col: "#26c6da", note: "slopes ≥ 20° facing the prevailing wind, south-west to north-west" },
+  { id: "spring", name: "Sun-warmed slopes in spring", col: "#ffd54f", note: "the quarter of the view with most direct sun in March–April, on slopes ≥ 5°: first bare of snow", sun: true },
+  { id: "shade", name: "Shade hollows (late snow)", col: "#90caf9", note: "the fifth of the view with least sun over the year, in hollows: snow lies longest", sun: true },
+  { id: "shelter", name: "Sheltered ground", col: "#7e57c2", note: "the quarter of the view with the least open sky (high horizons all round)", sun: true }];
+$("featRows").innerHTML = FEATURES.map(f => '<div class="row"><label class="ly" title="' + f.note + '"><input type="checkbox" id="ft_' + f.id + '"> <span class="sw" style="background:' + f.col + '"></span> ' + f.name + "</label></div>").join("");   // the texts are the page's own
+function boxMean(a, n, r) {   // the mean over a (2r+1)² box, running sums (edges: the box clipped)
+  const t = new Float32Array(n * n), out = new Float32Array(n * n);
+  for (let j = 0; j < n; j++) { let s = 0, c = 0; const row = j * n; for (let i = 0; i < Math.min(n, r); i++) { s += a[row + i]; c++; } for (let i = 0; i < n; i++) { if (i + r < n) { s += a[row + i + r]; c++; } if (i - r - 1 >= 0) { s -= a[row + i - r - 1]; c--; } t[row + i] = s / c; } }
+  for (let i = 0; i < n; i++) { let s = 0, c = 0; for (let j = 0; j < Math.min(n, r); j++) { s += t[j * n + i]; c++; } for (let j = 0; j < n; j++) { if (j + r < n) { s += t[(j + r) * n + i]; c++; } if (j - r - 1 >= 0) { s -= t[(j - r - 1) * n + i]; c--; } out[j * n + i] = s / c; } }
+  return out;
+}
+const pct = (arr, q, sel) => { const v = []; for (let k = 0; k < arr.length; k++) if (!sel || sel(k)) v.push(arr[k]); if (!v.length) return NaN; v.sort((a, b) => a - b); return v[Math.min(v.length - 1, Math.floor(q * v.length))]; };
+async function featureMask(G, f) {
+  G.feat = G.feat || {}; if (G.feat[f.id] !== undefined) return G.feat[f.id];
+  const n = G.n, c = G.c, hs = G.hs, slope = G.slope, N = n * n, m = new Uint8Array(N);
+  if (f.fine && c > 2) return G.feat[f.id] = null;
+  if (f.id === "ridge" || f.id === "gully") {
+    const tp = G.tpi || (G.tpi = (() => { const b = boxMean(hs, n, Math.max(1, Math.round(25 / c))), o = new Float32Array(N); for (let k = 0; k < N; k++) o[k] = hs[k] - b[k]; return o; })());
+    for (let k = 0; k < N; k++) m[k] = slope[k] < 45 && (f.id === "ridge" ? tp[k] > 3 : tp[k] < -3);   // not the cliff faces themselves (the cliff layer has those)
+  } else if (f.id === "ledge") {
+    const d = Math.max(1, Math.round(3 / c)), off = [[-d, 0], [d, 0], [0, -d], [0, d], [-d, -d], [d, d], [-d, d], [d, -d]];
+    for (let j = d; j < n - d; j++) for (let i = d; i < n - d; i++) {
+      const k = j * n + i; if (slope[k] >= 20) continue;
+      let up = false, dn = false;
+      for (const [di, dj] of off) { const q = (j + dj) * n + i + di; if (slope[q] < 45) continue; if (hs[q] > hs[k] + 1) up = true; else if (hs[q] < hs[k] - 1) dn = true; }
+      m[k] = up && dn;
+    }
+  } else if (f.id === "scree") {
+    const r = Math.max(1, Math.round(5 / c)), b = boxMean(hs, n, r), res = new Float32Array(N); for (let k = 0; k < N; k++) res[k] = Math.abs(hs[k] - b[k]);
+    const rough = boxMean(res, n, r);
+    for (let k = 0; k < N; k++) m[k] = rough[k] >= 0.35 && slope[k] >= 15 && slope[k] <= 40;
+  } else if (f.id === "water") {
+    const flat = new Uint8Array(N); for (let k = 0; k < N; k++) flat[k] = slope[k] < 0.5 && hs[k] > 0.6 && !G.bad[k];
+    const lab = new Int32Array(N), minCells = Math.ceil(400 / (c * c)); let L = 0;
+    for (let s0 = 0; s0 < N; s0++) {
+      if (!flat[s0] || lab[s0]) continue;
+      L++; const q = [s0]; lab[s0] = L; let cnt = 0;
+      while (q.length) { const k = q.pop(); cnt++; const i = k % n, j = (k - i) / n; for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue; const t = jj * n + ii; if (flat[t] && !lab[t]) { lab[t] = L; q.push(t); } } }
+      if (cnt < minCells) { const q2 = [s0]; lab[s0] = -1; while (q2.length) { const k = q2.pop(); const i = k % n, j = (k - i) / n; for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue; const t = jj * n + ii; if (lab[t] === L) { lab[t] = -1; q2.push(t); } } } }
+    }
+    for (let k = 0; k < N; k++) m[k] = lab[k] > 0;
+  } else if (f.id === "updraft") {
+    for (let k = 0; k < N; k++) { if (slope[k] < 20) continue; const a = facingOf(G.gx[k], G.gyN[k], S.gam); m[k] = a >= 225 && a <= 315; }
+  } else if (f.sun) {
+    const M = await sunMonthly(G), mm = M.m, cs = M.cs, val = new Float32Array(mm * mm);
+    if (f.id === "shelter") { for (let k = 0; k < mm * mm; k++) { let s = 0; for (let q = 0; q < M.NS; q++) s += Math.sin(Math.atan(M.hz[k * M.NS + q])); val[k] = 1 - s / M.NS; } }   // sky view
+    else { const months = f.id === "spring" ? [2, 3] : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]; for (const mo of months) { const a = M.months[mo]; for (let k = 0; k < mm * mm; k++) val[k] += a[k]; } }
+    const cell = k => { const i = k % n, j = (k - i) / n; return Math.min(mm - 1, Math.floor(i * c / cs)) + mm * Math.min(mm - 1, Math.floor(j * c / cs)); };
+    const thr = pct(val, f.id === "spring" ? 0.75 : f.id === "shade" ? 0.2 : 0.25);
+    for (let k = 0; k < N; k++) {
+      const v = val[cell(k)];
+      if (f.id === "spring") m[k] = v >= thr && slope[k] >= 5;
+      else if (f.id === "shade") { const tp = G.tpi || (G.tpi = (() => { const b = boxMean(hs, n, Math.max(1, Math.round(25 / c))), o = new Float32Array(N); for (let k2 = 0; k2 < N; k2++) o[k2] = hs[k2] - b[k2]; return o; })()); m[k] = v <= thr && tp[k] < -0.5; }
+      else m[k] = v <= thr;
+    }
+  }
+  return G.feat[f.id] = m;
+}
+async function featuresOn() {   // the masks of every ticked feature, for every grid
+  if (!S) return;
+  for (const f of FEATURES) { if (!$("ft_" + f.id).checked) continue; busy("Feature: " + f.name + "…"); await tick(); for (const G of S.out ? [S, S.out] : [S]) await featureMask(G, f); }
+  busy(false);
+}
+FEATURES.forEach(f => { $("ft_" + f.id).onchange = async () => { await featuresOn(); repaint(); }; });
+function featuresAt(G, x, y) {   // the ticked features under a point
+  if (!G.feat) return [];
+  const n = G.n, i = Math.max(0, Math.min(n - 1, Math.floor((x + G.R) / G.c))), j = Math.max(0, Math.min(n - 1, Math.floor((G.R - y) / G.c))), k = j * n + i;
+  return FEATURES.filter(f => $("ft_" + f.id).checked && G.feat[f.id] && G.feat[f.id][k]).map(f => f.name.toLowerCase());
 }
 // ---- CORINE Land Cover 2018 as an overlay (owner, 2026-10-17): NIBIO's WMS serves Norway's CLC in EPSG:25833 with CORS
 // open, so one GetMap per grid gives the view's square pixel for pixel; it is blended over the base map. The legend lists
@@ -2838,6 +2929,7 @@ function build(s) {
   fileLayersUI(); restoreScroll();   // the panel's content is in place: back to where it was scrolled
   if ($("lySun").checked) setTimeout(() => $("lySun").onchange(), 0);
   if ($("lyClc").checked) setTimeout(() => $("lyClc").onchange(), 0);
+  if (FEATURES.some(f => $("ft_" + f.id).checked)) setTimeout(async () => { await featuresOn(); repaint(); }, 0);
   applyBold(); applyVis();
   shadowFrame(); setEx(); if (!keepCam) home(); keepCam = false; updateSun(); daylightIfNight(); resize();
 }
@@ -2990,6 +3082,7 @@ canvas.addEventListener("pointermove", ev => {
   const face = sl >= 3 ? " facing " + FACE_CL[Math.round(facingOf(fx, fy, S.gam) / 45) % 8][0] + " (" + Math.round(facingOf(fx, fy, S.gam)) + "°)" : "";
   let html = (miss ? "<b>No DTM data here</b> — the surface is a smooth fill · " : "") + Math.round(sample(x, y)) + " m a.s.l. · slope " + Math.round(sl) + "°" + face + " · " + Math.round(Math.hypot(x, y)) + " m from centre";
   const cc = $("lyClc").checked ? clcAt(G, x, y) : null; if (cc) html += "<br>CORINE 2018: " + esc(cc[1]) + " (" + cc[0] + ")";
+  const ft = featuresAt(G, x, y); if (ft.length) html += "<br>Features: " + esc(ft.join(", "));
   if ($("lySun").checked && G.sunAvg) html += "<br>Sun, average " + $("mLbl").textContent.replace(/ \(.*\)/, "") + ": <b>" + sunAt(G, x, y).toFixed(2) + " kWh/m² per day</b> (clear sky, direct)";
   if (SUN && $("lmode").value === "sun") {
     const r = surfIrr(x, y, SUN.p.el, SUN.p.az, SUN.Ib);
@@ -3421,7 +3514,8 @@ function pickInfo() {
   if (!pickLL) { $("pickS").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0), fetched when you build."; return; }
   if (!ok) { $("pickS").textContent = "Kartverket's terrain model covers Norway only."; return; }
   const pl = wcsPlan(pickLL[0], pickLL[1], R, res, R1);
-  $("pickS").textContent = "Point " + pickLL[0].toFixed(5) + ", " + pickLL[1].toFixed(5) + " · a " + (2 * R >= 1000 ? (2 * R / 1000) + " km" : 2 * R + " m") + " square round it" + (res === "n" ? " (1 m detail in the middle " + (2 * R1 / 1000) + " km)" : "") + " · " + pl.items.length + " tile" + (pl.items.length > 1 ? "s" : "") + " ≈ " + (pl.mb < 10 ? pl.mb.toFixed(1) : Math.round(pl.mb)) + " MB to fetch (cached for next time)";
+  const [Xc, Yc] = UTM.fwd(pickLL[0], pickLL[1], 33), [la2, lo2] = UTM.inv(Xc, Yc, 33), [x2, y2] = UTM.fwd(la2 + 0.01, lo2, 33), turn = Math.atan2(x2 - Xc, y2 - Yc) / RAD;   // grid convergence: how far the square turns from north
+  $("pickS").textContent = "Point " + pickLL[0].toFixed(5) + ", " + pickLL[1].toFixed(5) + " · a " + (2 * R >= 1000 ? (2 * R / 1000) + " km" : 2 * R + " m") + " square round it, turned " + Math.abs(turn).toFixed(1) + "° " + (turn > 0 ? "clockwise" : "anticlockwise") + " of north (the model's grid)" + (res === "n" ? " (1 m detail in the middle " + (2 * R1 / 1000) + " km)" : "") + " · " + pl.items.length + " tile" + (pl.items.length > 1 ? "s" : "") + " ≈ " + (pl.mb < 10 ? pl.mb.toFixed(1) : Math.round(pl.mb)) + " MB to fetch (cached for next time)";
 }
 function pickSet(lat, lon) {
   pickLL = [lat, lon];
@@ -3438,7 +3532,6 @@ function pickSet(lat, lon) {
       return h; };
     lh = handle("pk-h", r => { $("pickRad").value = Math.max(100, r) / 1000; });
     lh1 = handle("pk-h pk-h1", r => { $("pickRad1").value = Math.max(100, r) / 1000; });
-    lmap.scrollWheelZoom.disable();   // from now on the wheel sets the radius (+ / − and pinch still zoom the map)
   } else lmark.setLatLng(pickLL);
   pickInfo();
 }
@@ -3450,11 +3543,11 @@ async function pickOpen() {
     L.tileLayer(BASEMAPS.kv_topo.url, { maxZoom: 18, attribution: BASEMAPS.kv_topo.attr }).addTo(lmap);
     lmap.on("click", e => { if (Date.now() - lastDrag > 400) pickSet(e.latlng.lat, e.latlng.lng); });   // not the tap that ends a drag
     // the wheel over the map, with a point chosen: the view radius (owner, 2026-10-17), in steps that suit its size
-    $("pickMap").addEventListener("wheel", ev => {
-      if (!pickLL) return; ev.preventDefault();
+    $("pickMap").addEventListener("wheel", ev => {   // Shift + wheel: the radius (owner, 2026-10-17); the plain wheel zooms the map
+      if (!pickLL || !ev.shiftKey) return; ev.preventDefault(); ev.stopPropagation();
       const r = pickRad(), step = r >= 5000 ? 1000 : r >= 2000 ? 500 : r >= 1000 ? 200 : 100, nr = ev.deltaY < 0 ? r + step : r - step;
       $("pickRad").value = Math.max(100, nr) / 1000; pickInfo();
-    }, { passive: false });
+    }, { passive: false, capture: true });
     if (S) pickSet(S.lat, S.lon);
   } else lmap.invalidateSize();
   pickInfo();
