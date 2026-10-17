@@ -1,0 +1,9 @@
+numpy
+scipy
+rasterio
+pyproj
+shapely
+affine
+Pillow
+# only with an N250 geodatabase configured (config.toml `n250`):
+# pyogrio

@@ -1,0 +1,1431 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Terrain 3D</title>
+<meta name="robots" content="noindex">
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#1d2228;font:14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#eee}
+  #c{display:block;width:100%;height:100%}
+  [hidden]{display:none!important}   /* a row hidden in the page stays hidden whatever its display (the Photo row showed) */
+  .panel{position:absolute;background:rgba(20,24,28,.88);border-radius:8px;padding:10px 12px;box-shadow:0 2px 10px rgba(0,0,0,.4)}
+  #info{top:10px;left:10px;width:min(360px,calc(100% - 44px));max-height:calc(100% - 30vh - 110px);overflow:auto;box-sizing:border-box}
+  #info h1{font-size:15px;margin:0 0 4px;padding-right:36px}
+  .sub{color:#aab;font-size:12px;margin:2px 0 8px}
+  .row{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:13px}
+  .row.w{flex-wrap:wrap}
+  .sw{width:14px;height:14px;border-radius:3px;border:1px solid #111;flex:none;display:inline-block;vertical-align:middle}
+  input[type=range]{flex:1;min-width:110px}
+  input[type=number],input[type=text],select{background:#2a3038;color:#eee;border:1px solid #445;border-radius:4px;padding:2px 4px;font:inherit;width:96px}
+  .sec{border-top:1px solid #333;margin-top:8px;padding-top:6px}
+  .sec h2{font-size:13px;margin:0 0 4px;color:#cfd8dc}
+  details.sec>summary{font-size:13px;font-weight:bold;margin:0 0 4px;color:#cfd8dc;cursor:pointer}
+  .min .body{display:none}
+  #side{position:absolute;top:10px;left:10px;max-height:calc(100% - 20px);width:min(380px,calc(100% - 64px));display:flex;flex-direction:column;gap:8px;pointer-events:none;z-index:5}
+  #side>.panel{position:relative;top:auto;left:auto;bottom:auto;width:auto;max-width:none;pointer-events:auto}
+  #side>#info{flex:0 1 auto;min-height:0;max-height:none}
+  #sideX,#sideOpen{position:absolute;width:28px;height:44px;border:1px solid #667;border-radius:6px;background:rgba(20,24,28,.88);color:#eee;font-size:20px;padding:0;cursor:pointer;pointer-events:auto}
+  #sideX{top:0;left:100%;margin-left:6px}
+  #sideOpen{top:10px;left:10px;z-index:5}
+  #rsideX,#rsideOpen{width:40px;height:28px;border:1px solid #667;border-radius:6px;background:rgba(20,24,28,.88);color:#eee;font-size:18px;padding:0;cursor:pointer}
+  #rsideOpen{position:absolute;right:10px;bottom:10px;z-index:5}
+  .minb{position:absolute;top:6px;right:6px;width:28px;height:28px;border:1px solid #667;border-radius:6px;background:#2a3038;color:#eee;font-size:18px;line-height:24px;padding:0;cursor:pointer}
+  #tip{position:absolute;pointer-events:none;background:rgba(0,0,0,.85);padding:6px 8px;border-radius:6px;font-size:12px;max-width:320px;display:none;line-height:1.4}
+  button{background:#2e8b74;color:#fff;border:0;border-radius:5px;padding:4px 9px;cursor:pointer;font:inherit}
+  #rside{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:6px;align-items:center;z-index:5}
+  #zoom{display:flex;flex-direction:column;gap:6px}
+  #zoom button{width:40px;height:40px;font-size:22px;padding:0}
+  #rot{display:flex;flex-direction:column;gap:6px}
+  #rot button{width:40px;height:40px;font-size:18px;padding:0;background:#3d5a80}
+  #rot button.on{background:#c77d12}
+  #meas{position:absolute;top:10px;right:10px;max-width:min(300px,calc(100% - 44px));font-size:13px;line-height:1.5}
+  #meas[hidden]{display:none}
+  #meas b{color:#ffd54f}
+  #busy[hidden],#gate[hidden]{display:none!important}
+  #busy{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+  #busy span{background:rgba(0,0,0,.8);padding:12px 18px;border-radius:8px}
+  label.file{display:inline-block;background:#3d5a80;color:#fff;border-radius:5px;padding:4px 9px;cursor:pointer}
+  label.file input{display:none}
+  label.ly{display:flex;align-items:center;gap:6px}
+  button:disabled,select:disabled,input:disabled{opacity:.45;cursor:not-allowed}
+  #pmenu{position:fixed;z-index:20;max-width:min(320px,calc(100vw - 24px));padding:8px 10px;font-size:13px}
+  .row.lg{flex-wrap:wrap;gap:4px 10px;padding-left:24px;font-size:12px;color:#ccd}
+  .row.lg[hidden]{display:none}
+  #sunBox[hidden]{display:none}
+  .mrange{position:relative;height:26px;margin:4px 0 0}
+  .mrange input[type=range]{position:absolute;left:0;top:4px;width:100%;margin:0;pointer-events:none;background:none;-webkit-appearance:none;appearance:none;height:18px}
+  .mrange input[type=range]::-webkit-slider-thumb{pointer-events:auto;-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#ffd54f;border:2px solid #222;cursor:pointer}
+  .mrange input[type=range]::-moz-range-thumb{pointer-events:auto;width:16px;height:16px;border-radius:50%;background:#ffd54f;border:2px solid #222;cursor:pointer}
+  .mrange input[type=range]::-webkit-slider-runnable-track{background:none}
+  .mrange input[type=range]::-moz-range-track{background:none}
+  .mtrack{position:absolute;left:9px;right:9px;top:11px;height:4px;background:#445;border-radius:2px}
+  .mfill{position:absolute;top:0;height:4px;background:#ffd54f;border-radius:2px}
+</style></head><body>
+<canvas id="c"></canvas>
+<!-- one column on the left (owner, 2026-10-15: "Let the controls on the left side … be one column, not two. Also make
+     column collapsible"): the controls, the views list under them; ‹ tucks the whole column away, › brings it back -->
+<div id="side"><button id="sideX" title="Hide the panels">‹</button>
+<div id="info" class="panel">
+  <button class="minb" id="infoMin" title="Minimise / restore">−</button>
+  <h1 id="ttl">Terrain 3D</h1>
+  <div class="body">
+    <div class="sub" id="sub">A viewer for 1 m terrain models (DTM) of Norway: open a folder with DTM GeoTIFF tiles (Kartverket, any UTM zone) and any .geojson / .kml / .kmz overlays.</div>
+    <div class="row">Height ×<input id="ex" type="range" min="1" max="3" step="0.1" value="1.5"><span id="exv">1.5</span></div>
+    <div class="row"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="csmooth" checked> Smooth terrain, σ</label><input id="csig" type="number" min="0.5" max="5" step="0.5" value="1.5" style="width:56px"> m</div>
+    <div class="row"><button id="reset">Reset view</button><button id="top">Top view</button></div>
+    <!-- collapsible sections (owner, 2026-10-15: "make the subsections: Map, Layers and Sun collapsible like Birds. Default
+         is sun open, while others closed"): Map, Birds closed, Sun open; Map and Layers one Map section (2026-10-16: "merge the
+         Map and Layers subsections into a Map subsection") — the base map, then what is drawn on it -->
+    <details class="sec" id="mapSec"><summary>Map</summary>
+    <div class="row w">Map <select id="basemap" style="width:auto"><option value="slope">Plain</option><option value="kv_topo">Kartverket topo</option><option value="kv_grey">Kartverket greyscale</option><option value="osm">OpenStreetMap (OpenTopoMap)</option><option value="cyclosm">Paths &amp; cycling (CyclOSM)</option><option value="esri_st">Streets (Esri)</option><option value="esri">Aerial (Esri)</option><option value="wayback">Aerial, earlier photos (Esri Wayback)</option></select>
+</div>
+    <div class="row w" id="wbRow" hidden>Photo <select id="wbSel" style="width:auto;max-width:230px"></select></div>
+      <div class="row"><label class="ly"><input type="checkbox" id="lyContours" checked> Contours (5 m, labelled every 25 m)</label></div>
+      <div id="lyFiles"></div>
+      <div class="row"><label class="ly"><input type="checkbox" id="lyMarkers" checked> Centre, circles &amp; steepest point</label></div>
+      <!-- owner, 2026-10-15: "Add an option to make point, pins and other map objects show better on 3d face" -->
+      <div class="row"><label class="ly"><input type="checkbox" id="lyBold"> Bold markers: bigger, seen through hills; areas outlined</label></div>
+    </details>
+    <!-- owner, 2026-10-13: "Hide the options: Slope, Facing, Eagle-owl nesting behind a drop down called Birds"; a section of its own since 2026-10-15 -->
+    <details class="sec" id="grpBirds"><summary>Birds</summary>
+      <div class="row"><label class="ly"><input type="checkbox" id="lySlope"> Slope (NVE steepness classes)</label></div>
+      <div class="row lg" id="lgSlope" hidden></div>
+      <div class="row"><label class="ly"><input type="checkbox" id="lyFacing"> Facing (the way slopes ≥ 15° face)</label></div>
+      <div class="row lg" id="lgFacing" hidden></div>
+      <div id="lyFilesBirds"></div>
+    </details>
+    <details class="sec" id="sunSec" open><summary>Sun</summary>
+      <div class="row w"><select id="lmode" style="width:auto"><option value="sun">Sun at date and time</option><option value="fixed">Fixed light (NW)</option></select>
+        <select id="tz" style="width:auto"><option value="eu">Norway time (CET/CEST)</option><option value="utc">UTC</option></select></div>
+      <div class="row">Date <input id="day" type="range" min="1" max="365" step="1"><span id="dayv" style="min-width:52px"></span></div>
+      <div class="row">Time <input id="tod" type="range" min="0" max="1435" step="5"><span id="todv" style="min-width:52px"></span></div>
+      <div class="row"><button id="now">Now</button><button id="play">▶ Day</button></div>
+      <div class="sub" id="sunv"></div>
+      <!-- the average over a month range, with the other sun controls (owner, 2026-10-14: "move the control for sun average direction down to the other sun control") -->
+      <div class="row"><label class="ly"><input type="checkbox" id="lySun"> Sun: average direct radiation</label></div>
+      <div id="sunBox" hidden style="padding-left:24px">
+        <div class="mrange"><div class="mtrack"><div class="mfill" id="mFill"></div><div class="mfill" id="mFill2"></div></div>
+          <input type="range" id="mFrom" min="1" max="12" step="1" value="1"><input type="range" id="mTo" min="1" max="12" step="1" value="12"></div>
+        <div class="row" style="font-size:12px;justify-content:space-between"><span id="mLbl">Jan – Dec (whole year)</span><button id="mAll" style="padding:1px 7px;font-size:12px">Whole year</button></div>
+        <div class="row lg" style="padding-left:0"><span id="sunLeg"></span></div>
+      </div>
+    </details>
+    <!-- collapsible (owner, 2026-10-15: "the data subsection should be collapsible"): closed when the view already has its data -->
+    <details class="sec" id="dataSec" open><summary>Data</summary>
+      <div class="row w"><label class="file">Open folder…<input id="fdir" type="file" webkitdirectory directory multiple></label>
+        <label class="file">Open files…<input id="ffiles" type="file" multiple accept=".tif,.tiff,.json,.geojson,.kml,.kmz"></label></div>
+      <div class="row w" id="catrow" hidden>Folder on this site <select id="cat" style="width:auto;max-width:180px"></select></div>
+      <div class="row w">URL <input id="furl" type="text" placeholder="https://…/scenes/name/" style="flex:1;width:auto"><button id="openurl">Open</button></div>
+      <div class="row w">Google Drive <input id="gurl" type="text" placeholder="shared folder or file link" style="flex:1;width:auto"><button id="gopen">Sign in &amp; open</button></div>
+      <div class="row w">Centre <input id="clat" type="number" step="0.00001" placeholder="lat"><input id="clon" type="number" step="0.00001" placeholder="lon"></div>
+      <div class="row w">Radius m <input id="crad" type="number" min="100" max="5000" step="50" value="1000"></div>
+      <div class="row w"><button id="render">Render</button><button id="share" title="A link to this terrain for someone else">Share…</button></div>
+      <div class="sub" id="shr" hidden></div>
+      <div class="sub" id="dsrc"></div>
+    </details>
+    <div class="sub">Drag to move the map (✋ — tap it for ⟳ and drag to rotate / tilt) · twist two fingers, right-drag or Shift+drag to rotate · pinch, wheel or +/− to zoom · ⟲ ⟳ ▲ ▼ N rotate, tilt, north up · 📏 measure: tap two points · arrow keys pan. Hover or tap a pin for its text. Shadows are exact at height ×1.</div>
+  </div>
+</div>
+</div><button id="sideOpen" title="Show the panels" hidden>›</button>
+<div id="tip"></div>
+<div id="pmenu" class="panel" hidden><button class="minb" id="pmenuX" title="Close">×</button><div id="pmenuT" style="padding-right:30px"></div></div>
+<div id="attr" style="position:absolute;left:50%;transform:translateX(-50%);bottom:4px;font-size:10px;color:#ccc;background:rgba(0,0,0,.45);padding:1px 6px;border-radius:4px;pointer-events:none;white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis"></div>
+<div id="meas" class="panel" hidden><button class="minb" id="measX" title="Close the measurement">×</button><div id="measT" style="padding-right:30px"></div></div>
+<!-- the map controls in one column on the right (owner, 2026-10-15: "the controls on the right hand side should be one
+     column and collapsible"): › tucks them away, ‹ brings them back -->
+<div id="rside"><button id="rsideX" title="Hide the map controls">›</button>
+<div id="rot"><button id="measure" title="Measure: tap two points on the terrain">📏</button><button id="dragmode" title="One-finger / left drag: move the map (tap for rotate)">✋</button><button id="rotl" title="Rotate left 15°">⟲</button><button id="rotr" title="Rotate right 15°">⟳</button><button id="tiltu" title="Tilt up (look more from above)">▲</button><button id="tiltd" title="Tilt down (look more from the side)">▼</button><button id="north" title="North up">N</button><button id="aerial" title="Aerial photo of the place in view, in Norgeskart (Norge i bilder)">🛰</button><button id="birdswhere" title="Open BirdsWhere (thebirding.site) at this locality">🐦</button></div>
+<div id="zoom"><button id="zin" title="Zoom in">+</button><button id="zout" title="Zoom out">−</button></div>
+</div><button id="rsideOpen" title="Show the map controls" hidden>‹</button>
+<div id="gate" hidden style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,12,16,.6)"><div class="panel" style="position:static;max-width:340px;text-align:center"><div style="margin-bottom:10px">A terrain shared on Google Drive. Sign in with the Google account it is shared with to open it.</div><button id="gateGo" style="font-size:16px;padding:8px 14px">Sign in with Google to open</button><div style="margin-top:8px"><button id="gateX" style="background:#555">Not now</button></div></div></div>
+<div id="busy" hidden><span id="busyt">Working…</span></div>
+<script>/*THREE*/</script>
+<script>/*ORBIT*/</script>
+<script>/*GEOTIFF*/</script>
+<script id="embed" type="application/json">/*EMBED*/</script>
+<script>
+"use strict";
+// ======================================================================= helpers
+const $ = id => document.getElementById(id);
+const busy = t => { $("busy").hidden = !t; if (t) $("busyt").textContent = t; };
+const tick = () => new Promise(r => setTimeout(r, 0));
+const RAD = Math.PI / 180;
+
+// ---- UTM (GRS80 / WGS84, Snyder) — overlays in lat/lon onto the DTM's grid; and back for the sun
+const UTM = (function () {
+  const a = 6378137, f = 1 / 298.257222101, k0 = 0.9996, e2 = f * (2 - f), ep2 = e2 / (1 - e2);
+  const e4 = e2 * e2, e6 = e4 * e2;
+  function M(p) { return a * ((1 - e2 / 4 - 3 * e4 / 64 - 5 * e6 / 256) * p - (3 * e2 / 8 + 3 * e4 / 32 + 45 * e6 / 1024) * Math.sin(2 * p) + (15 * e4 / 256 + 45 * e6 / 1024) * Math.sin(4 * p) - (35 * e6 / 3072) * Math.sin(6 * p)); }
+  function fwd(lat, lon, zone) {
+    const p = lat * RAD, l0 = ((zone - 1) * 6 - 180 + 3) * RAD, l = lon * RAD;
+    const N = a / Math.sqrt(1 - e2 * Math.sin(p) ** 2), T = Math.tan(p) ** 2, C = ep2 * Math.cos(p) ** 2, A = Math.cos(p) * (l - l0);
+    const x = k0 * N * (A + (1 - T + C) * A ** 3 / 6 + (5 - 18 * T + T * T + 72 * C - 58 * ep2) * A ** 5 / 120) + 500000;
+    const y = k0 * (M(p) + N * Math.tan(p) * (A * A / 2 + (5 - T + 9 * C + 4 * C * C) * A ** 4 / 24 + (61 - 58 * T + T * T + 600 * C - 330 * ep2) * A ** 6 / 720));
+    return [x, y];
+  }
+  function inv(x, y, zone) {
+    const l0 = ((zone - 1) * 6 - 180 + 3) * RAD, m = y / k0, mu = m / (a * (1 - e2 / 4 - 3 * e4 / 64 - 5 * e6 / 256));
+    const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
+    const p1 = mu + (3 * e1 / 2 - 27 * e1 ** 3 / 32) * Math.sin(2 * mu) + (21 * e1 * e1 / 16 - 55 * e1 ** 4 / 32) * Math.sin(4 * mu) + (151 * e1 ** 3 / 96) * Math.sin(6 * mu) + (1097 * e1 ** 4 / 512) * Math.sin(8 * mu);
+    const N1 = a / Math.sqrt(1 - e2 * Math.sin(p1) ** 2), T1 = Math.tan(p1) ** 2, C1 = ep2 * Math.cos(p1) ** 2;
+    const R1 = a * (1 - e2) / Math.pow(1 - e2 * Math.sin(p1) ** 2, 1.5), D = (x - 500000) / (N1 * k0);
+    const lat = p1 - (N1 * Math.tan(p1) / R1) * (D * D / 2 - (5 + 3 * T1 + 10 * C1 - 4 * C1 * C1 - 9 * ep2) * D ** 4 / 24 + (61 + 90 * T1 + 298 * C1 + 45 * T1 * T1 - 252 * ep2 - 3 * C1 * C1) * D ** 6 / 720);
+    const lon = l0 + (D - (1 + 2 * T1 + C1) * D ** 3 / 6 + (5 - 2 * C1 + 28 * T1 - 3 * C1 * C1 + 8 * ep2 + 24 * T1 * T1) * D ** 5 / 120) / Math.cos(p1);
+    return [lat / RAD, lon / RAD];
+  }
+  return { fwd, inv };
+})();
+function zoneOf(epsg) { if (epsg >= 25828 && epsg <= 25838) return epsg - 25800; if (epsg >= 32601 && epsg <= 32660) return epsg - 32600; return 0; }
+
+// ---- sun position: NOAA solar calculator equations (Meeus) + clear-sky beam (Kasten–Young, Meinel)
+function sunPos(dateUTC, lat, lon) {
+  const jd = dateUTC.getTime() / 86400000 + 2440587.5, T = (jd - 2451545) / 36525;
+  const L0 = (280.46646 + T * (36000.76983 + T * 0.0003032)) % 360, Mm = 357.52911 + T * (35999.05029 - 0.0001537 * T);
+  const e = 0.016708634 - T * (0.000042037 + 0.0000001267 * T);
+  const C = Math.sin(Mm * RAD) * (1.914602 - T * (0.004817 + 0.000014 * T)) + Math.sin(2 * Mm * RAD) * (0.019993 - 0.000101 * T) + Math.sin(3 * Mm * RAD) * 0.000289;
+  const om = 125.04 - 1934.136 * T, lam = L0 + C - 0.00569 - 0.00478 * Math.sin(om * RAD);
+  const eps0 = 23 + (26 + (21.448 - T * (46.815 + T * (0.00059 - T * 0.001813))) / 60) / 60, eps = eps0 + 0.00256 * Math.cos(om * RAD);
+  const dec = Math.asin(Math.sin(eps * RAD) * Math.sin(lam * RAD)) / RAD;
+  const y = Math.tan(eps * RAD / 2) ** 2;
+  const eot = 4 / RAD * (y * Math.sin(2 * L0 * RAD) - 2 * e * Math.sin(Mm * RAD) + 4 * e * y * Math.sin(Mm * RAD) * Math.cos(2 * L0 * RAD) - 0.5 * y * y * Math.sin(4 * L0 * RAD) - 1.25 * e * e * Math.sin(2 * Mm * RAD));   // minutes
+  const utcMin = dateUTC.getUTCHours() * 60 + dateUTC.getUTCMinutes() + dateUTC.getUTCSeconds() / 60;
+  let tst = (utcMin + eot + 4 * lon) % 1440; if (tst < 0) tst += 1440;
+  const ha = tst / 4 - 180;
+  const cz = Math.sin(lat * RAD) * Math.sin(dec * RAD) + Math.cos(lat * RAD) * Math.cos(dec * RAD) * Math.cos(ha * RAD);
+  const zen = Math.acos(Math.max(-1, Math.min(1, cz))) / RAD; let el = 90 - zen;
+  // atmospheric refraction (NOAA)
+  let rf = 0; const te = Math.tan(el * RAD);
+  if (el > 85) rf = 0; else if (el > 5) rf = 58.1 / te - 0.07 / te ** 3 + 0.000086 / te ** 5; else if (el > -0.575) rf = 1735 + el * (-518.2 + el * (103.4 + el * (-12.79 + el * 0.711))); else rf = -20.774 / te;
+  el += rf / 3600;
+  let az = Math.acos(Math.max(-1, Math.min(1, (Math.sin(lat * RAD) * cz - Math.sin(dec * RAD)) / (Math.cos(lat * RAD) * Math.sin(zen * RAD))))) / RAD;
+  az = ha > 0 ? (az + 180) % 360 : (540 - az) % 360;                  // from true north, clockwise
+  const cosH0 = Math.cos(90.833 * RAD) / (Math.cos(lat * RAD) * Math.cos(dec * RAD)) - Math.tan(lat * RAD) * Math.tan(dec * RAD);
+  const noon = 720 - 4 * lon - eot;                                     // UTC minutes
+  const H0 = cosH0 >= 1 ? null : cosH0 <= -1 ? -1 : Math.acos(cosH0) / RAD;
+  return { el, az, dec, eot, noon, rise: H0 > 0 ? noon - 4 * H0 : null, set: H0 > 0 ? noon + 4 * H0 : null, polar: H0 === null ? "night" : H0 === -1 ? "day" : "" };
+}
+function beam(el, doy) {   // clear-sky direct normal irradiance W/m² (Meinel, Kasten–Young air mass)
+  if (el <= 0) return 0;
+  const am = 1 / (Math.sin(el * RAD) + 0.50572 * Math.pow(el + 6.07995, -1.6364));
+  return 1361 * (1 + 0.033 * Math.cos(2 * Math.PI * doy / 365)) * Math.pow(0.7, Math.pow(am, 0.678));
+}
+// Norway (EU rule): CEST from the last Sunday of March 01:00 UTC to the last Sunday of October 01:00 UTC
+function euOffset(dUTC) {
+  const y = dUTC.getUTCFullYear(), ls = m => { const d = new Date(Date.UTC(y, m + 1, 0, 1)); d.setUTCDate(d.getUTCDate() - d.getUTCDay()); return d; };
+  return dUTC >= ls(2) && dUTC < ls(9) ? 2 : 1;
+}
+
+// ---- tiny zip reader (KMZ)
+async function unzip(buf) {
+  const dv = new DataView(buf), out = {}; let p = buf.byteLength - 22;
+  while (p >= 0 && dv.getUint32(p, true) !== 0x06054b50) p--;
+  if (p < 0) return out;
+  let n = dv.getUint16(p + 10, true), q = dv.getUint32(p + 16, true);
+  for (let i = 0; i < n; i++) {
+    const meth = dv.getUint16(q + 10, true), csz = dv.getUint32(q + 20, true), nl = dv.getUint16(q + 28, true), xl = dv.getUint16(q + 30, true), cl = dv.getUint16(q + 32, true), lo = dv.getUint32(q + 42, true);
+    const name = new TextDecoder().decode(new Uint8Array(buf, q + 46, nl));
+    const ds = lo + 30 + dv.getUint16(lo + 26, true) + dv.getUint16(lo + 28, true), data = new Uint8Array(buf, ds, csz);
+    out[name] = meth === 0 ? data : new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer());
+    q += 46 + nl + xl + cl;
+  }
+  return out;
+}
+
+// ---- overlays → [{type:"poly", rings:[[lon,lat]...], ...props} | {type:"point", lon, lat, ...props}]
+function kmlColour(abgr) { abgr = (abgr || "").trim(); if (abgr.length !== 8) return null; return "#" + abgr.slice(6, 8) + abgr.slice(4, 6) + abgr.slice(2, 4); }
+function parseKML(text) {
+  const doc = new DOMParser().parseFromString(text, "application/xml"), styles = {}, out = [];
+  for (const s of doc.getElementsByTagName("Style")) { const id = s.getAttribute("id"); if (!id) continue; const pc = s.querySelector("PolyStyle > color, IconStyle > color, LineStyle > color"); if (pc) styles[id] = kmlColour(pc.textContent); }
+  for (const pm of doc.getElementsByTagName("Placemark")) {
+    const g = (t) => { const e = pm.getElementsByTagName(t)[0]; return e ? e.textContent.trim() : ""; };
+    const data = {}; for (const d of pm.getElementsByTagName("Data")) data[d.getAttribute("name")] = (d.getElementsByTagName("value")[0] || {}).textContent;
+    let col = data.color || null;
+    if (!col) { const st = pm.querySelector("Style PolyStyle > color, Style IconStyle > color"); if (st) col = kmlColour(st.textContent); }
+    if (!col) { const su = g("styleUrl").replace(/^#/, ""); if (styles[su]) col = styles[su]; }
+    let folder = ""; for (let a = pm.parentNode; a && a.tagName; a = a.parentNode) if (a.tagName === "Folder") { const fn = a.getElementsByTagName("name")[0]; folder = fn ? fn.textContent : ""; break; }
+    const props = { name: g("name"), desc: data.notes || g("description").replace(/<[^>]+>/g, " "), color: col, role: data.role || (data.marker === "ring" ? "ring" : ""), folder };
+    const poly = pm.getElementsByTagName("Polygon")[0], pt = pm.getElementsByTagName("Point")[0];
+    const coords = el => el.getElementsByTagName("coordinates")[0].textContent.trim().split(/\s+/).map(c => c.split(",").map(Number));
+    if (poly) { const ob = poly.getElementsByTagName("outerBoundaryIs")[0] || poly; out.push(Object.assign({ type: "poly", rings: [coords(ob)] }, props)); }
+    else if (pt) { const c = coords(pt)[0]; out.push(Object.assign({ type: "point", lon: c[0], lat: c[1] }, props)); }
+  }
+  return out;
+}
+function parseGeoJSON(obj) {
+  const out = [], feats = obj.type === "FeatureCollection" ? obj.features : obj.type === "Feature" ? [obj] : [];
+  for (const f of feats) {
+    const p = f.properties || {}, g = f.geometry; if (!g) continue;
+    const props = { name: p.name || "", desc: p.desc || p.description || "", color: p.color || null, role: p.role || "", kind: p.kind || "", folder: p.folder || "" };
+    if (g.type === "Polygon") out.push(Object.assign({ type: "poly", rings: [g.coordinates[0]] }, props));
+    else if (g.type === "MultiPolygon") g.coordinates.forEach(c => out.push(Object.assign({ type: "poly", rings: [c[0]] }, props)));
+    else if (g.type === "Point") out.push(Object.assign({ type: "point", lon: g.coordinates[0], lat: g.coordinates[1] }, props));
+  }
+  return out;
+}
+
+// ======================================================================= data in: a "folder"
+// items: [{name, blob}] (picked files) — or the standalone file's embedded folder
+let SRC = null;                   // { tiles:[{img, bbox, res, zone, nodata}], overlays:[...], scene:{} }
+async function loadFolder(items) {
+  busy("Reading " + items.length + " files…");
+  const tiles = [], overlays = [], basemaps = {}; let scene = {};
+  let k = 0;
+  for (const it of items) if (it.url && !/\.tiff?$/i.test(it.name) && /\.(json|geojson|kml|kmz|jpe?g|png)$/i.test(it.name)) { const r = await fetch(it.url, { headers: it.headers || {} }); if (!r.ok) throw new Error(it.name + ": HTTP " + r.status); it.blob = await r.blob(); }
+  for (const it of items) {
+    const nm = it.name.toLowerCase();
+    try {
+      if (/\.tiff?$/.test(nm)) {
+        let tif, img;
+        if (it.url) {   // ranged reads (GitHub Pages serves byte ranges); a server without them: the whole file
+          try { tif = await GeoTIFF.fromUrl(it.url, { headers: it.headers || {}, allowFullFile: false }); img = await tif.getImage(); await img.readRasters({ window: [0, 0, 1, 1] }); }
+          catch (e) { const r = await fetch(it.url, { headers: it.headers || {} }); if (!r.ok) throw new Error("HTTP " + r.status); tif = await GeoTIFF.fromBlob(await r.blob()); img = await tif.getImage(); }
+        } else { tif = await GeoTIFF.fromBlob(it.blob); img = await tif.getImage(); }
+        const gk = img.getGeoKeys() || {}, epsg = gk.ProjectedCSTypeGeoKey || 25833;
+        tiles.push({ img, bbox: img.getBoundingBox(), res: img.getResolution(), zone: zoneOf(epsg), epsg, nodata: img.getGDALNoData() });
+      } else if (nm === "scene.json") scene = JSON.parse(await it.blob.text());
+      else if (/^basemap_[\w-]+\.(jpe?g|png)$/.test(nm)) { basemaps[nm] = it.blob; }
+      else if (/\.(geo)?json$/.test(nm)) overlays.push(...parseGeoJSON(JSON.parse(await it.blob.text())).map(o => (o.src = it.name, o)));
+      else if (nm.endsWith(".kml")) overlays.push(...parseKML(await it.blob.text()).map(o => (o.src = it.name, o)));
+      else if (nm.endsWith(".kmz")) { const z = await unzip(await it.blob.arrayBuffer()); for (const f in z) if (f.toLowerCase().endsWith(".kml")) overlays.push(...parseKML(new TextDecoder().decode(z[f])).map(o => (o.src = it.name, o))); }
+    } catch (e) { console.warn("skipped", it.name, e); }
+    if (++k % 50 === 0) { busy("Reading files… " + k + " / " + items.length); await tick(); }
+  }
+  busy(false);
+  if (!tiles.length) { $("dsrc").textContent = "No DTM GeoTIFF (.tif) found in what was opened."; return; }
+  const zones = [...new Set(tiles.map(t => t.zone))];
+  if (zones.length > 1 || !zones[0]) { $("dsrc").textContent = "The tiles must share one UTM zone (EPSG 258xx / 326xx); found " + [...new Set(tiles.map(t => t.epsg))].join(", "); return; }
+  SRC = { tiles, overlays, scene, zone: zones[0] };
+  // the Birds group starts switched off (owner, 2026-10-14: "by default all bird settings should be turned off"):
+  // Slope and Facing are off in the page; a file layer the folder files under "birds" starts off too
+  for (const f in (scene.layers || {})) if ((scene.layers[f] || {}).group === "birds" && fileOn[f] === undefined) fileOn[f] = false;
+  // a packaged map draped onto this very view (offline): offered first
+  if (scene.basemap && basemaps[String(scene.basemap.file || "").toLowerCase()]) { SRC.basemapBlob = basemaps[String(scene.basemap.file).toLowerCase()]; $("basemap").value = scene.basemap.id; }
+  // the centre: scene.json, else what is typed, else the middle of the tiles
+  let lat = scene.lat, lon = scene.lon;
+  if (lat == null) {
+    if ($("clat").value && $("clon").value) { lat = +$("clat").value; lon = +$("clon").value; }
+    else { const b = tiles.reduce((a, t) => [Math.min(a[0], t.bbox[0]), Math.min(a[1], t.bbox[1]), Math.max(a[2], t.bbox[2]), Math.max(a[3], t.bbox[3])], [1e9, 1e9, -1e9, -1e9]); [lat, lon] = UTM.inv((b[0] + b[2]) / 2, (b[1] + b[3]) / 2, SRC.zone); }
+  }
+  $("clat").value = (+lat).toFixed(5); $("clon").value = (+lon).toFixed(5);
+  if (scene.radius) $("crad").value = scene.radius;
+  if (scene.sigma != null) { $("csig").value = scene.sigma || 1.5; $("csmooth").checked = scene.sigma > 0; }
+  else if (scene.smoothed_sigma != null) { $("csmooth").checked = scene.smoothed_sigma > 0; if (scene.smoothed_sigma > 0) $("csig").value = scene.smoothed_sigma; }   // older folders: 0 = the DTM is already smoothed
+  $("dsrc").textContent = tiles.length + " DTM tile(s), UTM zone " + SRC.zone + ", " + overlays.length + " overlay feature(s)" + (scene.source ? " · " + scene.source : "");
+  await render();
+}
+
+// ======================================================================= build the scene from SRC
+async function render() {
+  if (!SRC) return;
+  const lat = +$("clat").value, lon = +$("clon").value, R = Math.max(100, Math.min(5000, Math.round(+$("crad").value || 1000))), sig = $("csmooth").checked ? Math.max(0, +$("csig").value || 0) : 0;
+  // the grid cell (m): the tiles' own resolution, coarser for a big view so the grid stays ≤ 3000 × 3000
+  // (owner, 2026-10-13: a 3 km radius — 6000² cells at 1 m would not fit a phone's memory or textures)
+  const c = Math.max(Math.max(1, Math.round(Math.min.apply(null, SRC.tiles.map(t => t.res[0])))), Math.ceil(2 * R / 3000));
+  const [X, Y] = UTM.fwd(lat, lon, SRC.zone), n = Math.round(2 * R / c);
+  busy("Reading the terrain…"); await tick();
+  // ---- heights: the ±R square at 1 m, nearest sample from every tile that touches it
+  const h = new Float32Array(n * n).fill(NaN), x0 = X - R, y1 = Y + R;
+  for (const t of SRC.tiles) {
+    const b = t.bbox; if (b[2] <= x0 || b[0] >= X + R || b[3] <= Y - R || b[1] >= y1) continue;
+    const rx = t.res[0], ry = Math.abs(t.res[1]), W = t.img.getWidth(), Hh = t.img.getHeight();
+    const c0 = Math.max(0, Math.floor((x0 - b[0]) / rx)), c1 = Math.min(W, Math.ceil((X + R - b[0]) / rx));
+    const r0 = Math.max(0, Math.floor((b[3] - y1) / ry)), r1 = Math.min(Hh, Math.ceil((b[3] - (Y - R)) / ry));
+    if (c1 <= c0 || r1 <= r0) continue;
+    const ras = (await t.img.readRasters({ window: [c0, r0, c1, r1], samples: [0] }))[0], ww = c1 - c0;
+    for (let j = 0; j < n; j++) {
+      const yy = y1 - (j + 0.5) * c, rr = Math.floor((b[3] - yy) / ry) - r0; if (rr < 0 || rr >= r1 - r0) continue;
+      for (let i = 0; i < n; i++) {
+        const xx = x0 + (i + 0.5) * c, cc = Math.floor((xx - b[0]) / rx) - c0; if (cc < 0 || cc >= ww) continue;
+        const v = ras[rr * ww + cc]; if (v > -1000 && v < 9000 && v !== t.nodata) h[j * n + i] = v;
+      }
+    }
+    await tick();
+  }
+  let mean = 0, cnt = 0, lo = Infinity, hi = -Infinity;
+  for (const v of h) if (v === v) { mean += v; cnt++; if (v < lo) lo = v; if (v > hi) hi = v; }
+  if (cnt < n * n * 0.02) { busy(false); $("dsrc").textContent = "The tiles hold (almost) no terrain within " + R + " m of " + lat.toFixed(5) + ", " + lon.toFixed(5) + "."; return; }
+  mean /= cnt;
+  busy("Shading…"); await tick();
+  // ---- smoothing (Gaussian σ m, separable) and gradients
+  const bad = new Uint8Array(n * n); let hs = new Float32Array(n * n);
+  let nMiss = 0;
+  for (let k = 0; k < n * n; k++) { bad[k] = h[k] === h[k] ? 0 : 1; hs[k] = bad[k] ? NaN : h[k]; nMiss += bad[k]; }
+  if (nMiss) { busy("Filling missing DTM tiles…"); await tick(); fillHoles(hs, n); }
+  if (sig / c >= 0.3) hs = gauss(hs, n, sig / c);
+  const gx = new Float32Array(n * n), gyN = new Float32Array(n * n), slope = new Float32Array(n * n);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const k = j * n + i, iL = i ? k - 1 : k, iR = i < n - 1 ? k + 1 : k, jU = j ? k - n : k, jD = j < n - 1 ? k + n : k;
+    gx[k] = (hs[iR] - hs[iL]) / (((iR - iL) || 1) * c); gyN[k] = (hs[jU] - hs[jD]) / ((((jD - jU) / n) || 1) * c);   // dh/dEast, dh/dNorth (per metre)
+    slope[k] = Math.atan(Math.hypot(gx[k], gyN[k])) / RAD;
+  }
+  // ---- overlays in the grid frame (m from the centre: x east, y north)
+  const P = (lo_, la_) => { const [e, nn] = UTM.fwd(la_, lo_, SRC.zone); return [e - X, nn - Y]; };
+  const areas = [], pts = [];
+  for (const o of SRC.overlays) {
+    if (o.type === "poly") {
+      const ring = o.rings[0].map(c => P(c[0], c[1]));
+      let cx = 0, cy = 0; ring.forEach(p => { cx += p[0]; cy += p[1]; }); cx /= ring.length; cy /= ring.length;
+      if (!ring.some(p => inView(p[0], p[1], R))) continue;
+      areas.push({ ring, x: cx, y: cy, d: Math.hypot(cx, cy), name: o.name, desc: o.desc, col: o.color || "#f57c00", kind: o.kind, src: o.src || "" });
+    } else {
+      const [x, y] = P(o.lon, o.lat); if (!inView(x, y, R)) continue;
+      pts.push({ x, y, d: Math.hypot(x, y), name: o.name, desc: o.desc, col: o.color || "#ffffff", role: o.role, folder: o.folder, src: o.src || "" });
+    }
+  }
+  // the steepest point: an overlay point with role "steepest" (the habitat rules), else the steepest pixel within 500 m
+  let best = pts.find(p => p.role === "steepest");
+  if (best) pts.splice(pts.indexOf(best), 1);
+  else {
+    let bk = -1, bv = -1;
+    const nearEdge = edgeBand(bad, n, Math.ceil(25 / c));   // never within 25 m of the data's edge (owner, 2026-10-13)
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const k = j * n + i; if (nearEdge[k]) continue; if (Math.hypot((i + 0.5) * c - R, R - (j + 0.5) * c) <= 500 && slope[k] > bv) { bv = slope[k]; bk = k; } }
+    if (bk >= 0) best = { x: (bk % n + 0.5) * c - R, y: R - (Math.floor(bk / n) + 0.5) * c, name: "steepest pixel within 500 m, " + Math.round(bv) + "°" };
+  }
+  // ---- true north on the grid (convergence) and the compass spot
+  const [la2, lo2] = UTM.inv(X, Y, SRC.zone), [x2, y2] = UTM.fwd(la2 + 0.01, lo2, SRC.zone), gam = Math.atan2(x2 - X, y2 - Y) / RAD;
+  const comp = placeCompass(best || { x: 0, y: 0 }, areas, pts, R, gam);
+  busy("Painting…"); await tick();
+  const nrm = paintNormals(gx, gyN, n);
+  const S2 = { lat, lon, X, Y, R, n, c, hs, bad, nMiss, slope, gx, gyN, lo, hi, gam, areas, pts, best, comp, nrm, zone: SRC.zone, bases: {},
+              title: SRC.scene.title || (lat.toFixed(5) + ", " + lon.toFixed(5)) };
+  const wb2 = await wbUI(S2), base = await getBase(S2, wb2 || $("basemap").value);
+  S2.tex = paintBase(S2, base);
+  busy(false);
+  build(S2);
+}
+// the block shows the whole ±R square
+function inView(x, y, R) { return Math.max(Math.abs(x), Math.abs(y)) <= R; }   // the block: the whole ±R square
+// Missing DTM (tiles that do not exist, or were not fetched) filled with the SMOOTHEST surface that meets
+// the known ground: each missing cell = the mean of its 4 neighbours, i.e. the surface minimising the sum
+// of squared height steps between neighbouring cells (least squares, owner 2026-10-13: "make sure the jump
+// is minimised on average") — no step where it meets real data. Solved coarse to fine: a pyramid of
+// means of known cells, relaxed at the coarsest level, then each finer level starts from the one above
+// and is relaxed (Gauss–Seidel) on its missing cells only.
+function fillHoles(a, n) {
+  const levels = [{ v: a, n }];
+  while (levels[levels.length - 1].n > 48) {
+    const L = levels[levels.length - 1], m = Math.ceil(L.n / 2), v = new Float32Array(m * m);
+    for (let J = 0; J < m; J++) for (let I = 0; I < m; I++) {
+      let s = 0, c = 0;
+      for (let dj = 0; dj < 2; dj++) for (let di = 0; di < 2; di++) { const j = 2 * J + dj, i = 2 * I + di; if (j < L.n && i < L.n) { const x = L.v[j * L.n + i]; if (x === x) { s += x; c++; } } }
+      v[J * m + I] = c ? s / c : NaN;
+    }
+    levels.push({ v, n: m });
+  }
+  const relax = (L, miss, it) => {
+    const v = L.v, m = L.n;
+    for (let t = 0; t < it; t++) for (const k of miss) {
+      const i = k % m, j = (k - i) / m;
+      let s = 0, c = 0;
+      if (i > 0) { s += v[k - 1]; c++; } if (i < m - 1) { s += v[k + 1]; c++; }
+      if (j > 0) { s += v[k - m]; c++; } if (j < m - 1) { s += v[k + m]; c++; }
+      v[k] = s / c;
+    }
+  };
+  for (let li = levels.length - 1; li >= 0; li--) {
+    const L = levels[li], v = L.v, m = L.n, miss = [];
+    for (let k = 0; k < m * m; k++) if (v[k] !== v[k]) miss.push(k);
+    if (!miss.length) continue;
+    if (li === levels.length - 1) { let s = 0, c = 0; for (const x of v) if (x === x) { s += x; c++; } const mu = c ? s / c : 0; for (const k of miss) v[k] = mu; }
+    else { const U = levels[li + 1]; for (const k of miss) { const i = k % m, j = (k - i) / m; v[k] = U.v[Math.min(U.n - 1, j >> 1) * U.n + Math.min(U.n - 1, i >> 1)]; } }
+    relax(L, miss, li === levels.length - 1 ? 400 : 40);
+  }
+}
+// within r cells of no-data or of the window's border (box dilation by running sums, O(n²))
+function edgeBand(bad, n, r) {
+  const t = new Uint16Array(n * n), out = new Uint8Array(n * n);
+  for (let j = 0; j < n; j++) { let sum = 0; for (let i = -r; i < n + r; i++) {
+    const add = i + r < n ? bad[j * n + Math.max(0, i + r)] && i + r >= 0 : 0, rem = i - r - 1 >= 0 ? bad[j * n + i - r - 1] : 0;
+    sum += (add ? 1 : 0) - (rem ? 1 : 0); if (i >= 0 && i < n) t[j * n + i] = sum; } }
+  for (let i = 0; i < n; i++) { let sum = 0; for (let j = -r; j < n + r; j++) {
+    const add = j + r < n && j + r >= 0 ? t[(j + r) * n + i] : 0, rem = j - r - 1 >= 0 ? t[(j - r - 1) * n + i] : 0;
+    sum += add - rem; if (j >= 0 && j < n) out[j * n + i] = sum > 0 || i < r || j < r || i >= n - r || j >= n - r ? 1 : 0; } }
+  return out;
+}
+function gauss(a, n, s) {
+  const r = Math.ceil(3 * s), w = []; let sum = 0;
+  for (let i = -r; i <= r; i++) { const v = Math.exp(-i * i / (2 * s * s)); w.push(v); sum += v; }
+  for (let i = 0; i < w.length; i++) w[i] /= sum;
+  const t = new Float32Array(n * n), o = new Float32Array(n * n);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { let v = 0; for (let k = -r; k <= r; k++) { const ii = Math.min(n - 1, Math.max(0, i + k)); v += w[k + r] * a[j * n + ii]; } t[j * n + i] = v; }
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { let v = 0; for (let k = -r; k <= r; k++) { const jj = Math.min(n - 1, Math.max(0, j + k)); v += w[k + r] * t[jj * n + i]; } o[j * n + i] = v; }
+  return o;
+}
+function inPoly(x, y, ring) { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const a = ring[i], b = ring[j]; if ((a[1] > y) !== (b[1] > y) && x < (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; }
+function polyDist(x, y, ring) {
+  if (inPoly(x, y, ring)) return 0; let d = Infinity;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const a = ring[j], b = ring[i], vx = b[0] - a[0], vy = b[1] - a[1], L = vx * vx + vy * vy || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * vx + (y - a[1]) * vy) / L)); d = Math.min(d, Math.hypot(x - a[0] - t * vx, y - a[1] - t * vy)); }
+  return d;
+}
+const RC = 30, RCm = RC, COMPASS_S = 250;
+function placeCompass(best, areas, pts, R, gam) {
+  // 250 m TRUE south of the ring, clear of every other indicator; else further south, then round the ring
+  const td = (b, d) => [best.x + d * Math.sin((b + gam) * RAD), best.y + d * Math.cos((b + gam) * RAD)];
+  const cand = [];
+  for (let d = COMPASS_S; d < COMPASS_S + 160; d += 10) cand.push(td(180, d));
+  for (const rr of [COMPASS_S, COMPASS_S + 50, COMPASS_S + 100]) for (let k = 15; k <= 180; k += 15) for (const sg of [1, -1]) cand.push(td(180 + sg * k, rr));
+  const marks = [[0, 0], [best.x, best.y]].concat(areas.map(a => [a.x, a.y]), pts.map(p => [p.x, p.y]));
+  for (const [x, y] of cand) {
+    const dc = Math.hypot(x, y);
+    if (dc > R - RC - 30 || Math.abs(dc - 500) < RC + 8) continue;
+    if (marks.some(m => Math.hypot(x - m[0], y - m[1]) < RC + 20)) continue;
+    if (areas.some(a => polyDist(x, y, a.ring) < RC + 8)) continue;
+    return { x, y };
+  }
+  return null;
+}
+// The terrain's picture: the base (slope tint, or a map draped onto the grid), then — with the overlay
+// on — contours, habitat areas and contour labels; the markers (centre, circles, compass) always.
+function paintBase(S, base) {
+  const { hs, slope, bad, n, R, areas, comp, gam, c, gx, gyN } = S;
+  const ovl = $("lyContours").checked, lyS = $("lySlope").checked, lyF = $("lyFacing").checked;
+  const cv = document.createElement("canvas"); cv.width = cv.height = n; const cx = cv.getContext("2d");
+  let im, d;
+  if (base) { cx.drawImage(base, 0, 0, n, n); im = cx.getImageData(0, 0, n, n); d = im.data; }
+  else {
+    im = cx.createImageData(n, n); d = im.data;
+    for (let k = 0; k < n * n; k++) {
+      let r, g, b; const s = slope[k];
+      if (bad[k]) { r = 150; g = 150; b = 150; } else { r = 214; g = 216; b = 200; }   // plain: the light and the layers do the rest
+      d[4 * k] = r; d[4 * k + 1] = g; d[4 * k + 2] = b; d[4 * k + 3] = 255;
+    }
+  }
+  const sunA = $("lySun").checked && S.sunM ? sunAverage(S) : null;
+  if (sunA) {
+    const M = S.sunM, sp = (S.sunHi - S.sunLo) || 1;
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const k = j * n + i; if (bad[k]) continue;
+      const v = sunAt(S, (i + 0.5) * c - R, R - (j + 0.5) * c), col = sunRamp((v - S.sunLo) / sp), o = 4 * k, al = 0.68;
+      d[o] = d[o] * (1 - al) + col[0] * al; d[o + 1] = d[o + 1] * (1 - al) + col[1] * al; d[o + 2] = d[o + 2] * (1 - al) + col[2] * al;
+    }
+  }
+  if (lyS || lyF) {
+    const SC = SLOPE_CL.map(x => hexRgb(x[1])), FC = FACE_CL.map(x => hexRgb(x[1]));
+    for (let k = 0; k < n * n; k++) {
+      if (bad[k]) continue;
+      const sl = slope[k]; let col = null, al = 0;
+      if (lyF && sl >= FACE_MIN) { col = FC[Math.round(facingOf(gx[k], gyN[k], gam) / 45) % 8]; al = 0.8; }
+      if (lyS && sl >= 27) { let i = SLOPE_CL.length - 1; while (i > 0 && sl < SLOPE_CL[i][0]) i--; col = SC[i]; al = 0.62; }
+      if (!col) continue;
+      const o = 4 * k; d[o] = d[o] * (1 - al) + col[0] * al; d[o + 1] = d[o + 1] * (1 - al) + col[1] * al; d[o + 2] = d[o + 2] * (1 - al) + col[2] * al;
+    }
+  }
+  // contours: 5 m thin, 25 m bold
+  if (ovl) for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
+    const k = j * n + i; if (bad[k]) continue;
+    const q = Math.floor(hs[k] / 5), qr = Math.floor(hs[k + 1] / 5), qd = Math.floor(hs[k + n] / 5);
+    if (q !== qr || q !== qd) {
+      const big = Math.floor(hs[k] / 25) !== Math.floor(hs[k + 1] / 25) || Math.floor(hs[k] / 25) !== Math.floor(hs[k + n] / 25);
+      const kk = big ? [k, k + 1, k + n] : [k];
+      for (const z of kk) { if (big) { d[4 * z] = d[4 * z] * .3 + 42; d[4 * z + 1] = d[4 * z + 1] * .3 + 21; d[4 * z + 2] = d[4 * z + 2] * .3 + 7; } else { d[4 * z] *= .55; d[4 * z + 1] *= .55; d[4 * z + 2] *= .55; } }
+    }
+  }
+  cx.putImageData(im, 0, 0);
+  const px = (x, y) => [(x + R) / c, (R - y) / c], H2 = n / 2, L = 180 / c;
+  for (const a of areas) {
+    if (!layerOn(a.src)) continue;
+    cx.beginPath(); a.ring.forEach((p, i) => { const [u, v] = px(p[0], p[1]); i ? cx.lineTo(u, v) : cx.moveTo(u, v); }); cx.closePath();
+    cx.globalAlpha = .75; cx.fillStyle = a.col; cx.fill(); cx.globalAlpha = 1;
+    if ($("lyBold").checked) { cx.lineWidth = 9; cx.strokeStyle = "#ffffff"; cx.stroke(); cx.lineWidth = 4; cx.strokeStyle = a.col; cx.stroke(); }
+    cx.lineWidth = 3; cx.strokeStyle = "#0f0f0f"; cx.stroke();
+  }
+  // labels on the 25 m contours, ~180 m apart, never over the compass
+  cx.font = "bold 15px sans-serif"; cx.textAlign = "center"; cx.textBaseline = "middle";
+  const placed = []; let seed = 1; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let t = 0; ovl && t < 40000 && placed.length < 400; t++) {
+    const i = 6 * Math.floor(rnd() * (n / 6 - 1)), j = 6 * Math.floor(rnd() * (n / 6 - 1)), k = j * n + i;
+    if (bad[k] || Math.floor(hs[k] / 25) === Math.floor(hs[k + 1] / 25) && Math.floor(hs[k] / 25) === Math.floor(hs[k + n] / 25)) continue;
+    if (Math.max(Math.abs(i - H2), Math.abs(j - H2)) > (R - 30) / c || placed.some(p => Math.abs(p[0] - i) < L && Math.abs(p[1] - j) < L)) continue;
+    if (comp && Math.hypot(i - (comp.x + R) / c, j - (R - comp.y) / c) < (RC + 40) / c) continue;
+    const t_ = String(Math.round(hs[k] / 25) * 25), w = cx.measureText(t_).width;
+    cx.fillStyle = "#faf8eb"; cx.fillRect(i - w / 2 - 3, j - 9, w + 6, 18); cx.fillStyle = "#5a2d0f"; cx.fillText(t_, i, j + 1); placed.push([i, j]);
+  }
+  // where the DTM is missing (filled), everything is greyed and hatched — the shape there is made up
+  if (S.nMiss) {
+    const g = cx.getImageData(0, 0, n, n), q = g.data;
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const k = j * n + i; if (!bad[k]) continue;
+      const o = 4 * k, hatch = ((i + j) % 12) < 2 ? 0.55 : 1, gy = (0.3 * q[o] + 0.59 * q[o + 1] + 0.11 * q[o + 2]) * 0.35 + 150 * 0.65;
+      q[o] = q[o + 1] = q[o + 2] = gy * hatch;
+    }
+    cx.putImageData(g, 0, 0);
+  }
+  // centre mark, 500 m and R circles
+  if ($("lyMarkers").checked) {
+    cx.strokeStyle = "#fff"; cx.lineWidth = 3; cx.beginPath(); cx.arc(H2, H2, 6, 0, 7); cx.stroke();
+    cx.lineWidth = 2; for (const rr of [500, R - c]) { cx.beginPath(); cx.arc(H2, H2, rr / c, 0, 7); cx.stroke(); }
+  }
+  // compass rose (true north = gam ° clockwise of the grid's north; image rows run south)
+  if (comp) {   // always on (owner, 2026-10-15: "make compass default on and remove toggle")
+    const [u, v] = px(comp.x, comp.y), RC = RCm / c;
+    cx.fillStyle = "#faf8eb"; cx.strokeStyle = "#1e1e1e"; cx.lineWidth = 3; cx.beginPath(); cx.arc(u, v, RC, 0, 7); cx.fill(); cx.stroke();
+    cx.strokeStyle = "#787878"; cx.lineWidth = 1; cx.beginPath(); cx.arc(u, v, RC * .55, 0, 7); cx.stroke();
+    for (const [ang, col] of [[0, "#c81e1e"], [90, "#282828"], [180, "#282828"], [270, "#282828"]]) {
+      const t = (ang + gam) * RAD, ux = Math.sin(t), uy = -Math.cos(t), vx = -uy, vy = ux;
+      cx.fillStyle = col; cx.beginPath(); cx.moveTo(u + ux * RC * .95, v + uy * RC * .95); cx.lineTo(u + vx * RC * .18, v + vy * RC * .18); cx.lineTo(u - vx * RC * .18, v - vy * RC * .18); cx.closePath(); cx.fill();
+    }
+    cx.fillStyle = "#1e1e1e"; cx.beginPath(); cx.arc(u, v, 3, 0, 7); cx.fill();
+  }
+  return cv;
+}
+// ---- layers (owner, 2026-10-13: "allow turning face coloring on and off as general layers in the viewer, —
+// the viewer should be a generic tool for viewing 3d 1m dtm-maps in norway"). Computed from the DTM:
+// contours, slope in NVE's steepness classes (the avalanche-terrain map's colours), and facing (aspect,
+// true directions) for slopes ≥ 15°; plus one layer per loaded overlay file (its polygons and needles),
+// and the markers. A folder's scene.json may name and explain its files: "layers": {file: {title, legend: [[colour, label]…]}}.
+const SLOPE_CL = [[27, "#ffe600", "27–30°"], [30, "#ff9900", "30–35°"], [35, "#ff2a00", "35–40°"], [40, "#b026ff", "40–45°"], [45, "#4a4a4a", "≥ 45°"]];
+// one distinct colour per direction, south a strong red (owner, 2026-10-13: "the face coloring does not seem
+// to show south facing cliffs in red" — S, SW and SE were red, orange and ochre, and at 55 % over the map
+// they all read as salmon)
+const FACE_CL = [["N", "#1d4ed8"], ["NE", "#06b6d4"], ["E", "#16a34a"], ["SE", "#facc15"], ["S", "#e00000"], ["SW", "#ec4899"], ["W", "#7c3aed"], ["NW", "#64748b"]];
+const FACE_MIN = 15;
+const hexRgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const fileOn = {};                                  // overlay file → shown (default on)
+const layerOn = src => src === "__markers" ? $("lyMarkers").checked : fileOn[src || ""] !== false;
+$("lgSlope").innerHTML = SLOPE_CL.map(c => '<span><span class="sw" style="background:' + c[1] + '"></span> ' + c[2] + "</span>").join("");
+$("lgFacing").innerHTML = FACE_CL.map(c => '<span><span class="sw" style="background:' + c[1] + '"></span> ' + c[0] + "</span>").join("");
+function facingOf(gx, gyN, gam) {   // the way the slope faces (downhill), true bearing 0–360
+  return ((Math.atan2(-gx, -gyN) / RAD - gam) % 360 + 360) % 360;
+}
+function fileLayersUI() {
+  const box = $("lyFiles"), boxB = $("lyFilesBirds"); box.innerHTML = boxB.innerHTML = "";
+  if (!S) return;
+  const meta = (SRC && SRC.scene && SRC.scene.layers) || {}, files = {};
+  S.areas.forEach(a => { (files[a.src] = files[a.src] || { a: 0, p: 0 }).a++; });
+  S.pts.forEach(p => { (files[p.src] = files[p.src] || { a: 0, p: 0 }).p++; });
+  Object.keys(files).sort().forEach(f => {
+    const m = meta[f] || {}, row = document.createElement("div");
+    const cnt = [files[f].a ? files[f].a + " areas" : "", files[f].p ? files[f].p + " points" : ""].filter(Boolean).join(", ");
+    row.innerHTML = '<div class="row"><label class="ly"><input type="checkbox"' + (fileOn[f] !== false ? " checked" : "") + "> " + esc(m.title || f) + ' <span style="color:#99a">(' + cnt + ")</span></label></div>" +
+      (m.legend && m.legend.length ? '<div class="row lg">' + m.legend.map(l => '<span><span class="sw" style="background:' + esc(l[0]) + '"></span> ' + esc(l[1]) + "</span>").join("") + "</div>" : "");
+    row.querySelector("input").onchange = e => { fileOn[f] = e.target.checked; repaint(); applyVis(); };
+    (m.group === "birds" ? boxB : box).appendChild(row);   // scene.json: a file's layer can sit in the Birds group
+  });
+}
+// ---- average sun (owner, 2026-10-13: "a average sun/radiation measure overlay; averaging over dates & time
+// (hourly), user should be able to choose a month-range and get average for that interval (default = whole
+// year) … a slider with two endpoints (do allow december-january as an interval)"). Clear-sky DIRECT radiation
+// on the ground, as kWh/m² per day: for each hour (sun position from the NOAA equations) of two days in each
+// month, beam × cos(incidence on the cell's slope), 0 when the sun is below the cell's own horizon. On a grid
+// of ≤ 250 × 250 cells: each cell's horizon in 32 directions (marched over the terrain inside the view; the
+// world beyond the edge is taken as open), twelve monthly maps computed once, any month range combined from
+// them at once (weighted by the days in each month).
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], MDAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const SUN_RAMP = [[0, [33, 25, 72]], [0.25, [70, 60, 160]], [0.5, [60, 160, 160]], [0.75, [240, 200, 60]], [1, [220, 50, 30]]];
+function sunRamp(t) { t = Math.max(0, Math.min(1, t)); let k = 0; while (k < SUN_RAMP.length - 2 && t > SUN_RAMP[k + 1][0]) k++; const a = SUN_RAMP[k], b = SUN_RAMP[k + 1], f = (t - a[0]) / (b[0] - a[0]); return [0, 1, 2].map(i => a[1][i] + (b[1][i] - a[1][i]) * f); }
+async function sunMonthly(S) {
+  if (S.sunM) return S.sunM;
+  const cs = Math.max(S.c, Math.ceil(2 * S.R / 250)), m = Math.floor(2 * S.R / cs), R = S.R, NS = 32;
+  busy("Sun: the terrain's horizons…"); await tick();
+  const H = new Float32Array(m * m);   // the cells' mean heights
+  for (let J = 0; J < m; J++) for (let I = 0; I < m; I++) {
+    let s = 0, c = 0;
+    for (let y = J * cs; y < (J + 1) * cs; y += S.c) for (let x = I * cs; x < (I + 1) * cs; x += S.c) { s += sample(x + S.c / 2 - R, R - y - S.c / 2); c++; }
+    H[J * m + I] = s / c;
+  }
+  const hz = new Float32Array(m * m * NS), dirs = [];
+  for (let k = 0; k < NS; k++) { const a = 2 * Math.PI * k / NS; dirs.push([Math.sin(a), Math.cos(a)]); }   // grid bearing → (east, north)
+  for (let J = 0; J < m; J++) {
+    for (let I = 0; I < m; I++) {
+      const h0 = H[J * m + I];
+      for (let k = 0; k < NS; k++) {
+        let best = 0; const [dx, dy] = dirs[k];
+        for (let d = 1; ; d++) {
+          const ii = Math.round(I + dx * d), jj = Math.round(J - dy * d);
+          if (ii < 0 || jj < 0 || ii >= m || jj >= m) break;
+          const t = (H[jj * m + ii] - h0) / (d * cs); if (t > best) best = t;
+        }
+        hz[(J * m + I) * NS + k] = best;   // tan of the horizon's elevation
+      }
+    }
+    if (J % 25 === 0) { busy("Sun: the terrain's horizons… " + Math.round(100 * J / m) + " %"); await tick(); }
+  }
+  // the cells' normals (per metre)
+  const nx = new Float32Array(m * m), ny = new Float32Array(m * m), nz = new Float32Array(m * m);
+  for (let J = 0; J < m; J++) for (let I = 0; I < m; I++) {
+    const k = J * m + I, a = (H[J * m + Math.min(m - 1, I + 1)] - H[J * m + Math.max(0, I - 1)]) / (cs * (Math.min(m - 1, I + 1) - Math.max(0, I - 1)));
+    const b = (H[Math.max(0, J - 1) * m + I] - H[Math.min(m - 1, J + 1) * m + I]) / (cs * (Math.min(m - 1, J + 1) - Math.max(0, J - 1)));
+    const L = Math.hypot(a, b, 1); nx[k] = -a / L; ny[k] = -b / L; nz[k] = 1 / L;
+  }
+  const months = [];
+  for (let mo = 0; mo < 12; mo++) {
+    busy("Sun: " + MON[mo] + " …"); await tick();
+    const acc = new Float32Array(m * m), days = [8, 22];
+    for (const dd of days) for (let hr = 0; hr < 24; hr++) {
+      const t = new Date(Date.UTC(YEAR, mo, dd, hr, 30)), p = sunPos(t, S.lat, S.lon);
+      if (p.el <= 0) continue;
+      const doy = doyOf(t), Ib = beam(p.el, doy); if (Ib <= 0) continue;
+      const gb = (p.az + S.gam) * RAD, ce = Math.cos(p.el * RAD), sx = Math.sin(gb) * ce, sy = Math.cos(gb) * ce, sz = Math.sin(p.el * RAD), te = Math.tan(p.el * RAD);
+      let sec = Math.round(((p.az + S.gam) % 360 + 360) % 360 / (360 / NS)) % NS;
+      for (let k = 0; k < m * m; k++) {
+        if (hz[k * NS + sec] >= te) continue;                         // the terrain hides the sun
+        const ci = nx[k] * sx + ny[k] * sy + nz[k] * sz; if (ci > 0) acc[k] += Ib * ci;   // W/m² for one hour = Wh/m²
+      }
+    }
+    for (let k = 0; k < m * m; k++) acc[k] /= days.length;              // Wh/m² per day
+    months.push(acc);
+  }
+  busy(false);
+  return S.sunM = { m, cs, months };
+}
+function monthsChosen() {   // the interval on the two-handle slider, wrapping the new year when From > To
+  const a = +$("mFrom").value, b = +$("mTo").value, out = [];
+  if (a <= b) for (let i = a; i <= b; i++) out.push(i - 1); else { for (let i = a; i <= 12; i++) out.push(i - 1); for (let i = 1; i <= b; i++) out.push(i - 1); }
+  return out;
+}
+function sunAverage(S) {   // kWh/m² per day over the chosen months (day-weighted)
+  const M = S.sunM; if (!M) return null;
+  const ms = monthsChosen(), key = ms.join(","); if (S.sunAvgKey === key) return S.sunAvg;
+  const out = new Float32Array(M.m * M.m); let wd = 0;
+  for (const mo of ms) { const w = MDAYS[mo]; wd += w; const a = M.months[mo]; for (let k = 0; k < out.length; k++) out[k] += a[k] * w; }
+  let lo = Infinity, hi = -Infinity;
+  for (let k = 0; k < out.length; k++) { out[k] /= wd * 1000; if (out[k] < lo) lo = out[k]; if (out[k] > hi) hi = out[k]; }
+  S.sunAvgKey = key; S.sunAvg = out; S.sunLo = lo; S.sunHi = hi;
+  return out;
+}
+function sunAt(S, x, y) {   // the average at a point (bilinear)
+  const M = S.sunM, A = S.sunAvg; if (!M || !A) return null;
+  const u = (x + S.R) / M.cs - 0.5, v = (S.R - y) / M.cs - 0.5, i = Math.max(0, Math.min(M.m - 2, Math.floor(u))), j = Math.max(0, Math.min(M.m - 2, Math.floor(v)));
+  const fx = Math.max(0, Math.min(1, u - i)), fy = Math.max(0, Math.min(1, v - j)), k = j * M.m + i;
+  return (A[k] * (1 - fx) + A[k + 1] * fx) * (1 - fy) + (A[k + M.m] * (1 - fx) + A[k + M.m + 1] * fx) * fy;
+}
+function monthUI() {
+  const a = +$("mFrom").value, b = +$("mTo").value, whole = (a === 1 && b === 12) || (a === b + 1);
+  $("mLbl").textContent = MON[a - 1] + " – " + MON[b - 1] + (whole ? " (whole year)" : a > b ? " (over the new year)" : "");
+  const pc = v => (v - 1) / 11 * 100, f1 = $("mFill"), f2 = $("mFill2");
+  if (a <= b) { f1.style.left = pc(a) + "%"; f1.style.width = (pc(b) - pc(a)) + "%"; f2.style.width = "0"; }
+  else { f1.style.left = pc(a) + "%"; f1.style.width = (100 - pc(a)) + "%"; f2.style.left = "0"; f2.style.width = pc(b) + "%"; }
+}
+function sunLegend(S) {
+  if (!S || !S.sunAvg) { $("sunLeg").textContent = ""; return; }
+  const g = "linear-gradient(90deg," + [0, .25, .5, .75, 1].map(t => "rgb(" + sunRamp(t).map(Math.round).join(",") + ")").join(",") + ")";
+  $("sunLeg").innerHTML = '<span style="display:inline-block;width:110px;height:10px;vertical-align:middle;border-radius:2px;background:' + g + '"></span> ' +
+    S.sunLo.toFixed(1) + " – " + S.sunHi.toFixed(1) + " kWh/m² per day (clear sky, direct)";
+}
+// ---- base maps (owner, 2026-10-13: "lay the OSM streets map or other tiled maps on top"). A map is
+// fetched as Web-Mercator XYZ tiles for the view's box, at the zoom whose pixel is about one grid cell,
+// mosaicked, and resampled onto the UTM grid (a coarse lattice of exact UTM → lat/lon, interpolated) —
+// so roads and streams sit exactly on the terrain. A standalone file carries a Kartverket topo map
+// already draped (basemap_<id>.jpg + scene.json "basemap") and needs no network for it.
+const BASEMAPS = {
+  kv_topo: { url: "https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png", max: 18, attr: "Map © Kartverket (CC BY 4.0)" },
+  kv_grey: { url: "https://cache.kartverket.no/v1/wmts/1.0.0/topograatone/default/webmercator/{z}/{y}/{x}.png", max: 18, attr: "Map © Kartverket (CC BY 4.0)" },
+  // OpenStreetMap data, drawn by OpenTopoMap: tile.openstreetmap.org refuses an app that fetches a view's
+  // ~100 tiles at once (its usage policy: an "Access blocked" tile — owner, 2026-10-13), and CARTO now wants
+  // an API key; OpenTopoMap allows moderate use with attribution
+  osm:     { url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", sub: "abc", max: 17, attr: "Map data © OpenStreetMap contributors, SRTM · style © OpenTopoMap (CC BY-SA)" },
+  // walking paths, tracks and cycle routes (owner, 2026-10-13: "a map option showing walking and bicycle tracks
+  // like CyclOSM"): CyclOSM, hosted by OpenStreetMap France (CORS *, attribution required)
+  cyclosm: { url: "https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png", sub: "abc", max: 20, attr: "Map data © OpenStreetMap contributors · style CyclOSM (CC BY-SA), tiles OpenStreetMap France" },
+  esri_st: { url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", max: 19, attr: "Map: Esri, HERE, Garmin, © OpenStreetMap contributors, and the GIS user community · Powered by Esri" },
+  esri:    { url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", max: 19, attr: "Imagery: Esri, Maxar, Earthstar Geographics, and the GIS User Community · Powered by Esri" }
+};
+// Esri Wayback (owner, 2026-10-13: "Esri Wayback is fine, when multiple photos give choice"): the World
+// Imagery archive, ~200 releases since 2014 — but most re-serve the same photo. At the view's centre the tile
+// map says which release last changed the tile (`select`); bisecting over the releases finds every change
+// with a few dozen small requests. Each change's metadata gives the photo's capture date, sensor and
+// resolution; changes showing the same photo (re-processed) are merged. The choice lists the distinct
+// photos, newest first.
+const WB_CFG = "https://s3-us-west-2.amazonaws.com/config.maptiles.arcgis.com/waybackconfig.json",
+  WB_TM = "https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tilemap/";
+let wbCfg = null;
+const wbDate = k => ((wbCfg[k].itemTitle || "").match(/\d{4}-\d{2}-\d{2}/) || [""])[0];
+function wbFill(S) {   // the photo list as known so far (newest first); keeps the chosen one
+  const sel = $("wbSel"), cur = sel.value;
+  sel.innerHTML = S.wb.map(p => '<option value="' + p.rel + '">' + esc(p.label) + "</option>").join("") + (S.wbBusy ? '<option disabled>… finding older photos</option>' : "");
+  if (cur && S.wb.some(p => p.rel === cur)) sel.value = cur;
+}
+// The NEWEST photo at once (owner, 2026-10-13: "Fetch the last photo"); the older ones are found meanwhile.
+async function wbStart(S) {
+  if (!wbCfg) wbCfg = await (await fetch(WB_CFG)).json();
+  const rel = Object.keys(wbCfg).sort((a, b) => wbDate(b).localeCompare(wbDate(a)));
+  S.wb = [{ rel: rel[0], label: "Newest photo" }]; S.wbBusy = true; wbFill(S);
+  wbOlder(S, rel).catch(() => {}).then(() => { S.wbBusy = false; wbFill(S); });
+}
+async function wbOlder(S, rel) {
+  const z = 16, N = Math.pow(2, z), tx = Math.floor((S.lon + 180) / 360 * N),
+    ty = Math.floor((1 - Math.log(Math.tan(S.lat * RAD) + 1 / Math.cos(S.lat * RAD)) / Math.PI) / 2 * N);
+  // sel(i) = the release that last changed the tile, as of release i (newest first): a step function, so
+  // only the stretches between two samples that disagree need asking further — bisected, 6 in flight
+  // (the server speaks HTTP/1.1: a browser keeps 6 connections to it).
+  const known = new Map(), pool = async (items, fn) => { const q = items.slice(); await Promise.all(Array.from({ length: 6 }, async () => { while (q.length) await fn(q.shift()); })); };
+  const ask = idx => pool(idx, async i => {
+    try { const j = await (await fetch(WB_TM + rel[i] + "/" + z + "/" + ty + "/" + tx)).json(); known.set(i, j.data && j.data[0] ? String((j.select && j.select[0]) || rel[i]) : ""); } catch (e) { known.set(i, ""); }
+  });
+  const L = rel.length; await ask(Array.from(new Set(Array.from({ length: 12 }, (_, k) => Math.round(k * (L - 1) / 11)))));
+  for (let round = 0; round < 12; round++) {
+    const ks = Array.from(known.keys()).sort((a, b) => a - b), want = [];
+    for (let t = 0; t + 1 < ks.length; t++) {
+      let a = ks[t]; const b = ks[t + 1], sa = known.get(a);
+      if (sa === known.get(b)) continue;                        // the same photo all the way between
+      const ka = rel.indexOf(sa); if (ka > a && ka < b) { known.set(ka, sa); a = ka; }   // the change itself is a sample
+      if (b - a > 1) want.push((a + b) >> 1);
+    }
+    if (!want.length) break;
+    await ask(want);
+  }
+  const used = []; Array.from(known.keys()).sort((a, b) => a - b).forEach(i => { const x = known.get(i); if (x && used.indexOf(x) < 0) used.push(x); });
+  const newest = S.wb[0];
+  S.wb = used.map(r => ({ rel: r, label: "Release " + wbDate(r) }));
+  if (S.wb.length && newest) S.wb[0].label = "Newest photo";
+  wbFill(S);
+  // what each one shows: capture date, sensor, resolution (the metadata layers for 0.6–4.8 m, finest first);
+  // releases re-serving the same photo are merged
+  const meta = {};
+  await pool(used, async r => {
+    for (const ly of [5, 6, 7, 8]) {   // finest first: a coarse layer can name a coarser source than the one shown
+      try {
+        const j = await (await fetch(wbCfg[r].metadataLayerUrl + "/" + ly + "/query?geometry=" + S.lon + "," + S.lat +
+          "&geometryType=esriGeometryPoint&inSR=4326&outFields=SRC_DATE,SRC_RES,SRC_DESC&returnGeometry=false&f=json")).json();
+        const a = j.features && j.features[0] && j.features[0].attributes; if (a && a.SRC_DATE) { meta[r] = a; return; }
+      } catch (e) { }
+    }
+  });
+  const SEN = { WV01: "WorldView-1", WV02: "WorldView-2", WV03: "WorldView-3", WV04: "WorldView-4", GE01: "GeoEye-1", QB02: "QuickBird" };
+  const out = [], seen = {};
+  used.forEach(r => {
+    const a = meta[r]; if (!a) { out.push({ rel: r, label: "Release " + wbDate(r) }); return; }
+    const ds = String(a.SRC_DATE), cap = ds.length === 8 ? ds.slice(0, 4) + "-" + ds.slice(4, 6) + "-" + ds.slice(6) : ds, key = cap + "|" + a.SRC_DESC + "|" + a.SRC_RES;
+    if (seen[key]) return; seen[key] = 1;
+    out.push({ rel: r, label: cap + " · " + (SEN[a.SRC_DESC] || a.SRC_DESC || "") + " · " + (+a.SRC_RES) + " m" });
+  });
+  S.wb = out;
+}
+async function wbUI(S) {
+  const row = $("wbRow"), sel = $("wbSel");
+  if ($("basemap").value !== "wayback") { row.hidden = true; return null; }
+  row.hidden = false;
+  if (!S.wbP) { sel.innerHTML = "<option>Loading…</option>"; S.wbP = wbStart(S).catch(() => { S.wb = []; S.wbBusy = false; }); }
+  await S.wbP;
+  if (!S.wb.length) { sel.innerHTML = '<option value="">No Wayback photos here</option>'; return null; }
+  const r = sel.value || S.wb[0].rel, id = "wb:" + r, p = S.wb.find(x => x.rel === r);
+  BASEMAPS[id] = { url: "https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/default028mm/MapServer/tile/" + r + "/{z}/{y}/{x}", max: 19,
+    attr: "Imagery: Esri World Imagery Wayback (" + (p ? p.label : wbDate(r)) + ") · Esri, Maxar, Earthstar Geographics, and the GIS User Community" };
+  return id;
+}
+function setAttr(id) { $("attr").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0)" + (BASEMAPS[id] ? " · " + BASEMAPS[id].attr : ""); }
+async function getBase(S, id) {
+  setAttr(id);
+  if (!BASEMAPS[id]) return null;
+  if (S.bases[id]) return S.bases[id];
+  const sc = SRC && SRC.scene, bm = sc && sc.basemap;
+  if (bm && bm.id === id && SRC.basemapBlob && Math.abs(sc.lat - S.lat) < 1e-7 && Math.abs(sc.lon - S.lon) < 1e-7 && +sc.radius === S.R) {
+    const img = await createImageBitmap(SRC.basemapBlob);
+    const cv = document.createElement("canvas"); cv.width = cv.height = S.n; cv.getContext("2d").drawImage(img, 0, 0, S.n, S.n);
+    return S.bases[id] = cv;
+  }
+  if (!navigator.onLine) { $("dsrc").textContent = "No network: the map needs the internet (only a packaged map works offline)."; return null; }
+  busy("Loading the map…"); await tick();
+  try { return S.bases[id] = await drapeTiles(S, BASEMAPS[id]); }
+  catch (e) { $("dsrc").textContent = "Map not loaded: " + e.message; return null; }
+  finally { busy(false); }
+}
+async function drapeTiles(S, B) {
+  const n = S.n, c = S.c, R = S.R, x0 = S.X - R, y1 = S.Y + R;
+  const ll = (i, j) => UTM.inv(x0 + (i + 0.5) * c, y1 - (j + 0.5) * c, S.zone);
+  const cs = [ll(0, 0), ll(n - 1, 0), ll(0, n - 1), ll(n - 1, n - 1)];
+  const lat0 = cs.reduce((a, p) => a + p[0], 0) / 4;
+  let z = Math.max(1, Math.min(B.max, Math.ceil(Math.log2(156543.03 * Math.cos(lat0 * RAD) / (c * 1.25)))));
+  const mx = (lon, zz) => (lon + 180) / 360 * Math.pow(2, zz) * 256;
+  const my = (lat, zz) => (1 - Math.log(Math.tan(lat * RAD) + 1 / Math.cos(lat * RAD)) / Math.PI) / 2 * Math.pow(2, zz) * 256;
+  let tx0, tx1, ty0, ty1;
+  for (;;) {
+    tx0 = Math.floor(Math.min(...cs.map(p => mx(p[1], z))) / 256); tx1 = Math.floor(Math.max(...cs.map(p => mx(p[1], z))) / 256);
+    ty0 = Math.floor(Math.min(...cs.map(p => my(p[0], z))) / 256); ty1 = Math.floor(Math.max(...cs.map(p => my(p[0], z))) / 256);
+    if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) <= 300 || z <= 1) break;
+    z--;
+  }
+  const tw = tx1 - tx0 + 1, th = ty1 - ty0 + 1, mos = document.createElement("canvas"); mos.width = tw * 256; mos.height = th * 256;
+  const mc = mos.getContext("2d"); mc.fillStyle = "#d8d8d0"; mc.fillRect(0, 0, mos.width, mos.height);
+  let done = 0, failed = 0; const jobs = [];
+  for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) jobs.push([tx, ty]);
+  await Promise.all(jobs.map(([tx, ty]) => new Promise(res => {
+    const img = new Image(); img.crossOrigin = "anonymous";
+    img.onload = () => { mc.drawImage(img, (tx - tx0) * 256, (ty - ty0) * 256); if (++done % 20 === 0) busy("Loading the map… " + done + " / " + jobs.length); res(); };
+    img.onerror = () => { failed++; res(); };
+    img.src = B.url.replace("{s}", (B.sub || "a")[(tx + ty) % (B.sub || "a").length]).replace("{z}", z).replace("{x}", tx).replace("{y}", ty);
+  })));
+  if (failed === jobs.length) throw new Error("no tiles could be fetched");
+  busy("Draping the map…"); await tick();
+  const md = mc.getImageData(0, 0, mos.width, mos.height).data, MW = mos.width, MH = mos.height;
+  // exact UTM → Mercator on a lattice every L cells, bilinear in between (the mapping is smooth)
+  const L = 16, gn = Math.ceil(n / L) + 1, gxm = new Float64Array(gn * gn), gym = new Float64Array(gn * gn);
+  for (let J = 0; J < gn; J++) for (let I = 0; I < gn; I++) { const [la, lo] = ll(I * L, J * L); gxm[J * gn + I] = mx(lo, z) - tx0 * 256; gym[J * gn + I] = my(la, z) - ty0 * 256; }
+  const cv = document.createElement("canvas"); cv.width = cv.height = n; const cx = cv.getContext("2d"), im = cx.createImageData(n, n), d = im.data;
+  for (let j = 0; j < n; j++) {
+    const J = Math.min(gn - 2, Math.floor(j / L)), fy = j / L - J;
+    for (let i = 0; i < n; i++) {
+      const I = Math.min(gn - 2, Math.floor(i / L)), fx = i / L - I, k0 = J * gn + I;
+      const u = (gxm[k0] * (1 - fx) + gxm[k0 + 1] * fx) * (1 - fy) + (gxm[k0 + gn] * (1 - fx) + gxm[k0 + gn + 1] * fx) * fy;
+      const v = (gym[k0] * (1 - fx) + gym[k0 + 1] * fx) * (1 - fy) + (gym[k0 + gn] * (1 - fx) + gym[k0 + gn + 1] * fx) * fy;
+      const uu = Math.max(0, Math.min(MW - 1, Math.floor(u))), vv = Math.max(0, Math.min(MH - 1, Math.floor(v))), q = 4 * (vv * MW + uu), k = 4 * (j * n + i);
+      d[k] = md[q]; d[k + 1] = md[q + 1]; d[k + 2] = md[q + 2]; d[k + 3] = 255;
+    }
+  }
+  cx.putImageData(im, 0, 0);
+  return cv;
+}
+// ---- side walls of the block (owner, 2026-10-13: "sidewalls (color the sides so that colors are
+// continuous along cartesian axis)"): four walls along the grid axes, from the terrain's edge down to a
+// base below the lowest point, closed underneath. Every vertex is coloured by ONE smooth function of
+// its position — an earth gradient with height (z), gently graded along x and y — so the colour runs on
+// without a seam round the corners, like a cut through one coloured block; faint bands every 25 m match
+// the bold contours. Lit by the sun like the terrain.
+function wallColor(x, y, z, zb, ztop, R, out) {
+  const t = Math.max(0, Math.min(1, (z - zb) / Math.max(1, ztop - zb)));
+  const st = [[0, [58, 42, 30]], [0.35, [112, 84, 56]], [0.7, [168, 138, 96]], [1, [205, 196, 176]]];
+  let k = 0; while (k < st.length - 2 && t > st[k + 1][0]) k++;
+  const f = (t - st[k][0]) / (st[k + 1][0] - st[k][0]), a = st[k][1], b = st[k + 1][1];
+  const g = 1 + 0.07 * (x / R) - 0.07 * (y / R);                       // continuous along the two horizontal axes
+  const band = 1 - 0.07 * Math.pow(Math.cos(Math.PI * (z + S.h0) / 25), 40);   // a faint line at every 25 m
+  for (let i = 0; i < 3; i++) out[i] = Math.min(1, (a[i] + (b[i] - a[i]) * f) / 255 * g * band);
+}
+function buildWalls(pos, m) {
+  const R = S.R, zb = -Math.max(20, 0.15 * (S.hi - S.lo)), ztop = S.hi - S.h0, ROWS = 48, P = [], C = [], I = [], col = [0, 0, 0];
+  const edge = (ks) => {   // one wall along the given top vertices (in order), down to zb
+    const base = P.length / 3;
+    for (const k of ks) {
+      const x = pos[3 * k], h = pos[3 * k + 1], z = pos[3 * k + 2];
+      for (let r = 0; r <= ROWS; r++) { const hh = h + (zb - h) * r / ROWS; P.push(x, hh, z); wallColor(x, -z, hh, zb, ztop, R, col); C.push(col[0], col[1], col[2]); }
+    }
+    for (let a = 0; a < ks.length - 1; a++) for (let r = 0; r < ROWS; r++) {
+      const p = base + a * (ROWS + 1) + r, q = p + ROWS + 1; I.push(p, p + 1, q, q, p + 1, q + 1);
+    }
+  };
+  const row = r => Array.from({ length: m }, (_, c) => r * m + c), colm = c => Array.from({ length: m }, (_, r) => r * m + c);
+  edge(row(0)); edge(row(m - 1).reverse()); edge(colm(0).reverse()); edge(colm(m - 1));
+  // the floor
+  const f0 = P.length / 3, corners = [0, m - 1, m * m - 1, m * (m - 1)];
+  for (const k of corners) { P.push(pos[3 * k], zb, pos[3 * k + 2]); wallColor(pos[3 * k], -pos[3 * k + 2], zb, zb, ztop, R, col); C.push(col[0] * .8, col[1] * .8, col[2] * .8); }
+  I.push(f0, f0 + 1, f0 + 2, f0, f0 + 2, f0 + 3);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); g.setAttribute("color", new THREE.Float32BufferAttribute(C, 3));
+  g.setIndex(I); g.computeVertexNormals();
+  const w = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+  w.castShadow = w.receiveShadow = true;
+  return w;
+}
+// repaint the terrain's picture in place (map / overlay changed)
+async function repaint() {
+  if (!S || !terrain) return;
+  const wb = await wbUI(S), base = await getBase(S, wb || $("basemap").value);
+  S.tex = paintBase(S, base);
+  const old = terrain.material.map; terrain.material.map = new THREE.CanvasTexture(S.tex); terrain.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  terrain.material.needsUpdate = true; if (old) old.dispose(); draw();
+}
+function paintNormals(gx, gyN, n) {
+  // object-space normals (x east, y up, z south): (−dh/dE, 1, dh/dN), so the 1 m relief shades under any light
+  const cv = document.createElement("canvas"); cv.width = cv.height = n; const cx = cv.getContext("2d"), im = cx.createImageData(n, n), d = im.data;
+  for (let k = 0; k < n * n; k++) {
+    const a = -gx[k], c = gyN[k], L = Math.hypot(a, 1, c);
+    d[4 * k] = (a / L + 1) * 127.5; d[4 * k + 1] = (1 / L + 1) * 127.5; d[4 * k + 2] = (c / L + 1) * 127.5; d[4 * k + 3] = 255;
+  }
+  cx.putImageData(im, 0, 0); return cv;
+}
+
+// ======================================================================= three.js scene
+const canvas = $("c"), renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x1d2228);
+const camera = new THREE.PerspectiveCamera(45, 1, 1, 30000);
+const controls = new THREE.MapControls(camera, canvas);   // map-style (owner, 2026-10-12: "like the app"): drag = pan, right-drag / two fingers = rotate & tilt, wheel / pinch = zoom
+controls.enableDamping = true; controls.maxPolarAngle = Math.PI * 0.495;
+controls.enablePan = true; controls.enableZoom = true; controls.screenSpacePanning = false;   // pan across the ground, as on a map
+controls.minDistance = 15; controls.maxDistance = 12000; controls.zoomSpeed = 1.2; controls.keyPanSpeed = 40;
+controls.listenToKeyEvents(window);
+controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
+// rotation that always works (owner, 2026-10-12: "i have problems rotating the model surface"):
+// a drag-mode toggle, two-finger twist, and buttons — all turn the camera round its target
+const UP = new THREE.Vector3(0, 1, 0);
+function rotateBy(a) { const o = camera.position.clone().sub(controls.target).applyAxisAngle(UP, a); camera.position.copy(controls.target).add(o); controls.update(); draw(); }
+function tiltBy(d) {
+  const o = camera.position.clone().sub(controls.target), sp = new THREE.Spherical().setFromVector3(o);
+  sp.phi = Math.max(0.02, Math.min(controls.maxPolarAngle, sp.phi + d)); o.setFromSpherical(sp);
+  camera.position.copy(controls.target).add(o); controls.update(); draw();
+}
+let rotMode = false;
+function setDragMode(r) {
+  rotMode = r; const b = $("dragmode");
+  controls.mouseButtons.LEFT = r ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
+  controls.touches.ONE = r ? THREE.TOUCH.ROTATE : THREE.TOUCH.PAN;
+  b.textContent = r ? "⟳" : "✋"; b.classList.toggle("on", r);
+  b.title = r ? "One-finger / left drag: rotate and tilt (tap for move)" : "One-finger / left drag: move the map (tap for rotate)";
+}
+$("dragmode").onclick = () => setDragMode(!rotMode);
+$("rotl").onclick = () => rotateBy(15 * RAD); $("rotr").onclick = () => rotateBy(-15 * RAD);
+$("tiltu").onclick = () => tiltBy(-10 * RAD); $("tiltd").onclick = () => tiltBy(10 * RAD);
+$("north").onclick = () => {   // turn the view so true north is up the screen
+  if (!S) return; const o = camera.position.clone().sub(controls.target), sp = new THREE.Spherical().setFromVector3(o);
+  sp.theta = -S.gam * RAD; o.setFromSpherical(sp); camera.position.copy(controls.target).add(o); controls.update(); draw();
+};
+let twist = null;
+const tang = ev => Math.atan2(ev.touches[1].clientY - ev.touches[0].clientY, ev.touches[1].clientX - ev.touches[0].clientX);
+canvas.addEventListener("touchstart", ev => { twist = ev.touches.length === 2 ? tang(ev) : null; }, { passive: true });
+canvas.addEventListener("touchmove", ev => {
+  if (ev.touches.length !== 2 || twist === null) return;
+  const a = tang(ev); let d = a - twist; if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI;
+  twist = a; if (Math.abs(d) > 0.002) rotateBy(d);   // the terrain turns WITH the fingers (owner, 2026-10-16: it turned the opposite way)
+}, { passive: true });
+canvas.addEventListener("touchend", ev => { if (ev.touches.length < 2) twist = null; }, { passive: true });
+const amb = new THREE.AmbientLight(0xffffff, 0.75), sun = new THREE.DirectionalLight(0xffffff, 0.5);
+scene.add(amb, sun, sun.target);
+let S = null, world = null, terrain = null, needles = [], flags = [], letters = [], markers = [], compassObj = null;
+const ray = new THREE.Raycaster(), mv = new THREE.Vector2();
+function sample(x, y) { if (!S) return 0; const n = S.n, i = Math.max(0, Math.min(n - 1, Math.floor((x + S.R) / S.c))), j = Math.max(0, Math.min(n - 1, Math.floor((S.R - y) / S.c))); return S.hs[j * n + i]; }
+
+function build(s) {
+  if (world) { scene.remove(world); world.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); if (o.material.normalMap) o.material.normalMap.dispose(); o.material.dispose(); } }); letters.forEach(l => scene.remove(l)); }
+  S = s; S.h0 = S.lo; measObj = []; measPts = []; if ($("meas")) $("meas").hidden = !measOn;
+  const n = S.n, R = S.R, cm = S.c, st = Math.max(1, Math.ceil(n / 1000)), m = Math.floor((n - 1) / st) + 1;   // ≤ ~1000² vertices
+  const pos = new Float32Array(m * m * 3), uv = new Float32Array(m * m * 2);
+  for (let r = 0; r < m; r++) for (let c = 0; c < m; c++) {
+    const k = r * m + c, i = c * st, j = r * st;
+    pos[3 * k] = (i + 0.5) * cm - R; pos[3 * k + 1] = S.hs[j * n + i] - S.h0; pos[3 * k + 2] = (j + 0.5) * cm - R;
+    uv[2 * k] = (i + 0.5) / n; uv[2 * k + 1] = 1 - (j + 0.5) / n;
+  }
+  const idx = [];
+  for (let r = 0; r < m - 1; r++) for (let c = 0; c < m - 1; c++) {
+    const a = r * m + c, b = a + 1, d = a + m, e = d + 1; idx.push(a, d, b, b, d, e);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+  g.setIndex(new THREE.BufferAttribute(new Uint32Array(idx), 1)); g.computeVertexNormals();
+  const tex = new THREE.CanvasTexture(S.tex), ntex = new THREE.CanvasTexture(S.nrm);
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const mat = new THREE.MeshPhongMaterial({ map: tex, normalMap: ntex, normalMapType: THREE.ObjectSpaceNormalMap, shininess: 0, specular: 0x000000 });
+  terrain = new THREE.Mesh(g, mat); terrain.castShadow = terrain.receiveShadow = true;
+  world = new THREE.Group(); world.add(terrain); scene.add(world);
+  world.add(buildWalls(pos, m));   // always the block with side walls
+  needles = []; flags = []; letters = []; markers = [];
+  const pin = (x, y, col, hgt, rad, data, src) => {
+    const z = sample(x, y) - S.h0, c = new THREE.Color(col);
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(rad * .15, rad * .15, hgt, 6), new THREE.MeshBasicMaterial({ color: c }));
+    pole.position.set(x, z + hgt / 2, -y); world.add(pole);
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(rad, 14, 10), new THREE.MeshBasicMaterial({ color: c }));
+    ball.position.set(x, z + hgt, -y); world.add(ball); needles.push(pole, ball);
+    pole.userData.src = ball.userData.src = src || (data && data.src) || "__markers";
+    if (data) { ball.userData.v = data; flags.push(ball); }
+  };
+  const ns = Math.max(0.35, Math.min(1.5, S.R / 1000));                         // needle size follows the view's radius
+  pin(0, 0, "#ffffff", 60 * ns, 7 * ns);                                        // centre
+  if (S.best) {
+    const z = sample(S.best.x, S.best.y) - S.h0;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(10 * Math.max(0.5, S.R / 1000), 2.2 * Math.max(0.5, S.R / 1000), 8, 32), new THREE.MeshBasicMaterial({ color: 0xdc1414 }));
+    ring.rotation.x = Math.PI / 2; ring.position.set(S.best.x, z + 4, -S.best.y); world.add(ring); markers.push(ring);
+    const bp = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 40, 6), new THREE.MeshBasicMaterial({ color: 0xdc1414 }));
+    bp.position.set(S.best.x, z + 24, -S.best.y); world.add(bp); needles.push(bp); bp.userData.src = "__markers";
+  }
+  S.areas.forEach(a => pin(a.x, a.y, a.col, 45 * ns, 6 * ns, a));
+  // a file's POINTS stand out (owner, 2026-10-14: "make sure the map points are more vividly marked"): a tall
+  // needle, a big ball with a dark outline (a white one on a dark point), and a ring on the ground at the spot
+  S.pts.forEach(p => {
+    pin(p.x, p.y, p.col, 80 * ns, 14 * ns, p);
+    const z = sample(p.x, p.y) - S.h0, c = new THREE.Color(p.col), dark = c.r + c.g + c.b < 0.6;
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(14 * ns * 1.25, 16, 12), new THREE.MeshBasicMaterial({ color: dark ? 0xffffff : 0x111111, side: THREE.BackSide }));
+    halo.position.set(p.x, z + 80 * ns, -p.y); world.add(halo); needles.push(halo); halo.userData.src = p.src || "__markers"; halo.userData.halo = true;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(24 * ns, 4 * ns, 8, 40), new THREE.MeshBasicMaterial({ color: c }));
+    ring.rotation.x = Math.PI / 2; ring.position.set(p.x, z + 3, -p.y); world.add(ring); needles.push(ring); ring.userData.src = p.src || "__markers";
+  });
+  // compass letters (sprites: always face the viewer; outside the height-scaled group)
+  if (S.comp) [["N", 0, "#c81e1e"], ["E", 90, "#222"], ["S", 180, "#222"], ["W", 270, "#222"]].forEach(L => {
+    const cv = document.createElement("canvas"); cv.width = cv.height = 64; const c2 = cv.getContext("2d");
+    c2.fillStyle = "rgba(250,248,235,.92)"; c2.beginPath(); c2.arc(32, 32, 30, 0, 7); c2.fill(); c2.lineWidth = 3; c2.strokeStyle = "#222"; c2.stroke();
+    c2.fillStyle = L[2]; c2.font = "bold 40px sans-serif"; c2.textAlign = "center"; c2.textBaseline = "middle"; c2.fillText(L[0], 32, 34);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), depthTest: false }));
+    const t = (L[1] + S.gam) * RAD, x = S.comp.x + Math.sin(t) * (RC + 12), y = S.comp.y + Math.cos(t) * (RC + 12);
+    sp.scale.set(16, 16, 1); sp.userData = { x, y, z: sample(x, y) - S.h0 + 9 }; sp.renderOrder = 5; scene.add(sp); letters.push(sp);
+  });
+  // north arrow at the rim (true north)
+  const gr = S.gam * RAD, na = new THREE.Mesh(new THREE.ConeGeometry(14, 40, 12), new THREE.MeshBasicMaterial({ color: 0xff5252 }));
+  na.rotation.x = -Math.PI / 2; const naG = new THREE.Group(); naG.add(na); naG.rotation.y = -gr;
+  na.position.set(0, sample(Math.sin(gr) * (R - 4), Math.cos(gr) * (R - 4)) - S.h0 + 25, -R - 30); world.add(naG); compassObj = naG;
+  // panels
+  $("ttl").textContent = "Terrain 3D — " + S.title;
+  $("sub").textContent = S.c + " m grid, " + R + " m radius, " + Math.round(S.lo) + "–" + Math.round(S.hi) + " m a.s.l. · " + S.areas.length + " areas, " + S.pts.length + " points" +
+    (S.nMiss ? " · " + (100 * S.nMiss / (S.n * S.n)).toFixed(1) + " % without DTM (filled smoothly, greyed)" : "");
+  fileLayersUI(); restoreScroll();   // the panel's content is in place: back to where it was scrolled
+  if ($("lySun").checked) setTimeout(() => $("lySun").onchange(), 0);
+  applyBold(); applyVis();
+  shadowFrame(); setEx(); if (!keepCam) home(); keepCam = false; updateSun(); daylightIfNight(); resize();
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function shadowFrame() {
+  const sc = sun.shadow.camera, R = S.R * 1.15; sc.left = -R; sc.right = R; sc.top = R; sc.bottom = -R; sc.near = 1; sc.far = 12000; sc.updateProjectionMatrix();
+  sun.shadow.mapSize.set(4096, 4096); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.5;
+  if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+}
+const ex = $("ex");
+function setEx() { if (!world) return; world.scale.y = +ex.value; $("exv").textContent = (+ex.value).toFixed(1); letters.forEach(sp => sp.position.set(sp.userData.x, (sp.userData.z - 9) * world.scale.y + 9, -sp.userData.y)); draw(); }
+ex.oninput = setEx;
+function home() { const k = Math.max(1, 1.0 / camera.aspect), R = S.R, cz0 = (sample(0, 0) - S.h0) * world.scale.y; camera.position.set(0, cz0 + R * 1.9 * k, R * 0.9 * k); controls.target.set(0, (sample(0, 0) - S.h0) * world.scale.y, 0); controls.update(); draw(); }
+$("reset").onclick = () => S && home();
+$("top").onclick = () => { if (!S) return; const cz = (sample(0, 0) - S.h0) * world.scale.y; camera.position.set(0, cz + S.R * 2.6, 0.01); controls.target.set(0, cz, 0); controls.update(); draw(); };
+function zoomBy(f) { const v = camera.position.clone().sub(controls.target).multiplyScalar(f); if (v.length() < controls.minDistance || v.length() > controls.maxDistance) return; camera.position.copy(controls.target).add(v); controls.update(); draw(); }
+$("zin").onclick = () => zoomBy(0.7); $("zout").onclick = () => zoomBy(1 / 0.7);
+
+// ---- minimise: the info panel
+$("rsideX").onclick = () => { $("rside").hidden = true; $("rsideOpen").hidden = false; };
+$("rsideOpen").onclick = () => { $("rside").hidden = false; $("rsideOpen").hidden = true; };
+// the controls' scroll position is kept (owner, 2026-10-15: "scrollable but remembers it's scroll position")
+const SCROLL_KEY = "terrain3d-scroll:" + location.pathname;
+// The panel fills in after load (layers, photo dates…): the wanted position is held, and re-applied as the content
+// grows, until the user touches the panel — so a clamped early scroll never overwrites the saved one
+let scrollWant = null;
+$("info").addEventListener("scroll", () => { if (scrollWant === null) try { localStorage.setItem(SCROLL_KEY, String($("info").scrollTop)); } catch (e) {} });
+["wheel", "touchstart", "pointerdown", "keydown"].forEach(t => $("info").addEventListener(t, () => { scrollWant = null; }, { passive: true }));
+function restoreScroll() { try { scrollWant = +localStorage.getItem(SCROLL_KEY) || 0; } catch (e) { scrollWant = 0; } $("info").scrollTop = scrollWant; }
+const scrollRO = new ResizeObserver(() => { if (scrollWant) $("info").scrollTop = scrollWant; });
+[...$("info").children].forEach(el => scrollRO.observe(el));
+$("sideX").onclick = () => { $("side").hidden = true; $("sideOpen").hidden = false; };
+$("sideOpen").onclick = () => { $("side").hidden = false; $("sideOpen").hidden = true; };
+function minToggle(panel, btn, after) { btn.onclick = () => { panel.classList.toggle("min"); btn.textContent = panel.classList.contains("min") ? "+" : "−"; if (after) after(); }; }
+minToggle($("info"), $("infoMin"));
+// needles: hidden by their layer; markers and compass by theirs
+function applyVis() {
+  needles.forEach(o => o.visible = layerOn(o.userData.src));
+  markers.forEach(o => o.visible = $("lyMarkers").checked);
+  draw();
+}
+// bold markers: pins, balls, rings and the steepest-point mark bigger and drawn over the terrain (never hidden
+// behind a ridge) — each halo just under its ball; the areas' outlines are painted on in repaint()
+function applyBold() {
+  const b = $("lyBold").checked;
+  needles.concat(markers).forEach(o => {
+    o.material.depthTest = !b; o.renderOrder = !b ? 0 : o.userData.halo ? 4 : o.geometry.type === "SphereGeometry" ? 5 : 3;
+    const k = b ? 2 : 1; if (o.geometry.type === "CylinderGeometry") o.scale.set(k, 1, k); else o.scale.setScalar(k);   // poles thicker, same height
+  });
+  draw();
+}
+$("lyBold").onchange = () => { applyBold(); repaint(); };
+if (innerWidth < 600) $("infoMin").onclick();
+
+// ---- the sun
+const now0 = new Date();
+function doyOf(d) { return Math.floor((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86400000) + 1; }
+function setNow() { const off = $("tz").value === "eu" ? euOffset(new Date()) : 0, t = new Date(Date.now() + off * 3600000); $("day").value = doyOf(t); $("tod").value = Math.round((t.getUTCHours() * 60 + t.getUTCMinutes()) / 5) * 5; updateSun(); }
+let daySet = false;
+function daylightIfNight() {   // first view of a scene: at night, open at today's solar noon instead (a black terrain shows nothing)
+  if (daySet || !S || new URL(location.href).searchParams.get("tod")) return; daySet = true;
+  const p = sunPos(chosenUTC(), S.lat, S.lon); if (p.el > 3) return;
+  const off = $("tz").value === "eu" ? euOffset(chosenUTC()) : 0;
+  $("tod").value = Math.round(((p.noon + off * 60) % 1440) / 5) * 5; updateSun();
+}
+const YEAR = now0.getFullYear();
+function chosenUTC() {   // the date + local time on the sliders → a UTC instant
+  const day = +$("day").value, tod = +$("tod").value, base = Date.UTC(YEAR, 0, day, 0, tod);
+  if ($("tz").value === "utc") return new Date(base);
+  let t = new Date(base - 3600000); t = new Date(base - euOffset(t) * 3600000); return t;
+}
+const fmtHM = (min, off) => { if (min == null) return "—"; let m = Math.round(min + off * 60); m = ((m % 1440) + 1440) % 1440; return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
+let SUN = null;
+function updateSun() {
+  const t = chosenUTC(), utc = $("tz").value === "utc", off = utc ? 0 : euOffset(t), zn = utc ? "UTC" : off === 2 ? "CEST" : "CET";
+  const dd = new Date(Date.UTC(YEAR, 0, +$("day").value));
+  $("dayv").textContent = dd.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  $("todv").textContent = fmtHM(+$("tod").value, 0) + " " + zn;
+  if (!S) return;
+  const p = sunPos(t, S.lat, S.lon), doy = +$("day").value, Ib = beam(p.el, doy);
+  SUN = { p, Ib, doy, t, off };
+  const fixed = $("lmode").value === "fixed";
+  let el = p.el, az = p.az;
+  if (fixed) { el = 40; az = 315; }
+  const ga = (az + S.gam) * RAD, ce = Math.cos(el * RAD);      // true azimuth → grid
+  const dir = new THREE.Vector3(Math.sin(ga) * ce, Math.sin(el * RAD), -Math.cos(ga) * ce);
+  sun.target.position.set(0, 0, 0); sun.position.copy(dir.clone().multiplyScalar(5000));
+  if (fixed) { sun.intensity = 0.55; amb.intensity = 0.7; sun.castShadow = false; scene.background.set(0x1d2228); }
+  else if (p.el > 0) {
+    const f = Math.min(1, Ib / 950); sun.intensity = 1.05 * f; amb.intensity = 0.22 + 0.33 * Math.sqrt(Math.max(0, Math.sin(el * RAD)));
+    sun.castShadow = true; scene.background.setHSL(0.58, 0.45, 0.12 + 0.25 * Math.min(1, el / 40));
+    sun.color.setHSL(0.1, 0.9 * (1 - f), 0.5 + 0.5 * f);
+  } else { sun.intensity = 0; sun.castShadow = false; amb.intensity = p.el > -6 ? 0.32 : 0.16; scene.background.set(p.el > -6 ? 0x2a3550 : 0x0d1220); }
+  $("sunv").innerHTML = fixed ? "Fixed light from the north-west." :
+    "Sun " + p.el.toFixed(1) + "° high, azimuth " + p.az.toFixed(0) + "° (true) · direct " + Math.round(Ib) + " W/m² (clear sky)<br>" +
+    (p.polar ? (p.polar === "day" ? "Midnight sun — no sunset." : "Polar night — no sunrise.") : "Sunrise " + fmtHM(p.rise, off) + " · solar noon " + fmtHM(p.noon, off) + " · sunset " + fmtHM(p.set, off) + " " + (utc ? "UTC" : off === 2 ? "CEST" : "CET"));
+  draw();
+}
+["day", "tod"].forEach(id => $(id).oninput = updateSun); $("tz").onchange = setNow; $("lmode").onchange = updateSun; $("now").onclick = setNow;
+let playT = null;
+$("play").onclick = () => { if (playT) { clearInterval(playT); playT = null; $("play").textContent = "▶ Day"; return; } $("play").textContent = "■ Stop"; playT = setInterval(() => { $("tod").value = (+$("tod").value + 10) % 1440; updateSun(); }, 120); };
+
+// ---- direct sun on the surface at a point: cos(incidence) × beam, unless the terrain shades it
+function sunVec(el, az) { const ga = (az + S.gam) * RAD, ce = Math.cos(el * RAD); return [Math.sin(ga) * ce, Math.cos(ga) * ce, Math.sin(el * RAD)]; }   // grid E, N, up
+function shaded(x, y, sv) {
+  const z0 = sample(x, y) + 1.5, L = Math.hypot(sv[0], sv[1]); if (L < 1e-6) return false;
+  const tanEl = sv[2] / L, ux = sv[0] / L, uy = sv[1] / L;
+  for (let d = 3; d < 2 * S.R; d += 2) { const xx = x + ux * d, yy = y + uy * d; if (Math.hypot(xx, yy) > S.R) break; if (sample(xx, yy) > z0 + d * tanEl) return true; }
+  return false;
+}
+function surfIrr(x, y, el, az, Ib) {
+  if (el <= 0 || Ib <= 0) return { w: 0, sh: false };
+  const e = S.c, a = (sample(x + e, y) - sample(x - e, y)) / (2 * e), b = (sample(x, y + e) - sample(x, y - e)) / (2 * e), L = Math.hypot(a, b, 1);
+  const sv = sunVec(el, az), ci = (-a * sv[0] - b * sv[1] + sv[2]) / L;
+  if (ci <= 0) return { w: 0, sh: false, self: true };
+  const sh = shaded(x, y, sv); return { w: sh ? 0 : Ib * ci, sh };
+}
+function dayTotal(x, y) {   // clear-sky direct energy on the surface over the chosen day, 10-min steps (kWh/m²)
+  let wh = 0; const base = chosenUTC(), d0 = new Date(base); d0.setUTCHours(0, 0, 0, 0);
+  for (let m = 0; m < 1440; m += 10) { const t = new Date(d0.getTime() + m * 60000), p = sunPos(t, S.lat, S.lon); if (p.el <= 0) continue; wh += surfIrr(x, y, p.el, p.az, beam(p.el, SUN.doy)).w * 10 / 60; }
+  return wh / 1000;
+}
+const tip = $("tip");
+let lastTip = 0;
+canvas.addEventListener("pointermove", ev => {
+  if (!S) return; const now = performance.now(); if (now - lastTip < 60) return; lastTip = now;
+  mv.x = ev.clientX / innerWidth * 2 - 1; mv.y = -ev.clientY / innerHeight * 2 + 1; ray.setFromCamera(mv, camera);
+  const ph = ray.intersectObjects(flags.filter(o => o.visible))[0];
+  if (ph) {   // over a pin's ball (a point or an area): its name and text
+    const v = ph.object.userData.v;
+    tip.innerHTML = "<b>" + esc(v.name || "point") + "</b>" + (v.desc ? "<br>" + esc(v.desc) : "");
+    tip.style.display = "block"; tip.style.left = Math.min(innerWidth - 330, ev.clientX + 14) + "px"; tip.style.top = (ev.clientY + 14) + "px"; return;
+  }
+  const hit = ray.intersectObject(terrain)[0]; if (!hit) { tip.style.display = "none"; return; }
+  const x = hit.point.x, y = -hit.point.z, e = S.c;
+  const sl = Math.atan(Math.hypot(sample(x + e, y) - sample(x - e, y), sample(x, y + e) - sample(x, y - e)) / (2 * e)) / RAD;
+  const ci = Math.floor((x + S.R) / S.c), cj = Math.floor((S.R - y) / S.c), miss = ci >= 0 && cj >= 0 && ci < S.n && cj < S.n && S.bad[cj * S.n + ci];
+  const fx = (sample(x + e, y) - sample(x - e, y)) / (2 * e), fy = (sample(x, y + e) - sample(x, y - e)) / (2 * e);
+  const face = sl >= 3 ? " facing " + FACE_CL[Math.round(facingOf(fx, fy, S.gam) / 45) % 8][0] + " (" + Math.round(facingOf(fx, fy, S.gam)) + "°)" : "";
+  let html = (miss ? "<b>No DTM data here</b> — the surface is a smooth fill · " : "") + Math.round(sample(x, y)) + " m a.s.l. · slope " + Math.round(sl) + "°" + face + " · " + Math.round(Math.hypot(x, y)) + " m from centre";
+  if ($("lySun").checked && S.sunAvg) html += "<br>Sun, average " + $("mLbl").textContent.replace(/ \(.*\)/, "") + ": <b>" + sunAt(S, x, y).toFixed(2) + " kWh/m² per day</b> (clear sky, direct)";
+  if (SUN && $("lmode").value === "sun") {
+    const r = surfIrr(x, y, SUN.p.el, SUN.p.az, SUN.Ib);
+    html += "<br>Sun now: " + (SUN.p.el <= 0 ? "below the horizon" : r.sh ? "in terrain shadow" : r.self ? "face turned away" : Math.round(r.w) + " W/m² direct") + " · day total " + dayTotal(x, y).toFixed(1) + " kWh/m² (clear sky, direct)";
+  }
+  tip.innerHTML = html; tip.style.display = "block"; tip.style.left = Math.min(innerWidth - 330, ev.clientX + 14) + "px"; tip.style.top = (ev.clientY + 14) + "px";
+});
+canvas.addEventListener("pointerleave", () => tip.style.display = "none");
+let down = null;
+canvas.addEventListener("pointerdown", ev => { down = [ev.clientX, ev.clientY]; });
+canvas.addEventListener("pointerup", ev => {
+  if (!down || Math.hypot(ev.clientX - down[0], ev.clientY - down[1]) > 6) return;
+  mv.x = ev.clientX / innerWidth * 2 - 1; mv.y = -ev.clientY / innerHeight * 2 + 1; ray.setFromCamera(mv, camera);
+  if (measOn) { const hit = ray.intersectObject(terrain)[0]; if (hit) measAdd(hit.point.x, -hit.point.z); return; }
+  const f = ray.intersectObjects(flags.filter(o => o.visible))[0];
+  if (f) { pointMenu(f.object.userData.v.x, f.object.userData.v.y, ev.clientX, ev.clientY, f.object.userData.v); return; }
+  const hit = ray.intersectObject(terrain)[0]; if (hit) pointMenu(hit.point.x, -hit.point.z, ev.clientX, ev.clientY); else $("pmenu").hidden = true;
+});
+// A tap on the terrain or a pin: the point (a pin's name and text first), its coordinates and height. The aerial
+// photo is the 🛰 map control (owner, 2026-10-15: "remove the norgeskart click at map point popup. Instead add an
+// air-photo icon to right hand control").
+function pointMenu(x, y, cx, cy, v) {   // v: a file's point → its name and text first
+  const [la, lo] = UTM.inv(S.X + x, S.Y + y, S.zone);
+  $("pmenuT").innerHTML = (v ? "<b>" + esc(v.name || "point") + "</b>" + (v.desc ? '<div style="margin:4px 0 6px;white-space:normal">' + esc(v.desc) + "</div>" : "<br>") : "") +
+    (v ? "" : "<b>") + la.toFixed(5) + ", " + lo.toFixed(5) + (v ? "" : "</b>") + " · " + Math.round(sample(x, y)) + " m a.s.l.";
+  const m = $("pmenu"); m.hidden = false;
+  m.style.left = Math.max(8, Math.min(innerWidth - m.offsetWidth - 8, cx + 10)) + "px"; m.style.top = Math.max(8, Math.min(innerHeight - m.offsetHeight - 8, cy + 10)) + "px";
+}
+$("pmenuX").onclick = () => { $("pmenu").hidden = true; };
+// 🛰: norgeskart.no's aerial photo (Kartverket's Norge i bilder — it cannot be draped here: its tile service needs a
+// Norge digitalt token) centred where the view looks, zoomed to about what is on screen. Norgeskart takes the centre
+// as UTM 33 (EUREF89) northing (lat) / easting (lon).
+$("aerial").onclick = () => {
+  if (!S) return;
+  const x = controls.target.x, y = -controls.target.z, [la, lo] = UTM.inv(S.X + x, S.Y + y, S.zone), [e33, n33] = UTM.fwd(la, lo, 33);
+  const w = 2 * camera.position.distanceTo(controls.target), z = Math.max(8, Math.min(18, Math.round(Math.log2(156543 * Math.cos(la * RAD) * innerWidth / w))));
+  open("https://www.norgeskart.no/?zoom=" + z + "&lat=" + n33.toFixed(1) + "&lon=" + e33.toFixed(1) + "&backgroundLayer=Nibcache_UTM33_EUREF89_v2&rotation=0", "_blank", "noopener");
+};
+// 🐦: BirdsWhere centred on the locality — the view's own centre, its pin dropped there (?lat=&lon=&zoom=), zoomed so
+// the view's square fits (owner, 2026-10-16: "add a button to open thebirding.site centered on the locality center")
+$("birdswhere").onclick = () => {
+  if (!S) return;
+  const [la, lo] = UTM.inv(S.X, S.Y, S.zone);
+  const z = Math.max(8, Math.min(16, Math.round(Math.log2(156543 * Math.cos(la * RAD) * Math.min(innerWidth, innerHeight) / (2.4 * S.R)))));
+  open("https://thebirding.site/?lat=" + la.toFixed(5) + "&lon=" + lo.toFixed(5) + "&zoom=" + z, "_blank", "noopener");
+};
+
+// ---- measuring (owner, 2026-10-12: "a measuring tool, measuring distance horizontal and vertical"):
+// tap two points on the terrain → horizontal distance, height difference, distance along the line,
+// slope and true bearing; heights come from the terrain at each point (the smoothing chosen above).
+let measOn = false, measPts = [], measObj = [];
+function measClear() { measObj.forEach(o => { world.remove(o); if (o.geometry) o.geometry.dispose(); }); measObj = []; measPts = []; $("meas").hidden = true; draw(); }
+function measMark(x, y) {
+  const z = sample(x, y) - S.h0, m = new THREE.Mesh(new THREE.SphereGeometry(3 * Math.max(0.5, S.R / 1000), 12, 8), new THREE.MeshBasicMaterial({ color: 0xffd54f, depthTest: false }));
+  m.position.set(x, z, -y); m.renderOrder = 6; world.add(m); measObj.push(m);
+}
+function measAdd(x, y) {
+  if (measPts.length >= 2) { measClear(); $("meas").hidden = false; }
+  measPts.push([x, y]); measMark(x, y);
+  if (measPts.length === 1) { $("meas").hidden = false; $("measT").innerHTML = "📏 Point 1 at <b>" + Math.round(sample(x, y)) + " m</b> a.s.l. — tap the second point."; draw(); return; }
+  const [a, b] = measPts, za = sample(a[0], a[1]), zb = sample(b[0], b[1]);
+  const hd = Math.hypot(b[0] - a[0], b[1] - a[1]), dz = zb - za, d3 = Math.hypot(hd, dz);
+  const ang = hd > 0 ? Math.atan(Math.abs(dz) / hd) / RAD : 90, brg = ((Math.atan2(b[0] - a[0], b[1] - a[1]) / RAD - S.gam) % 360 + 360) % 360;
+  const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(a[0], za - S.h0, -a[1]), new THREE.Vector3(b[0], zb - S.h0, -b[1])]);
+  const ln = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xffd54f, depthTest: false })); ln.renderOrder = 6; world.add(ln); measObj.push(ln);
+  const f = v => v >= 1000 ? (v / 1000).toFixed(2) + " km" : v.toFixed(1) + " m";
+  $("measT").innerHTML = "📏 Horizontal <b>" + f(hd) + "</b><br>Vertical <b>" + (dz >= 0 ? "+" : "−") + Math.abs(dz).toFixed(1) + " m</b> (" + Math.round(za) + " → " + Math.round(zb) + " m a.s.l.)" +
+    "<br>Along the line " + f(d3) + " · slope " + ang.toFixed(1) + "° (" + (hd > 0 ? Math.round(100 * Math.abs(dz) / hd) : "∞") + " %)<br>Bearing " + Math.round(brg) + "° true · tap again for a new measurement";
+  draw();
+}
+$("measure").onclick = () => {
+  measOn = !measOn; $("measure").classList.toggle("on", measOn);
+  if (measOn) { $("meas").hidden = false; $("measT").innerHTML = "📏 Tap the first point on the terrain."; } else measClear();
+};
+$("measX").onclick = () => { measOn = false; $("measure").classList.remove("on"); measClear(); };
+function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); draw(); }
+addEventListener("resize", resize);
+let pending = false;
+function draw() { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; renderer.render(scene, camera); }); }
+controls.addEventListener("change", draw);
+(function loop() { requestAnimationFrame(loop); if (controls.update()) draw(); })();
+resize();
+
+// ---- folders on a web server (GitHub Pages): <folder>/index.json = {"files": [...]} — a server cannot list a directory
+async function loadURL(base) {
+  if (!base) return;
+  if (!base.endsWith("/")) base += "/";
+  busy("Opening " + base + " …");
+  try {
+    const r = await fetch(base + "index.json"); if (!r.ok) throw new Error("no index.json there (HTTP " + r.status + ")");
+    const ix = await r.json(), names = Array.isArray(ix) ? ix : ix.files;
+    const items = names.map(nm => ({ name: nm.split("/").pop(), url: new URL(nm, new URL(base, location.href)).href }));
+    SRC = null; await loadFolder(items);
+    const q = new URL(location.href); q.searchParams.set("folder", base); history.replaceState(null, "", q);
+  } catch (e) { busy(false); $("dsrc").textContent = "Could not open " + base + ": " + e.message; }
+}
+$("openurl").onclick = () => loadURL($("furl").value.trim());
+
+// ---- Google Drive (owner 2026-10-12: "support loading from a shared google drive link"): sign in with
+// Google (the BirdsWhere OAuth client, read-only Drive), list a shared folder through the Drive API and read
+// its files with the token — the files stay private to the accounts they are shared with. The token lives
+// in memory only. Needs a page served from an origin the OAuth client allows (not a file:// copy).
+const GCLIENT = "309967713424-o0vgr5cgb1t8bvc9pk78br2mmo4v8kkm.apps.googleusercontent.com";
+const GSCOPE = "https://www.googleapis.com/auth/drive.readonly";
+let gToken = null;
+function driveId(link) {
+  const m = /\/folders\/([\w-]{10,})/.exec(link) || /\/file\/d\/([\w-]{10,})/.exec(link) || /[?&]id=([\w-]{10,})/.exec(link) || /^([\w-]{20,})$/.exec(link.trim());
+  return m ? m[1] : null;
+}
+function gsiLoad() {
+  if (window.google && google.accounts && google.accounts.oauth2) return Promise.resolve();
+  return new Promise((ok, no) => { const sc = document.createElement("script"); sc.src = "https://accounts.google.com/gsi/client"; sc.onload = ok; sc.onerror = () => no(new Error("could not load Google sign-in")); document.head.appendChild(sc); });
+}
+function gSignIn() {
+  return gsiLoad().then(() => new Promise((ok, no) => {
+    const tc = google.accounts.oauth2.initTokenClient({ client_id: GCLIENT, scope: GSCOPE,
+      callback: r => r && r.access_token ? ok(gToken = r.access_token) : no(new Error((r && r.error) || "sign-in cancelled")),
+      error_callback: e => no(new Error((e && e.message) || (e && e.type) || "sign-in failed")) });
+    tc.requestAccessToken({ prompt: gToken ? "" : "consent" });
+  }));
+}
+async function gapi(path) {
+  const r = await fetch("https://www.googleapis.com/drive/v3/" + path, { headers: { Authorization: "Bearer " + gToken } });
+  if (!r.ok) { const t = await r.text(); throw new Error("Drive " + r.status + (/insufficient|scope/i.test(t) ? " — the sign-in did not grant Drive read access" : r.status === 404 ? " — not found, or not shared with this Google account" : "")); }
+  return r.json();
+}
+async function gList(folder, depth) {   // a folder's files (sub-folders two levels down), name → id
+  const out = []; let tok = "";
+  do {
+    const q = encodeURIComponent("'" + folder + "' in parents and trashed = false");
+    const j = await gapi("files?q=" + q + "&fields=nextPageToken,files(id,name,mimeType)&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true" + (tok ? "&pageToken=" + tok : ""));
+    for (const f of j.files) {
+      if (f.mimeType === "application/vnd.google-apps.folder") { if (depth < 2) out.push(...await gList(f.id, depth + 1)); }
+      else out.push(f);
+    }
+    tok = j.nextPageToken || "";
+  } while (tok);
+  return out;
+}
+$("gopen").onclick = async () => {
+  const link = $("gurl").value.trim(), id = driveId(link);
+  if (!id) { $("dsrc").textContent = "That does not look like a Google Drive file or folder link."; return; }
+  try {
+    if (location.protocol === "file:") throw new Error("Google sign-in needs the viewer opened from its web address, not from a downloaded file");
+    await gSignIn();
+    busy("Listing the Drive folder…");
+    const meta = await gapi("files/" + id + "?fields=id,name,mimeType&supportsAllDrives=true");
+    const files = meta.mimeType === "application/vnd.google-apps.folder" ? await gList(id, 0) : [meta];
+    const hdr = { Authorization: "Bearer " + gToken };
+    const items = files.filter(f => /\.(tiff?|json|geojson|kml|kmz|jpe?g|png)$/i.test(f.name))
+      .map(f => ({ name: f.name, url: "https://www.googleapis.com/drive/v3/files/" + f.id + "?alt=media&supportsAllDrives=true", headers: hdr }));
+    if (!items.length) throw new Error("no .tif / .geojson / .kml / .kmz files in “" + meta.name + "”");
+    SRC = null; await loadFolder(items);
+    $("dsrc").textContent = "Google Drive: “" + meta.name + "” · " + $("dsrc").textContent;
+    const q = new URL(location.href); q.searchParams.delete("folder"); q.searchParams.set("drive", link); history.replaceState(null, "", q);
+  } catch (e) { busy(false); $("dsrc").textContent = "Google Drive: " + e.message; }
+};
+async function catalog() {   // scenes/index.json next to the viewer: the folders it offers
+  try {
+    const r = await fetch("scenes/index.json"); if (!r.ok) return null;
+    const cat = await r.json(), sel = $("cat");
+    sel.innerHTML = '<option value="">— pick —</option>' + cat.map(c => '<option value="' + esc(c.path) + '">' + esc(c.title || c.name) + "</option>").join("");
+    sel.onchange = () => { if (sel.value) { $("furl").value = new URL(sel.value, location.href).href; loadURL($("furl").value); } };
+    $("catrow").hidden = false; return cat;
+  } catch (e) { return null; }
+}
+// ---- sharing (owner 2026-10-12: "it must allow sharing of terrains between two users"): the link opens the
+// same folder for someone else — a Drive folder (they sign in with their own Google account; the folder
+// must be shared with it in Drive) or a folder URL — at the same date and time
+$("share").onclick = async () => {
+  const u = new URL(location.href.split("?")[0]), drv = new URL(location.href).searchParams.get("drive"), fol = new URL(location.href).searchParams.get("folder");
+  if (drv) u.searchParams.set("drive", drv); else if (fol) u.searchParams.set("folder", fol);
+  else { $("shr").hidden = false; $("shr").textContent = "Only a terrain opened from Google Drive or a web folder can be shared as a link — files from this device stay here."; return; }
+  u.searchParams.set("day", $("day").value); u.searchParams.set("tod", $("tod").value);
+  const link = u.href; let how = "";
+  try { if (navigator.share) { await navigator.share({ title: "Terrain 3D", url: link }); how = "Shared."; } } catch (e) {}
+  if (!how) { try { await navigator.clipboard.writeText(link); how = "Link copied."; } catch (e) { how = "Copy this link:"; } }
+  $("shr").hidden = false;
+  $("shr").innerHTML = esc(how) + " " + (drv ? "The other person signs in with their own Google account — share the Drive folder with it first (Drive → Share → their address, Viewer)." : "") +
+    '<br><input type="text" readonly style="width:100%" value="' + esc(link) + '">';
+};
+// ---- inputs
+const pick = ev => { const fs = [...ev.target.files].map(f => ({ name: f.name, blob: f })); if (fs.length) { SRC = null; loadFolder(fs); } };
+$("fdir").onchange = pick; $("ffiles").onchange = pick;
+$("render").onclick = () => render();
+let keepCam = false;
+$("basemap").onchange = () => repaint();
+$("wbSel").onchange = () => repaint();
+$("lyContours").onchange = $("lySlope").onchange = $("lyFacing").onchange = () => { $("lgSlope").hidden = !$("lySlope").checked; $("lgFacing").hidden = !$("lyFacing").checked; repaint(); };
+$("lyMarkers").onchange = () => { repaint(); applyVis(); };
+// the average sun and the sun at a date and time exclude each other (owner, 2026-10-14: "when user toggles Sun:
+// average direct radiation on, the other sunlight controls should gray out and be turned off"): on → the day
+// play stops, the light goes to the fixed (neutral) light, the date / time controls grey out; off → they come
+// back as they were
+let sunPrevMode = null;
+function sunAvgLock(on) {
+  const ids = ["lmode", "tz", "day", "tod", "now", "play"];
+  if (on) {
+    if (playT) $("play").onclick();                                   // stop the day animation
+    if (sunPrevMode === null) sunPrevMode = $("lmode").value;
+    $("lmode").value = "fixed";
+  } else if (sunPrevMode !== null) { $("lmode").value = sunPrevMode; sunPrevMode = null; }
+  ids.forEach(id => { $(id).disabled = on; });
+  ["day", "tod", "lmode", "now"].forEach(id => { $(id).closest(".row").style.opacity = on ? 0.45 : ""; });   // the whole rows dim, labels too
+  $("sunv").style.opacity = on ? 0.45 : "";
+  updateSun();
+}
+$("lySun").onchange = async () => {
+  $("sunBox").hidden = !$("lySun").checked;
+  sunAvgLock($("lySun").checked);
+  if ($("lySun").checked && S && !S.sunM) await sunMonthly(S);
+  if (S) { sunAverage(S); sunLegend(S); }
+  repaint();
+};
+let sunT = null;
+const sunRange = () => { monthUI(); if (!S || !S.sunM) return; sunAverage(S); sunLegend(S); clearTimeout(sunT); sunT = setTimeout(repaint, 150); };
+$("mFrom").oninput = $("mTo").oninput = sunRange;
+$("mAll").onclick = () => { $("mFrom").value = 1; $("mTo").value = 12; sunRange(); };
+monthUI();
+$("csmooth").onchange = $("csig").onchange = () => { if (SRC) { keepCam = true; render(); } };
+setNow();
+// a standalone file carries its folder inside
+(async function () {
+  const raw = $("embed").textContent.trim();
+  if (raw && raw[0] === "{") $("dataSec").open = false;   // a standalone file carries its data: the Data section starts closed
+  if (!raw || raw[0] !== "{") {     // the plain viewer: ?folder=URL, else the site's own catalog
+    const sp = new URL(location.href).searchParams, f = sp.get("folder"), dl = sp.get("drive");
+    if (f || dl) $("dataSec").open = !!dl && !f;   // opened from a link: closed (a Drive link stays open — its sign-in button is in there)
+    if (sp.get("day")) { $("day").value = sp.get("day"); $("tod").value = sp.get("tod") || 720; updateSun(); }
+    if (dl) {   // the sign-in popup needs a tap: one big button for it
+      $("gurl").value = dl; $("dsrc").textContent = "A Google Drive link is filled in: press “Sign in & open”.";
+      $("gate").hidden = false;
+      $("gateGo").onclick = () => { $("gate").hidden = true; $("gopen").onclick(); };
+      $("gateX").onclick = () => { $("gate").hidden = true; if ($("info").classList.contains("min")) $("infoMin").onclick(); };
+    }
+    await catalog();
+    if (f) { $("furl").value = f; await loadURL(f); }
+    return;
+  }
+  const E = JSON.parse(raw), items = [];
+  for (const nm in E.files) items.push({ name: nm, blob: await (await fetch("data:application/octet-stream;base64," + E.files[nm])).blob() });
+  await loadFolder(items);
+})();
+</script>
+</body></html>

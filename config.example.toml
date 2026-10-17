@@ -1,0 +1,14 @@
+# terrain3d — where the data lives. Copy to config.toml (next to the scripts), or to
+# ~/.config/terrain3d/config.toml, or point $TERRAIN3D_CONFIG at it. Every key is optional.
+
+# The 1 km tiles of Kartverket's 1 m terrain model, fetched once from the Geonorge WCS and kept
+# as <dtm1_tiles>/tiles/E<km>_N<km>.tif (EPSG:25833). Default ~/.cache/terrain3d/dtm1.
+dtm1_tiles = "~/.cache/terrain3d/dtm1"
+
+# The base-map tiles (Kartverket topo) draped onto each view. Default ~/.cache/terrain3d/maps.
+map_tiles = "~/.cache/terrain3d/maps"
+
+# Optional: Kartverket's N250 map data as a file geodatabase (Basisdata_0000_Norge_25833_N250Kartdata_FGDB.gdb,
+# free from geonorge.no). With it, the habitat rules know each cliff's distance to the nearest building and
+# road, tell quarries apart, and leave out islands with a building. Without it those are unknown.
+# n250 = "/data/Basisdata_0000_Norge_25833_N250Kartdata_FGDB.gdb"
