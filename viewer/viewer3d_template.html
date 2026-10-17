@@ -150,8 +150,8 @@
 <div id="pickBar" class="panel"><button class="minb" id="pickX" title="Close the map">×</button>
   <div style="padding-right:30px;margin-bottom:4px"><b>Tap the map</b> where you want the 3-D view, then build it.</div>
   <div class="row w"><label>Terrain model <select id="pickRes" style="width:auto"><option value="1">1 m (view radius up to 5 km)</option><option value="10">10 m (view radius up to 15 km)</option><option value="n">1 m centre + 10 m around (up to 15 km)</option></select></label></div>
-  <div class="row w"><label title="How far the 3-D view reaches from the tapped point — the yellow circle on the map">View radius <input id="pickRad" type="number" min="100" max="5000" step="50" value="1000" style="width:72px"> m from the point</label>
-    <label id="pickR1Box" hidden title="The 1 m model covers this far from the point; the 10 m model the rest of the view">1 m detail within <input id="pickRad1" type="number" min="100" max="1500" step="50" value="1000" style="width:64px"> m</label></div>
+  <div class="row w"><label title="How far the 3-D view reaches from the tapped point — the yellow circle on the map">View radius <input id="pickRad" type="number" min="0.1" max="5" step="0.1" value="1" style="width:64px"> km from the point</label>
+    <label id="pickR1Box" hidden title="The 1 m model covers this far from the point; the 10 m model the rest of the view">1 m detail within <input id="pickRad1" type="number" min="0.1" max="1.5" step="0.1" value="1" style="width:56px"> km</label></div>
   <div class="row w"><button id="pickGo" disabled>Build 3-D view</button></div>
   <div class="sub" id="pickS" style="margin:4px 0 0"></div>
 </div></div>
@@ -1679,8 +1679,9 @@ function leafletLoad() {
   });
 }
 const resOf = () => $("pickRes").value === "n" ? "n" : +$("pickRes").value;
-const pickRad = () => { const res = resOf(), r = Math.max(100, Math.min(RMAX[res], Math.round(+$("pickRad").value || 1000))); $("pickRad").max = RMAX[res]; $("pickRad").value = r; return r; };
-const pickRad1 = () => { const r = Math.max(100, Math.min(1500, pickRad(), Math.round(+$("pickRad1").value || 1000))); $("pickRad1").value = r; return r; };
+// the picker's radii are typed in km (owner, 2026-10-17: "write radius in km not m"); inside, everything stays in metres
+const pickRad = () => { const res = resOf(), r = Math.max(100, Math.min(RMAX[res], Math.round((+$("pickRad").value || 1) * 20) * 50)); $("pickRad").max = RMAX[res] / 1000; $("pickRad").value = r / 1000; return r; };
+const pickRad1 = () => { const r = Math.max(100, Math.min(1500, pickRad(), Math.round((+$("pickRad1").value || 1) * 20) * 50)); $("pickRad1").value = r / 1000; return r; };
 function pickInfo() {
   const R = pickRad(), res = resOf(), R1 = pickRad1(); $("pickR1Box").hidden = res !== "n";
   if (lcirc) lcirc.setRadius(R);
@@ -1688,7 +1689,7 @@ function pickInfo() {
   if (!pickLL) { $("pickS").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0), fetched when you build."; return; }
   if (!ok) { $("pickS").textContent = "Kartverket's terrain model covers Norway only."; return; }
   const pl = wcsPlan(pickLL[0], pickLL[1], R, res, R1);
-  $("pickS").textContent = "Point " + pickLL[0].toFixed(5) + ", " + pickLL[1].toFixed(5) + " · a " + (2 * R >= 1000 ? (2 * R / 1000) + " km" : 2 * R + " m") + " square round it" + (res === "n" ? " (1 m detail in the middle " + (2 * R1) + " m)" : "") + " · " + pl.items.length + " tile" + (pl.items.length > 1 ? "s" : "") + " ≈ " + (pl.mb < 10 ? pl.mb.toFixed(1) : Math.round(pl.mb)) + " MB to fetch (cached for next time)";
+  $("pickS").textContent = "Point " + pickLL[0].toFixed(5) + ", " + pickLL[1].toFixed(5) + " · a " + (2 * R >= 1000 ? (2 * R / 1000) + " km" : 2 * R + " m") + " square round it" + (res === "n" ? " (1 m detail in the middle " + (2 * R1 / 1000) + " km)" : "") + " · " + pl.items.length + " tile" + (pl.items.length > 1 ? "s" : "") + " ≈ " + (pl.mb < 10 ? pl.mb.toFixed(1) : Math.round(pl.mb)) + " MB to fetch (cached for next time)";
 }
 function pickSet(lat, lon) {
   pickLL = [lat, lon];

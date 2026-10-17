@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-17 — the picker's radii in km
+
+Owner: "In map selection, write radius in km not m". The map picker's "View radius" and "1 m detail within" are typed in km (0.1 km steps; 5 / 15 and 1.5 km limits); the Data section still shows metres.
+
 ## 2026-10-17 — the nesting-habitat rules run in the browser on map-built views
 
 `viewer/habitat.js` (a JavaScript copy of `lib/habitat.py`, both reading `rules.json`; `tests/parity.py` holds them together: 99.8 % area overlap, identical names and texts on the Preikestolen demo) is inlined into the viewer like the libraries. After a map-built 1 m view renders, the rules run on its fine grid (1–2 m cells); OpenStreetMap buildings, roads (a point every 25 m) and quarries from Overpass (three mirrors, 20 s each) stand in for N250; the areas, the steepest point and the layer's legend are added to the view and its files, so Save keeps them. The Birds group starts switched off as before.
