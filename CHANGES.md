@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-17 — the picker: the wheel sets the radius, the square is drawn; radii as text in the Data section
+
+Owner: "In the map picture user gives center and radius. Radius in km, in settings pane the given radius and dtm resolution is show as text. When user selects in map he rolling mouse wheel changes radius. Also a indicative square is shown." On the map, once a point is tapped, the mouse wheel changes the view radius (100 m to 1 km steps by size; + / − and pinch still zoom the map) and the view's square — the block exactly, in the UTM grid — is drawn in yellow, the 1 m detail square dashed white in the nested model, instead of the circle. The Data section shows "Terrain model: … · view radius … · 1 m detail within …" as text; the inputs behind it feed Render.
+
 ## 2026-10-17 — the picker's radii in km
 
 Owner: "In map selection, write radius in km not m". The map picker's "View radius" and "1 m detail within" are typed in km (0.1 km steps; 5 / 15 and 1.5 km limits); the Data section still shows metres.
