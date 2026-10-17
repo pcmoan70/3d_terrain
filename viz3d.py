@@ -34,7 +34,7 @@ from lib import dtm, habitat
 from lib.config import CFG
 
 D = os.path.dirname(os.path.abspath(__file__))
-LIBS = {"/*THREE*/": "vendor/three.min.js", "/*ORBIT*/": "vendor/OrbitControls.js", "/*GEOTIFF*/": "vendor/geotiff.js", "/*HABITAT*/": "viewer/habitat.js"}
+LIBS = {"/*THREE*/": "vendor/three.min.js", "/*ORBIT*/": "vendor/OrbitControls.js", "/*GEOTIFF*/": "vendor/geotiff.js"}
 ap = argparse.ArgumentParser(description=__doc__.splitlines()[0]); ap.add_argument("lat", type=float); ap.add_argument("lon", type=float)
 ap.add_argument("--name", default="site"); ap.add_argument("--radius", type=float, default=1000.0)
 ap.add_argument("--res", type=int, choices=(1, 10), default=1, help="the model's resolution, m (10: radius up to 15 km, no habitat)")

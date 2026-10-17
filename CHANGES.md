@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-17 — no cliff layer in the viewer
+
+Owner: "remove 'Cliffs, quarries and islets' and the whole Birds sub section". The viewer no longer runs the cliff rules on a map-built view (the browser copy of the rules, `viewer/habitat.js`, its Overpass lookup of buildings, roads and quarries, and `tests/parity.py` are gone), and the Preikestolen demo lost its `habitat.geojson`. A map-built view is terrain, sun and the Terrain features only. The packager `viz3d.py` still writes a `habitat.geojson` (`lib/habitat.py`, `rules.json`), which the viewer shows as an ordinary overlay file under Map, starting switched off. README.
+
 ## 2026-10-17 — the Birds section is gone
 
 Owner: "remove the 'Birds' dropdown subpane in 3d viewer". Every overlay file now lists under Map, after CORINE. `group: "birds"` in scene.json keeps one meaning: that layer starts switched off (the cliff layer of a built view too). Sections: Map, Terrain features, Sun, Data. README.
