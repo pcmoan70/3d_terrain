@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-17 — pick a place on a flat map, the terrain fetched from Kartverket
+
+Owner: "Add the dtm builder to the web app, user is given a flat map and selects a point where upon to build and view the 3d view." The viewer opens on a flat map (Leaflet 1.9.4 from cdnjs, loaded on demand; Kartverket topo); a tap sets the centre, the circle shows the radius, the bar gives the download size; **Build 3-D view** fetches the tiles from the Geonorge WCS (1 km at 1 m or 10 km at 10 m; coarser cells for a wide 1 m view) with exponential backoff, keeps them in the Cache API (120 tiles), and renders. `?lat=&lon=&r=&res=` opens a view by link; Share… makes that link; 🗺 in the Data section reopens the map. WCS tiles are sparse GeoTIFFs (sea blocks left out), which geotiff.js cannot read — the missing blocks are pointed at one zero block (the model's sea is 0 m). The 10 m model allows a 15 km radius (3000² grid); its contours are 20 m / 100 m. Checked in Chrome: Preikestolen at 1 m (9 tiles, 36 MB, ~8 s) and Jotunheimen at 10 m, 8 km.
+
 ## 2026-10-17 — own repository
 
 The 3-D terrain viewer, its two scripts and the demo site moved here from the BirdsWhere workspace (where the viewer was served as `thebirding.site/terrain3d/`, versions v2081–v2119 of its CHANGES) and from a private owl-project folder. No change in what they do:

@@ -58,6 +58,10 @@
   .mrange input[type=range]::-moz-range-track{background:none}
   .mtrack{position:absolute;left:9px;right:9px;top:11px;height:4px;background:#445;border-radius:2px}
   .mfill{position:absolute;top:0;height:4px;background:#ffd54f;border-radius:2px}
+  #pick{position:absolute;inset:0;z-index:30;background:#1d2228}
+  #pickMap{position:absolute;inset:0;background:#c8d4dc}
+  #pickBar{position:absolute;left:10px;right:10px;bottom:10px;margin:auto;max-width:440px;z-index:1000;font-size:13px}
+  #pickBar .minb{top:6px}
 </style></head><body>
 <canvas id="c"></canvas>
 <!-- one column on the left (owner, 2026-10-15: "Let the controls on the left side … be one column, not two. Also make
@@ -67,7 +71,7 @@
   <button class="minb" id="infoMin" title="Minimise / restore">−</button>
   <h1 id="ttl">Terrain 3D</h1>
   <div class="body">
-    <div class="sub" id="sub">A viewer for 1 m terrain models (DTM) of Norway: open a folder with DTM GeoTIFF tiles (Kartverket, any UTM zone) and any .geojson / .kml / .kmz overlays.</div>
+    <div class="sub" id="sub">A viewer for 1 m terrain models (DTM) of Norway: pick a place on the map and the terrain is fetched from Kartverket, or open a folder with DTM GeoTIFF tiles (any UTM zone) and any .geojson / .kml / .kmz overlays.</div>
     <div class="row">Height ×<input id="ex" type="range" min="1" max="3" step="0.1" value="1.5"><span id="exv">1.5</span></div>
     <div class="row"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="csmooth" checked> Smooth terrain, σ</label><input id="csig" type="number" min="0.5" max="5" step="0.5" value="1.5" style="width:56px"> m</div>
     <div class="row"><button id="reset">Reset view</button><button id="top">Top view</button></div>
@@ -110,6 +114,7 @@
     </details>
     <!-- collapsible (owner, 2026-10-15: "the data subsection should be collapsible"): closed when the view already has its data -->
     <details class="sec" id="dataSec" open><summary>Data</summary>
+      <div class="row w"><button id="pickBtn" title="Pick a place on a flat map; the terrain is fetched from Kartverket's model">🗺 Pick a place on the map…</button></div>
       <div class="row w"><label class="file">Open folder…<input id="fdir" type="file" webkitdirectory directory multiple></label>
         <label class="file">Open files…<input id="ffiles" type="file" multiple accept=".tif,.tiff,.json,.geojson,.kml,.kmz"></label></div>
       <div class="row w" id="catrow" hidden>Folder on this site <select id="cat" style="width:auto;max-width:180px"></select></div>
@@ -136,6 +141,16 @@
 <div id="zoom"><button id="zin" title="Zoom in">+</button><button id="zout" title="Zoom out">−</button></div>
 </div><button id="rsideOpen" title="Show the map controls" hidden>‹</button>
 <div id="gate" hidden style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,12,16,.6)"><div class="panel" style="position:static;max-width:340px;text-align:center"><div style="margin-bottom:10px">A terrain shared on Google Drive. Sign in with the Google account it is shared with to open it.</div><button id="gateGo" style="font-size:16px;padding:8px 14px">Sign in with Google to open</button><div style="margin-top:8px"><button id="gateX" style="background:#555">Not now</button></div></div></div>
+<!-- the flat map to pick a place on (owner, 2026-10-17: "user is given a flat map and selects a point where upon to build and view
+     the 3d view"): Leaflet loaded on demand, Kartverket topo; a tap sets the centre, the circle shows the radius; Build fetches the
+     terrain from the Geonorge WCS (1 km tiles at 1 m, 10 km tiles at 10 m) -->
+<div id="pick" hidden><div id="pickMap"></div>
+<div id="pickBar" class="panel"><button class="minb" id="pickX" title="Close the map">×</button>
+  <div style="padding-right:30px;margin-bottom:4px"><b>Tap the map</b> where you want the 3-D view.</div>
+  <div class="row w">Model <select id="pickRes" style="width:auto"><option value="1">1 m (radius ≤ 5 km)</option><option value="10">10 m (radius ≤ 15 km)</option></select>
+    Radius m <input id="pickRad" type="number" min="100" max="5000" step="50" value="1000" style="width:72px"><button id="pickGo" disabled>Build 3-D view</button></div>
+  <div class="sub" id="pickS" style="margin:4px 0 0"></div>
+</div></div>
 <div id="busy" hidden><span id="busyt">Working…</span></div>
 <script>/*THREE*/</script>
 <script>/*ORBIT*/</script>
@@ -277,7 +292,8 @@ async function loadFolder(items) {
         if (it.url) {   // ranged reads (GitHub Pages serves byte ranges); a server without them: the whole file
           try { tif = await GeoTIFF.fromUrl(it.url, { headers: it.headers || {}, allowFullFile: false }); img = await tif.getImage(); await img.readRasters({ window: [0, 0, 1, 1] }); }
           catch (e) { const r = await fetch(it.url, { headers: it.headers || {} }); if (!r.ok) throw new Error("HTTP " + r.status); tif = await GeoTIFF.fromBlob(await r.blob()); img = await tif.getImage(); }
-        } else { tif = await GeoTIFF.fromBlob(it.blob); img = await tif.getImage(); }
+        } else if (it.wcs) { ({ tif, img } = await sparseFix(it.blob)); }
+        else { tif = await GeoTIFF.fromBlob(it.blob); img = await tif.getImage(); }
         const gk = img.getGeoKeys() || {}, epsg = gk.ProjectedCSTypeGeoKey || 25833;
         tiles.push({ img, bbox: img.getBoundingBox(), res: img.getResolution(), zone: zoneOf(epsg), epsg, nodata: img.getGDALNoData() });
       } else if (nm === "scene.json") scene = JSON.parse(await it.blob.text());
@@ -305,6 +321,7 @@ async function loadFolder(items) {
     else { const b = tiles.reduce((a, t) => [Math.min(a[0], t.bbox[0]), Math.min(a[1], t.bbox[1]), Math.max(a[2], t.bbox[2]), Math.max(a[3], t.bbox[3])], [1e9, 1e9, -1e9, -1e9]); [lat, lon] = UTM.inv((b[0] + b[2]) / 2, (b[1] + b[3]) / 2, SRC.zone); }
   }
   $("clat").value = (+lat).toFixed(5); $("clon").value = (+lon).toFixed(5);
+  $("crad").max = rMax();
   if (scene.radius) $("crad").value = scene.radius;
   if (scene.sigma != null) { $("csig").value = scene.sigma || 1.5; $("csmooth").checked = scene.sigma > 0; }
   else if (scene.smoothed_sigma != null) { $("csmooth").checked = scene.smoothed_sigma > 0; if (scene.smoothed_sigma > 0) $("csig").value = scene.smoothed_sigma; }   // older folders: 0 = the DTM is already smoothed
@@ -313,9 +330,11 @@ async function loadFolder(items) {
 }
 
 // ======================================================================= build the scene from SRC
+// the largest radius: 5 km on 1 m tiles, 15 km on 10 m tiles (the grid stays ≤ 3000²: 1 m views above 1.5 km coarsen)
+function rMax() { return SRC && SRC.tiles.length && Math.min.apply(null, SRC.tiles.map(t => t.res[0])) >= 10 ? 15000 : 5000; }
 async function render() {
   if (!SRC) return;
-  const lat = +$("clat").value, lon = +$("clon").value, R = Math.max(100, Math.min(5000, Math.round(+$("crad").value || 1000))), sig = $("csmooth").checked ? Math.max(0, +$("csig").value || 0) : 0;
+  const lat = +$("clat").value, lon = +$("clon").value, R = Math.max(100, Math.min(rMax(), Math.round(+$("crad").value || 1000))), sig = $("csmooth").checked ? Math.max(0, +$("csig").value || 0) : 0;
   // the grid cell (m): the tiles' own resolution, coarser for a big view so the grid stays ≤ 3000 × 3000
   // (owner, 2026-10-13: a 3 km radius — 6000² cells at 1 m would not fit a phone's memory or textures)
   const c = Math.max(Math.max(1, Math.round(Math.min.apply(null, SRC.tiles.map(t => t.res[0])))), Math.ceil(2 * R / 3000));
@@ -508,18 +527,20 @@ function paintBase(S, base) {
       const o = 4 * k; d[o] = d[o] * (1 - al) + col[0] * al; d[o + 1] = d[o + 1] * (1 - al) + col[1] * al; d[o + 2] = d[o + 2] * (1 - al) + col[2] * al;
     }
   }
-  // contours: 5 m thin, 25 m bold
+  // contours: 5 m thin, 25 m bold on a 1–4 m grid; 20 m / 100 m on a coarser one (a 10 m view would drown in them)
+  const CI = c >= 5 ? 20 : 5, CB = CI * 5;
+  $("lyContours").parentNode.lastChild.textContent = " Contours (" + CI + " m, labelled every " + CB + " m)";
   if (ovl) for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
     const k = j * n + i; if (bad[k]) continue;
-    const q = Math.floor(hs[k] / 5), qr = Math.floor(hs[k + 1] / 5), qd = Math.floor(hs[k + n] / 5);
+    const q = Math.floor(hs[k] / CI), qr = Math.floor(hs[k + 1] / CI), qd = Math.floor(hs[k + n] / CI);
     if (q !== qr || q !== qd) {
-      const big = Math.floor(hs[k] / 25) !== Math.floor(hs[k + 1] / 25) || Math.floor(hs[k] / 25) !== Math.floor(hs[k + n] / 25);
+      const big = Math.floor(hs[k] / CB) !== Math.floor(hs[k + 1] / CB) || Math.floor(hs[k] / CB) !== Math.floor(hs[k + n] / CB);
       const kk = big ? [k, k + 1, k + n] : [k];
       for (const z of kk) { if (big) { d[4 * z] = d[4 * z] * .3 + 42; d[4 * z + 1] = d[4 * z + 1] * .3 + 21; d[4 * z + 2] = d[4 * z + 2] * .3 + 7; } else { d[4 * z] *= .55; d[4 * z + 1] *= .55; d[4 * z + 2] *= .55; } }
     }
   }
   cx.putImageData(im, 0, 0);
-  const px = (x, y) => [(x + R) / c, (R - y) / c], H2 = n / 2, L = 180 / c;
+  const px = (x, y) => [(x + R) / c, (R - y) / c], H2 = n / 2, L = Math.max(180 / c, 48);
   for (const a of areas) {
     if (!layerOn(a.src)) continue;
     cx.beginPath(); a.ring.forEach((p, i) => { const [u, v] = px(p[0], p[1]); i ? cx.lineTo(u, v) : cx.moveTo(u, v); }); cx.closePath();
@@ -527,15 +548,15 @@ function paintBase(S, base) {
     if ($("lyBold").checked) { cx.lineWidth = 9; cx.strokeStyle = "#ffffff"; cx.stroke(); cx.lineWidth = 4; cx.strokeStyle = a.col; cx.stroke(); }
     cx.lineWidth = 3; cx.strokeStyle = "#0f0f0f"; cx.stroke();
   }
-  // labels on the 25 m contours, ~180 m apart, never over the compass
+  // labels on the bold contours, ~180 m (at least 48 cells) apart, never over the compass
   cx.font = "bold 15px sans-serif"; cx.textAlign = "center"; cx.textBaseline = "middle";
   const placed = []; let seed = 1; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   for (let t = 0; ovl && t < 40000 && placed.length < 400; t++) {
     const i = 6 * Math.floor(rnd() * (n / 6 - 1)), j = 6 * Math.floor(rnd() * (n / 6 - 1)), k = j * n + i;
-    if (bad[k] || Math.floor(hs[k] / 25) === Math.floor(hs[k + 1] / 25) && Math.floor(hs[k] / 25) === Math.floor(hs[k + n] / 25)) continue;
+    if (bad[k] || Math.floor(hs[k] / CB) === Math.floor(hs[k + 1] / CB) && Math.floor(hs[k] / CB) === Math.floor(hs[k + n] / CB)) continue;
     if (Math.max(Math.abs(i - H2), Math.abs(j - H2)) > (R - 30) / c || placed.some(p => Math.abs(p[0] - i) < L && Math.abs(p[1] - j) < L)) continue;
     if (comp && Math.hypot(i - (comp.x + R) / c, j - (R - comp.y) / c) < (RC + 40) / c) continue;
-    const t_ = String(Math.round(hs[k] / 25) * 25), w = cx.measureText(t_).width;
+    const t_ = String(Math.round(hs[k] / CB) * CB), w = cx.measureText(t_).width;
     cx.fillStyle = "#faf8eb"; cx.fillRect(i - w / 2 - 3, j - 9, w + 6, 18); cx.fillStyle = "#5a2d0f"; cx.fillText(t_, i, j + 1); placed.push([i, j]);
   }
   // where the DTM is missing (filled), everything is greyed and hatched — the shape there is made up
@@ -1355,7 +1376,9 @@ async function catalog() {   // scenes/index.json next to the viewer: the folder
 // must be shared with it in Drive) or a folder URL — at the same date and time
 $("share").onclick = async () => {
   const u = new URL(location.href.split("?")[0]), drv = new URL(location.href).searchParams.get("drive"), fol = new URL(location.href).searchParams.get("folder");
+  const sp0 = new URL(location.href).searchParams;
   if (drv) u.searchParams.set("drive", drv); else if (fol) u.searchParams.set("folder", fol);
+  else if (sp0.get("lat") && sp0.get("lon")) ["lat", "lon", "r", "res"].forEach(k => { if (sp0.get(k)) u.searchParams.set(k, sp0.get(k)); });
   else { $("shr").hidden = false; $("shr").textContent = "Only a terrain opened from Google Drive or a web folder can be shared as a link — files from this device stay here."; return; }
   u.searchParams.set("day", $("day").value); u.searchParams.set("tod", $("tod").value);
   const link = u.href; let how = "";
@@ -1365,6 +1388,119 @@ $("share").onclick = async () => {
   $("shr").innerHTML = esc(how) + " " + (drv ? "The other person signs in with their own Google account — share the Drive folder with it first (Drive → Share → their address, Viewer)." : "") +
     '<br><input type="text" readonly style="width:100%" value="' + esc(link) + '">';
 };
+// ---- a place picked on a flat map → the terrain fetched from Kartverket's model (owner, 2026-10-17). The Geonorge WCS
+// serves the national 1 m model (EPSG:25833, CORS open) resampled to any size: 1 km tiles at 1 m, or 10 km tiles at
+// 10 m, and coarser cells for a wide 1 m view (a 3 km view asks 2 m tiles: a quarter of the bytes). Tiles are fetched
+// one after another with exponential backoff (1 … 60 s), kept in the Cache API, and handed to loadFolder like a folder.
+const WCS = "https://wcs.geonorge.no/skwms1/wcs.hoyde-dtm-nhm-25833?service=WCS&version=1.0.0&request=GetCoverage&coverage=NHM_DTM_25833&CRS=EPSG:25833&RESPONSE_CRS=EPSG:25833&FORMAT=GeoTIFF&BBOX={x0},{y0},{x1},{y1}&WIDTH={w}&HEIGHT={w}";
+const RMAX = { 1: 5000, 10: 15000 }, DTM_CACHE = "terrain3d-dtm", DTM_CACHE_MAX = 120;
+const inNorway = (lat, lon) => lat > 57.5 && lat < 71.5 && lon > 4 && lon < 31.5;
+function wcsPlan(lat, lon, R, res) {   // the tiles covering the ±R square, at the view's cell size
+  const T = res * 1000, cell = Math.max(res, Math.ceil(2 * R / 3000)), w = Math.round(T / cell), [X, Y] = UTM.fwd(lat, lon, 33), items = [];
+  for (let e = Math.floor((X - R) / T); e <= Math.floor((X + R - 1e-6) / T); e++)
+    for (let n = Math.floor((Y - R) / T); n <= Math.floor((Y + R - 1e-6) / T); n++)
+      items.push({ name: "E" + e + "_N" + n + "_" + cell + "m.tif", url: WCS.replace("{x0}", e * T).replace("{y0}", n * T).replace("{x1}", (e + 1) * T).replace("{y1}", (n + 1) * T).replace(/\{w\}/g, w) });
+  return { items, cell, mb: items.length * w * w * 4 / 1e6 };
+}
+// A WCS tile is a SPARSE GeoTIFF: blocks that are all sea are left out (offset 0, 0 bytes), which geotiff.js cannot
+// read. The whole file plus one zero-filled block is loaded instead, and every missing block is pointed at that block —
+// the model's sea is 0 m anyway (uncompressed Float32, so zero bytes are 0.0).
+async function sparseFix(blob) {
+  const buf = await blob.arrayBuffer();
+  let tif = await GeoTIFF.fromArrayBuffer(buf), img = await tif.getImage(), fd = img.fileDirectory;
+  let bc = fd.TileByteCounts || fd.StripByteCounts;
+  if (!bc || !Array.from(bc).some(v => v === 0)) return { tif, img };
+  const blk = Math.max.apply(null, Array.from(bc)), big = new Uint8Array(buf.byteLength + blk); big.set(new Uint8Array(buf));
+  tif = await GeoTIFF.fromArrayBuffer(big.buffer); img = await tif.getImage(); fd = img.fileDirectory;
+  bc = fd.TileByteCounts || fd.StripByteCounts; const off = fd.TileOffsets || fd.StripOffsets;
+  for (let i = 0; i < bc.length; i++) if (bc[i] === 0) { off[i] = buf.byteLength; bc[i] = blk; }
+  return { tif, img };
+}
+async function wcsFetch(it) {
+  let cache = null; try { cache = await caches.open(DTM_CACHE); } catch (e) {}
+  if (cache) { const c = await cache.match(it.url); if (c) return c.blob(); }
+  const waits = [1, 2, 4, 8, 16, 32, 60];
+  for (let k = 0; ; k++) {
+    let why;
+    try {
+      const r = await fetch(it.url);
+      if (r.ok) {
+        const b = await r.blob(), head = await b.slice(0, 2).text();
+        if (head === "II" || head === "MM") {
+          if (cache) { try { await cache.put(it.url, new Response(b, { headers: { "content-type": "image/tiff" } })); const ks = await cache.keys(); for (let i = 0; i < ks.length - DTM_CACHE_MAX; i++) await cache.delete(ks[i]); } catch (e) {} }
+          return b;
+        }
+        if (head === "<?" || head === "<S" || head === "<o" || head === "<E") return null;   // an OGC exception: no data here (sea, abroad)
+        why = "unexpected reply (" + b.size + " bytes)";
+      } else if (r.status !== 429 && r.status >= 400 && r.status < 500) return null;
+      else why = "HTTP " + r.status;
+    } catch (e) { why = e.message; }
+    if (k >= waits.length) throw new Error(it.name + ": " + why);
+    busy("Terrain tile " + it.name + ": " + why + " — retry in " + waits[k] + " s"); await new Promise(r => setTimeout(r, waits[k] * 1000));
+  }
+}
+async function buildAt(lat, lon, R, res) {
+  res = RMAX[res] ? res : 1; R = Math.max(100, Math.min(RMAX[res], Math.round(R || 1000)));
+  if (!inNorway(lat, lon)) { $("dsrc").textContent = "Kartverket's terrain model covers Norway only."; return; }
+  const plan = wcsPlan(lat, lon, R, res), items = []; let done = 0, missing = 0;
+  busy("Fetching the terrain… 0 / " + plan.items.length);
+  try {
+    for (const it of plan.items) {
+      const b = await wcsFetch(it); if (b) items.push({ name: it.name, blob: b, wcs: true }); else missing++;
+      busy("Fetching the terrain… " + (++done) + " / " + plan.items.length);
+    }
+  } catch (e) { busy(false); $("dsrc").textContent = "The terrain could not be fetched: " + e.message; return; }
+  busy(false);
+  if (!items.length) { $("dsrc").textContent = "No terrain there: Kartverket's model has nothing within " + R + " m of " + lat.toFixed(5) + ", " + lon.toFixed(5) + "."; return; }
+  const scene = { title: lat.toFixed(5) + ", " + lon.toFixed(5), lat, lon, radius: R, sigma: plan.cell === 1 ? 1.5 : 0, cell: plan.cell, res,
+    source: "Kartverket NHM DTM " + res + " m (CC BY 4.0), fetched from the Geonorge WCS" + (missing ? "; " + missing + " tile(s) have no data" : "") };
+  items.push({ name: "scene.json", blob: new Blob([JSON.stringify(scene)], { type: "application/json" }) });
+  SRC = null; await loadFolder(items);
+  $("dsrc").textContent += " · No habitat areas on a position-loaded view: they come with packaged folders.";
+  const q = new URL(location.href); ["folder", "drive", "res"].forEach(k => q.searchParams.delete(k));
+  q.searchParams.set("lat", lat.toFixed(5)); q.searchParams.set("lon", lon.toFixed(5)); q.searchParams.set("r", R); if (res !== 1) q.searchParams.set("res", res);
+  history.replaceState(null, "", q);
+}
+let lmap = null, lmark = null, lcirc = null, pickLL = null;
+function leafletLoad() {
+  if (window.L) return Promise.resolve();
+  if (!navigator.onLine) return Promise.reject(new Error("No network: the map and the terrain need the internet."));
+  return new Promise((ok, no) => {
+    const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"; document.head.appendChild(css);
+    const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"; sc.onload = ok; sc.onerror = () => no(new Error("The map library could not be loaded.")); document.head.appendChild(sc);
+  });
+}
+const pickRad = () => { const res = +$("pickRes").value, r = Math.max(100, Math.min(RMAX[res], Math.round(+$("pickRad").value || 1000))); $("pickRad").max = RMAX[res]; $("pickRad").value = r; return r; };
+function pickInfo() {
+  const R = pickRad(), res = +$("pickRes").value;
+  if (lcirc) lcirc.setRadius(R);
+  const ok = pickLL && inNorway(pickLL[0], pickLL[1]); $("pickGo").disabled = !ok;
+  if (!pickLL) { $("pickS").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0), fetched when you build."; return; }
+  if (!ok) { $("pickS").textContent = "Kartverket's terrain model covers Norway only."; return; }
+  const pl = wcsPlan(pickLL[0], pickLL[1], R, res);
+  $("pickS").textContent = pickLL[0].toFixed(5) + ", " + pickLL[1].toFixed(5) + " · " + pl.items.length + " tile" + (pl.items.length > 1 ? "s" : "") + " at " + pl.cell + " m ≈ " + (pl.mb < 10 ? pl.mb.toFixed(1) : Math.round(pl.mb)) + " MB to fetch (cached for next time)";
+}
+function pickSet(lat, lon) {
+  pickLL = [lat, lon];
+  if (!lmark) { lmark = L.circleMarker(pickLL, { radius: 7, color: "#fff", weight: 2, fillColor: "#e64a19", fillOpacity: 1 }).addTo(lmap); lcirc = L.circle(pickLL, { radius: pickRad(), color: "#ffd54f", weight: 1.5, fillOpacity: .08 }).addTo(lmap); }
+  else { lmark.setLatLng(pickLL); lcirc.setLatLng(pickLL); }
+  pickInfo();
+}
+async function pickOpen() {
+  $("pick").hidden = false; $("pickS").textContent = "Loading the map…";
+  try { await leafletLoad(); } catch (e) { $("pickS").textContent = e.message; return; }
+  if (!lmap) {
+    lmap = L.map("pickMap", { worldCopyJump: false }).setView(S ? [S.lat, S.lon] : [64.5, 13], S ? 12 : 5);
+    L.tileLayer(BASEMAPS.kv_topo.url, { maxZoom: 18, attribution: BASEMAPS.kv_topo.attr }).addTo(lmap);
+    lmap.on("click", e => pickSet(e.latlng.lat, e.latlng.lng));
+    if (S) pickSet(S.lat, S.lon);
+  } else lmap.invalidateSize();
+  pickInfo();
+}
+$("pickBtn").onclick = pickOpen;
+$("pickX").onclick = () => { $("pick").hidden = true; };
+$("pickRes").onchange = $("pickRad").onchange = pickInfo;
+$("pickGo").onclick = () => { if (!pickLL) return; $("pick").hidden = true; buildAt(pickLL[0], pickLL[1], pickRad(), +$("pickRes").value); };
 // ---- inputs
 const pick = ev => { const fs = [...ev.target.files].map(f => ({ name: f.name, blob: f })); if (fs.length) { SRC = null; loadFolder(fs); } };
 $("fdir").onchange = pick; $("ffiles").onchange = pick;
@@ -1421,6 +1557,8 @@ setNow();
     }
     await catalog();
     if (f) { $("furl").value = f; await loadURL(f); }
+    else if (sp.get("lat") && sp.get("lon")) { $("dataSec").open = false; await buildAt(+sp.get("lat"), +sp.get("lon"), +sp.get("r") || 1000, +sp.get("res") || 1); }
+    else if (!dl) pickOpen();   // nothing to show yet: the flat map, tap a place
     return;
   }
   const E = JSON.parse(raw), items = [];

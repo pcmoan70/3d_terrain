@@ -1,10 +1,10 @@
 # 3d_terrain — a 3-D terrain viewer for Kartverket's 1 m model
 
-Updated 2026-10-17.
+Updated 2026-10-17 (evening).
 
 A web page that draws a 1 m terrain model (DTM) of any place in Norway in 3-D, with the sun and its shadows for any date and time, and two Python scripts that package a place — its terrain, a draped map, nesting-habitat areas and your own points — as a folder the page reads or as one self-contained HTML file that opens offline.
 
-**Live viewer:** https://pcmoan70.github.io/3d_terrain/ (the demo scene is Preikestolen).
+**Live viewer:** https://pcmoan70.github.io/3d_terrain/ — it opens on a flat map of Norway: **tap a place, choose the model (1 m, radius ≤ 5 km, or 10 m, radius ≤ 15 km) and the radius, Build 3-D view**. The terrain is fetched straight from Kartverket's model (the Geonorge WCS) and shown; `?lat=&lon=&r=&res=` opens the same view by link, and **Share…** makes that link. The demo folder is Preikestolen.
 
 Everything happens in the browser: the page reads GeoTIFF tiles, mosaics and smooths them, builds the mesh, drapes the map, marches the sun. There is no server and no build step.
 
@@ -12,6 +12,7 @@ Everything happens in the browser: the page reads GeoTIFF tiles, mosaics and smo
 
 Draws a terrain model from a **folder** (radius up to 5 km: beyond 1.5 km the grid coarsens to ⌈2R / 3000⌉ m so it stays ≤ 3000 × 3000 — a 3 km view is a 2 m grid): 1 m DTM GeoTIFF tiles (one UTM zone, EPSG 258xx / 326xx, Float32 or integer) plus any `.geojson` / `.kml` / `.kmz` overlays (polygons draped on the terrain, points as needles; a point with `role` = `steepest` is the red ring; without one the viewer takes the steepest cell within 500 m, never within 25 m of the data's edge) and an optional `scene.json` (`title`, `lat`, `lon`, `radius`, `sigma` — the suggested smoothing in m, 0 = off).
 
+- **Pick a place on the map** (the start screen, and 🗺 in the Data section): a Leaflet map with Kartverket's topo (loaded on demand); a tap sets the centre, the circle shows the radius, the bar says how many tiles and MB the build fetches. The tiles come from the Geonorge WCS — 1 km tiles at 1 m, or 10 km tiles at 10 m, and coarser cells for a wide 1 m view (a 3 km view asks 2 m tiles, a quarter of the bytes) — one after another with exponential backoff (1 … 60 s), kept in the browser's Cache API (the last 120 tiles) so the next build of the same place is instant. Norway only. A position-loaded view has terrain, contours, slope, facing and the sun, but no habitat areas (those come with packaged folders). On a 10 m grid the contours are 20 m (bold every 100 m) instead of 5 / 25 m.
 - **Open** a folder or files from the device, a folder on the same site from the picker (`scenes/index.json` = `[{name, title, path}]`), or any folder URL (`?folder=<url>` too). A web server cannot list a directory, so a folder served over HTTP needs an `index.json` = `{"files": ["dtm.tif", "habitat.geojson", …]}` (or a plain array).
 - **Google Drive:** paste a shared Drive folder (or file) link → **Sign in & open** (or open the viewer with `?drive=<link>`). Signs in with Google (read-only Drive access; token in memory only), lists the folder through the Drive API (sub-folders two levels down; no `index.json` needed) and reads the files with the token — so the data stays private to the accounts it is shared with. Needs the page opened from its web address (not a downloaded copy).
 - **Sharing a terrain between two users:** **Share…** makes a link (`?drive=<folder link>` or `?folder=<url>`, plus the date and time). For a Drive folder, share the folder in Drive with the other person's Google account (Viewer); they open the link and sign in with their own account.
