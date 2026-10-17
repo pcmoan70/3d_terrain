@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-17 — Slope and Facing under Terrain features
+
+Owner: "move options inside subpane birds (slope, facing) into subpane 'terrain features'". The *Slope* (NVE steepness classes) and *Facing* rows, with their legends, now open the Terrain features section, above the feature masks. The Birds section holds only the bird overlay files (`group: "birds"` in scene.json, and the cliff rules of a map-built view) and is left out when a view has none. README.
+
 ## 2026-10-17 — terrain-feature layers; Shift + wheel for the radius; the square's turn explained
 
 Owner: "why is the select square not aligned w edge of map. also square size should be controlled by shift-wheel. Add the various features listed as a possible selections in the menu." (1) The picker's square is the 3-D block, cut along the UTM zone 33 grid, which is turned by the grid convergence (about 8° at Preikestolen) against the north-up map; the status line now says the turn. (2) Shift + wheel changes the radius; the plain wheel zooms the map again. (3) A **Terrain features** section with nine layers: ridges and crests, gullies and ravines (terrain position index over 25 m, cliff faces excluded), ledges on cliffs, scree and boulder fields (1 m grids), lakes and ponds (level patches ≥ 400 m²), updraft slopes, and — from the sun model's monthly maps and horizons, computed on first use — sun-warmed slopes in spring, shade hollows (late snow), sheltered ground (low sky view). Masks are cached per grid, painted at 70 %, listed under the pointer. On the Preikestolen demo the six terrain-only layers compute in about 2 s. Not yet: streams and mires (flow accumulation), alpine plateaus, viewsheds, coastal wave exposure.

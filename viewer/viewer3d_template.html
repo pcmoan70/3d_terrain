@@ -96,17 +96,18 @@
       <!-- owner, 2026-10-15: "Add an option to make point, pins and other map objects show better on 3d face" -->
       <div class="row"><label class="ly"><input type="checkbox" id="lyBold"> Bold markers: bigger, seen through hills; areas outlined</label></div>
     </details>
-    <!-- the Birds group (owner, 2026-10-13: Slope, Facing and the cliff layer behind a drop-down called Birds); a section of its own since 2026-10-15 -->
+    <!-- the Birds group (owner, 2026-10-13: the cliff layer and other bird overlay files behind a drop-down called Birds); a section
+         of its own since 2026-10-15; Slope and Facing moved to Terrain features 2026-10-17 -->
     <details class="sec" id="grpBirds"><summary>Birds</summary>
+      <div id="lyFilesBirds"></div>
+    </details>
+    <!-- terrain features: slope and facing, then the masks worked out from the model and the sun (owner, 2026-10-17: "add the
+         various features listed as possible selections in the menu"), each painted at 70 % in its colour -->
+    <details class="sec" id="featSec"><summary>Terrain features</summary>
       <div class="row"><label class="ly"><input type="checkbox" id="lySlope"> Slope (NVE steepness classes)</label></div>
       <div class="row lg" id="lgSlope" hidden></div>
       <div class="row"><label class="ly"><input type="checkbox" id="lyFacing"> Facing (the way slopes ≥ 15° face)</label></div>
       <div class="row lg" id="lgFacing" hidden></div>
-      <div id="lyFilesBirds"></div>
-    </details>
-    <!-- terrain features worked out from the model and the sun (owner, 2026-10-17: "add the various features listed as possible
-         selections in the menu"); each a mask on the grid, painted at 70 % in its colour -->
-    <details class="sec" id="featSec"><summary>Terrain features</summary>
       <div id="featRows"></div>
       <div class="sub">Worked out from the terrain model (and the sun model for the last three — computed when first switched on). Not yet: streams and mires (flow accumulation), alpine plateaus, viewsheds, coastal wave exposure.</div>
     </details>
@@ -674,6 +675,7 @@ function fileLayersUI() {
     row.querySelector("input").onchange = e => { fileOn[f] = e.target.checked; repaint(); applyVis(); };
     (m.group === "birds" ? boxB : box).appendChild(row);   // scene.json: a file's layer can sit in the Birds group
   });
+  $("grpBirds").hidden = !boxB.children.length;   // only the bird overlay files live there now — no files, no section
 }
 // ---- average sun (owner, 2026-10-13: "a average sun/radiation measure overlay; averaging over dates & time
 // (hourly), user should be able to choose a month-range and get average for that interval (default = whole
