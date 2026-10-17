@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-17 — the Birds section is gone
+
+Owner: "remove the 'Birds' dropdown subpane in 3d viewer". Every overlay file now lists under Map, after CORINE. `group: "birds"` in scene.json keeps one meaning: that layer starts switched off (the cliff layer of a built view too). Sections: Map, Terrain features, Sun, Data. README.
+
 ## 2026-10-17 — Slope and Facing under Terrain features
 
 Owner: "move options inside subpane birds (slope, facing) into subpane 'terrain features'". The *Slope* (NVE steepness classes) and *Facing* rows, with their legends, now open the Terrain features section, above the feature masks. The Birds section holds only the bird overlay files (`group: "birds"` in scene.json, and the cliff rules of a map-built view) and is left out when a view has none. README.

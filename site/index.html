@@ -96,11 +96,6 @@
       <!-- owner, 2026-10-15: "Add an option to make point, pins and other map objects show better on 3d face" -->
       <div class="row"><label class="ly"><input type="checkbox" id="lyBold"> Bold markers: bigger, seen through hills; areas outlined</label></div>
     </details>
-    <!-- the Birds group (owner, 2026-10-13: the cliff layer and other bird overlay files behind a drop-down called Birds); a section
-         of its own since 2026-10-15; Slope and Facing moved to Terrain features 2026-10-17 -->
-    <details class="sec" id="grpBirds"><summary>Birds</summary>
-      <div id="lyFilesBirds"></div>
-    </details>
     <!-- terrain features: slope and facing, then the masks worked out from the model and the sun (owner, 2026-10-17: "add the
          various features listed as possible selections in the menu"), each painted at 70 % in its colour -->
     <details class="sec" id="featSec"><summary>Terrain features</summary>
@@ -1957,8 +1952,8 @@ async function loadFolder(items) {
   const zones = [...new Set(tiles.map(t => t.zone))];
   if (zones.length > 1 || !zones[0]) { $("dsrc").textContent = "The tiles must share one UTM zone (EPSG 258xx / 326xx); found " + [...new Set(tiles.map(t => t.epsg))].join(", "); return; }
   SRC = { tiles, overlays, scene, zone: zones[0], items };
-  // the Birds group starts switched off (owner, 2026-10-14: "by default all bird settings should be turned off"):
-  // Slope and Facing are off in the page; a file layer the folder files under "birds" starts off too
+  // a file layer the folder marks group "birds" starts switched off (owner, 2026-10-14: "by default all bird
+  // settings should be turned off"); the Birds section itself went 2026-10-17 — the files list under Map
   for (const f in (scene.layers || {})) if ((scene.layers[f] || {}).group === "birds" && fileOn[f] === undefined) fileOn[f] = false;
   // a packaged map draped onto this very view (offline): offered first
   if (scene.basemap && basemaps[String(scene.basemap.file || "").toLowerCase()]) { SRC.basemapBlob = basemaps[String(scene.basemap.file).toLowerCase()]; $("basemap").value = scene.basemap.id; }
@@ -2285,7 +2280,7 @@ function facingOf(gx, gyN, gam) {   // the way the slope faces (downhill), true 
   return ((Math.atan2(-gx, -gyN) / RAD - gam) % 360 + 360) % 360;
 }
 function fileLayersUI() {
-  const box = $("lyFiles"), boxB = $("lyFilesBirds"); box.innerHTML = boxB.innerHTML = "";
+  const box = $("lyFiles"); box.innerHTML = "";
   if (!S) return;
   const meta = (SRC && SRC.scene && SRC.scene.layers) || {}, files = {};
   S.areas.forEach(a => { (files[a.src] = files[a.src] || { a: 0, p: 0 }).a++; });
@@ -2296,9 +2291,8 @@ function fileLayersUI() {
     row.innerHTML = '<div class="row"><label class="ly"><input type="checkbox"' + (fileOn[f] !== false ? " checked" : "") + "> " + esc(m.title || f) + ' <span style="color:#99a">(' + cnt + ")</span></label></div>" +
       (m.legend && m.legend.length ? '<div class="row lg">' + m.legend.map(l => '<span><span class="sw" style="background:' + esc(l[0]) + '"></span> ' + esc(l[1]) + "</span>").join("") + "</div>" : "");
     row.querySelector("input").onchange = e => { fileOn[f] = e.target.checked; repaint(); applyVis(); };
-    (m.group === "birds" ? boxB : box).appendChild(row);   // scene.json: a file's layer can sit in the Birds group
+    box.appendChild(row);   // every overlay file under Map (the Birds section went 2026-10-17)
   });
-  $("grpBirds").hidden = !boxB.children.length;   // only the bird overlay files live there now — no files, no section
 }
 // ---- average sun (owner, 2026-10-13: "a average sun/radiation measure overlay; averaging over dates & time
 // (hourly), user should be able to choose a month-range and get average for that interval (default = whole
@@ -3486,7 +3480,7 @@ async function webHabitat() {
   const jb = o => new Blob([JSON.stringify(o)], { type: "application/json" });
   SRC.items = SRC.items.filter(it => !/^(habitat|points|scene)\.json$|^(habitat|points)\.geojson$/.test(it.name)).concat([{ name: "habitat.geojson", blob: jb(hab) }, { name: "points.geojson", blob: jb(pts) }, { name: "scene.json", blob: jb(SRC.scene) }]);
   SRC.overlays = SRC.overlays.filter(o => o.src !== "points.geojson").concat(parseGeoJSON(hab).map(o => (o.src = "habitat.geojson", o)), parseGeoJSON(pts).map(o => (o.src = "points.geojson", o)));
-  if (fileOn["habitat.geojson"] === undefined) fileOn["habitat.geojson"] = false;   // the Birds group starts switched off
+  if (fileOn["habitat.geojson"] === undefined) fileOn["habitat.geojson"] = false;   // a bird layer starts switched off
   busy(false);
   keepCam = true; await render();
   $("dsrc").textContent = $("dsrc").textContent.replace(/, \d+ overlay feature\(s\)/, ", " + res.areas.length + " cliff areas computed here") + " · " + SRC.scene.habitat;
