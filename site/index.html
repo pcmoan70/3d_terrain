@@ -9,6 +9,7 @@
   .panel{position:absolute;background:rgba(20,24,28,.88);border-radius:8px;padding:10px 12px;box-shadow:0 2px 10px rgba(0,0,0,.4)}
   #info{top:10px;left:10px;width:min(360px,calc(100% - 44px));max-height:calc(100% - 30vh - 110px);overflow:auto;box-sizing:border-box}
   #info h1{font-size:15px;margin:0 0 4px;padding-right:36px}
+  #ttlPos{color:#ffd54f;text-decoration:underline dotted;cursor:pointer}
   .sub{color:#aab;font-size:12px;margin:2px 0 8px}
   .row{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:13px}
   .row.w{flex-wrap:wrap}
@@ -73,7 +74,8 @@
 <div id="side"><button id="sideX" title="Hide the panels">‹</button>
 <div id="info" class="panel">
   <button class="minb" id="infoMin" title="Minimise / restore">−</button>
-  <h1 id="ttl">Terrain 3D</h1>
+  <!-- the coordinates in the title open the map to pick a place (owner, 2026-10-17: "executed when user clicks on coordinates in title") -->
+  <h1 id="ttl">Terrain 3D — <span id="ttlName"></span><a id="ttlPos" href="#" title="Pick a place on the map">pick a place on the map</a></h1>
   <div class="body">
     <div class="sub" id="sub">A viewer for 1 m terrain models (DTM) of Norway: pick a place on the map and the terrain is fetched from Kartverket, or open a folder with DTM GeoTIFF tiles (any UTM zone) and any .geojson / .kml / .kmz overlays.</div>
     <div class="row">Height ×<input id="ex" type="range" min="1" max="3" step="0.1" value="1.5"><span id="exv">1.5</span></div>
@@ -118,7 +120,6 @@
     </details>
     <!-- collapsible (owner, 2026-10-15: "the data subsection should be collapsible"): closed when the view already has its data -->
     <details class="sec" id="dataSec" open><summary>Data</summary>
-      <div class="row w"><button id="pickBtn" title="Pick a place on a flat map; the terrain is fetched from Kartverket's model">🗺 Pick a place on the map…</button></div>
       <!-- one path, two buttons (owner, 2026-10-17: "Make the functionality dependent on path user writes into a single textbox and
            single buttons save/load"): Load reads a web folder or built file (URL), a Google Drive link, a scene on this site (its
            name — the box suggests them), or, empty, a folder picked from the device; Save writes the view as one offline file -->
@@ -2776,7 +2777,8 @@ function build(s) {
   letters.forEach(sp => sp.layers.set(L1));
   camera.far = Math.max(30000, 6 * R); camera.updateProjectionMatrix(); controls.maxDistance = Math.max(12000, 3 * R);
   // panels
-  $("ttl").textContent = "Terrain 3D — " + S.title;
+  const posTxt = S.lat.toFixed(5) + ", " + S.lon.toFixed(5);
+  $("ttlName").textContent = S.title && S.title !== posTxt ? S.title + " · " : ""; $("ttlPos").textContent = posTxt;
   $("sub").textContent = S.c + " m grid" + (O ? " within " + S.R + " m, " + O.c + " m grid around" : "") + ", " + R + " m radius, " + Math.round(Math.min(S.lo, B.lo)) + "–" + Math.round(Math.max(S.hi, B.hi)) + " m a.s.l. · " + S.areas.length + " areas, " + S.pts.length + " points" +
     (S.nMiss ? " · " + (100 * S.nMiss / (S.n * S.n)).toFixed(1) + " % without DTM (filled smoothly, greyed)" : "");
   const km = v => (v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + " km" : v + " m"), native = Math.max(1, Math.round(Math.min.apply(null, SRC.tiles.map(t => t.res[0]))));
@@ -3362,7 +3364,7 @@ async function pickOpen() {
   } else lmap.invalidateSize();
   pickInfo();
 }
-$("pickBtn").onclick = pickOpen;
+$("ttlPos").onclick = ev => { ev.preventDefault(); pickOpen(); };
 $("pickX").onclick = () => { $("pick").hidden = true; };
 $("pickRes").onchange = $("pickRad").onchange = $("pickRad1").onchange = pickInfo;
 $("pickGo").onclick = () => { if (!pickLL) return; $("pick").hidden = true; buildAt(pickLL[0], pickLL[1], pickRad(), resOf(), pickRad1()); };

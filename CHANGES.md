@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-17 — the map opens from the coordinates in the title
+
+Owner: "The pick place on map, should be removed and be executed when user clicks on coordinates in title on top of pane." The 🗺 button is gone; the panel's title reads "Terrain 3D — <scene title ·> 58.98634, 6.19051" and tapping the coordinates opens the map picker (before any view: "pick a place on the map").
+
 ## 2026-10-17 — the picker by touch
 
 Owner: "Make sure mobile phone touch makes for good natural navigation too". The centre is a draggable red dot; the view's square has an orange handle on its south-east corner and the 1 m detail square a white one on its north-east corner — drag them (finger or mouse) to set the radii, which snap to 100 m (50 m under 1 km); one-finger drag pans, pinch zooms, a tap places the centre (a tap that ends a drag does not). On touch screens the bar's controls are finger-sized (38 px) and the number fields open the decimal keypad.
