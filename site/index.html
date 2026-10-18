@@ -89,8 +89,6 @@
 </div>
     <div class="row w" id="wbRow" hidden>Photo <select id="wbSel" style="width:auto;max-width:230px"></select></div>
       <div class="row"><label class="ly"><input type="checkbox" id="lyContours" checked> Contours (5 m, labelled every 25 m)</label></div>
-      <div class="row"><label class="ly"><input type="checkbox" id="lyClc"> CORINE land cover 2018 (NIBIO)</label></div>
-      <div class="row lg" id="lgClc" hidden></div>
       <div id="lyFiles"></div>
       <div class="row"><label class="ly"><input type="checkbox" id="lyMarkers" checked> Centre, circles &amp; steepest point</label></div>
       <!-- owner, 2026-10-15: "Add an option to make point, pins and other map objects show better on 3d face" -->
@@ -103,6 +101,9 @@
       <div class="row lg" id="lgSlope" hidden></div>
       <div class="row"><label class="ly"><input type="checkbox" id="lyFacing"> Facing (the way slopes ≥ 15° face)</label></div>
       <div class="row lg" id="lgFacing" hidden></div>
+      <!-- owner, 2026-10-18: "Move the corrine option to 'Terrain features' subpane" -->
+      <div class="row"><label class="ly"><input type="checkbox" id="lyClc"> CORINE land cover 2018 (NIBIO)</label></div>
+      <div class="row lg" id="lgClc" hidden></div>
       <div id="featRows"></div>
       <div class="sub">Worked out from the terrain model (and the sun model for the last three — computed when first switched on). Not yet: streams and mires (flow accumulation), alpine plateaus, viewsheds, coastal wave exposure.</div>
     </details>
