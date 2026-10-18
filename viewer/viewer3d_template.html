@@ -42,7 +42,9 @@
   #meas b{color:#ffd54f}
   #busy[hidden],#gate[hidden]{display:none!important}
   #busy{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
-  #busy span{background:rgba(0,0,0,.8);padding:12px 18px;border-radius:8px}
+  #busy>div{background:rgba(0,0,0,.8);padding:12px 18px;border-radius:8px;min-width:240px;max-width:min(420px,90vw);text-align:center}
+  #busyb{height:6px;background:#3a3f46;border-radius:3px;margin-top:9px;overflow:hidden}
+  #busybi{display:block;height:100%;width:0;background:#ffd54f;transition:width .15s}
   label.file{display:inline-block;background:#3d5a80;color:#fff;border-radius:5px;padding:4px 9px;cursor:pointer}
   label.file input{display:none}
   label.ly{display:flex;align-items:center;gap:6px}
@@ -167,7 +169,7 @@
   <div class="row w"><button id="pickGo" disabled>Build 3-D view</button></div>
   <div class="sub" id="pickS" style="margin:4px 0 0"></div>
 </div></div>
-<div id="busy" hidden><span id="busyt">Working…</span></div>
+<div id="busy" hidden><div><span id="busyt">Working…</span><div id="busyb" hidden><i id="busybi"></i></div></div></div>
 <script>/*THREE*/</script>
 <script>/*ORBIT*/</script>
 <script>/*GEOTIFF*/</script>
@@ -178,7 +180,8 @@
 const PAGE_SRC = "<!doctype html>\n" + document.documentElement.outerHTML;
 // ======================================================================= helpers
 const $ = id => document.getElementById(id);
-const busy = t => { $("busy").hidden = !t; if (t) $("busyt").textContent = t; };
+const busy = (t, frac) => { $("busy").hidden = !t; if (t) $("busyt").textContent = t; $("busyb").hidden = !(t && frac != null); if (frac != null) $("busybi").style.width = Math.round(100 * Math.max(0, Math.min(1, frac))) + "%"; };
+const pctOf = f => Math.round(100 * Math.max(0, Math.min(1, f))) + " %";
 // a yield to the event loop between work chunks (so the busy text paints): a MessageChannel message, which a hidden tab
 // does not throttle the way it throttles setTimeout (to one a second, then one a minute)
 const tick = () => new Promise(r => { const ch = new MessageChannel(); ch.port1.onmessage = () => r(); ch.port2.postMessage(0); });
@@ -323,7 +326,7 @@ async function loadFolder(items) {
       else if (nm.endsWith(".kml")) overlays.push(...parseKML(await it.blob.text()).map(o => (o.src = it.name, o)));
       else if (nm.endsWith(".kmz")) { const z = await unzip(await it.blob.arrayBuffer()); for (const f in z) if (f.toLowerCase().endsWith(".kml")) overlays.push(...parseKML(new TextDecoder().decode(z[f])).map(o => (o.src = it.name, o))); }
     } catch (e) { console.warn("skipped", it.name, e); }
-    if (++k % 50 === 0) { busy("Reading files… " + k + " / " + items.length); await tick(); }
+    if (++k % 50 === 0 || items.length <= 60) { busy("Reading files… " + k + " / " + items.length, k / items.length); await tick(); }
   }
   busy(false);
   if (!tiles.length) { $("dsrc").textContent = "No DTM GeoTIFF (.tif) found in what was opened."; return; }
@@ -358,16 +361,19 @@ async function loadFolder(items) {
 function rMax() { return SRC && SRC.tiles.some(t => t.res[0] >= 10) ? 15000 : 5000; }
 // one grid: the ±R square at cell c m from the tiles, missing cells filled, smoothed, gradients. The finest
 // tiles are read first: where one has data the cell is settled, a coarser tile only fills what is left.
-async function makeGrid(tiles, X, Y, R, c, sig) {
+async function makeGrid(tiles, X, Y, R, c, sig, label) {
+  label = label || "Reading the terrain…";
   const n = Math.round(2 * R / c), h = new Float32Array(n * n).fill(NaN), x0 = X - R, y1 = Y + R;
-  for (const t of tiles.slice().sort((a, b) => a.res[0] - b.res[0])) {
-    const b = t.bbox; if (b[2] <= x0 || b[0] >= X + R || b[3] <= Y - R || b[1] >= y1) continue;
+  const inGrid = tiles.filter(t => !(t.bbox[2] <= x0 || t.bbox[0] >= X + R || t.bbox[3] <= Y - R || t.bbox[1] >= y1)).sort((a, b) => a.res[0] - b.res[0]); let ti = 0;
+  for (const t of inGrid) {
+    const b = t.bbox; busy(label + " tile " + (ti + 1) + " / " + inGrid.length, ti / inGrid.length);
     const rx = t.res[0], ry = Math.abs(t.res[1]), W = t.img.getWidth(), Hh = t.img.getHeight();
     const c0 = Math.max(0, Math.floor((x0 - b[0]) / rx)), c1 = Math.min(W, Math.ceil((X + R - b[0]) / rx));
     const r0 = Math.max(0, Math.floor((b[3] - y1) / ry)), r1 = Math.min(Hh, Math.ceil((b[3] - (Y - R)) / ry));
     if (c1 <= c0 || r1 <= r0) continue;
     const ras = (await t.img.readRasters({ window: [c0, r0, c1, r1], samples: [0] }))[0], ww = c1 - c0;
     for (let j = 0; j < n; j++) {
+      if (j && j % 400 === 0) { busy(label + " tile " + (ti + 1) + " / " + inGrid.length, (ti + j / n) / inGrid.length); await tick(); }
       const yy = y1 - (j + 0.5) * c, rr = Math.floor((b[3] - yy) / ry) - r0; if (rr < 0 || rr >= r1 - r0) continue;
       for (let i = 0; i < n; i++) {
         const k = j * n + i; if (h[k] === h[k]) continue;
@@ -375,7 +381,7 @@ async function makeGrid(tiles, X, Y, R, c, sig) {
         const v = ras[rr * ww + cc]; if (v > -1000 && v < 9000 && v !== t.nodata) h[k] = v;
       }
     }
-    await tick();
+    ti++; await tick();
   }
   let cnt = 0, lo = Infinity, hi = -Infinity;
   for (const v of h) if (v === v) { cnt++; if (v < lo) lo = v; if (v > hi) hi = v; }
@@ -383,8 +389,9 @@ async function makeGrid(tiles, X, Y, R, c, sig) {
   // ---- smoothing (Gaussian σ m, separable) and gradients
   const bad = new Uint8Array(n * n); let hs = new Float32Array(n * n), nMiss = 0;
   for (let k = 0; k < n * n; k++) { bad[k] = h[k] === h[k] ? 0 : 1; hs[k] = bad[k] ? NaN : h[k]; nMiss += bad[k]; }
-  if (nMiss) { busy("Filling missing DTM tiles…"); await tick(); fillHoles(hs, n); }
-  if (sig / c >= 0.3) hs = gauss(hs, n, sig / c);
+  if (nMiss) { busy("Filling missing DTM…", 0); await tick(); await fillHoles(hs, n, f => busy("Filling missing DTM… " + pctOf(f), f)); }
+  if (sig / c >= 0.3) { busy("Smoothing…"); await tick(); hs = gauss(hs, n, sig / c); }
+  busy("Slopes…"); await tick();
   const gx = new Float32Array(n * n), gyN = new Float32Array(n * n), slope = new Float32Array(n * n);
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const k = j * n + i, iL = i ? k - 1 : k, iR = i < n - 1 ? k + 1 : k, jU = j ? k - n : k, jD = j < n - 1 ? k + n : k;
@@ -406,8 +413,8 @@ async function render() {
   let G, O = null;
   if (nested) {
     const R1 = Math.max(100, Math.min(1500, R, Math.round(+$("crad1").value || 1000))); $("crad1").value = R1;
-    O = await makeGrid(coarse, X, Y, R, Math.max(10, Math.ceil(2 * R / 1500)), sig);         // the surround: ≤ 1500² cells
-    G = await makeGrid(SRC.tiles, X, Y, R1, Math.max(1, Math.ceil(2 * R1 / 3000)), sig);    // the centre: ≤ 3000² cells; coarse tiles fill what the fine ones lack
+    O = await makeGrid(coarse, X, Y, R, Math.max(10, Math.ceil(2 * R / 1500)), sig, "Reading the surround…");         // the surround: ≤ 1500² cells
+    G = await makeGrid(SRC.tiles, X, Y, R1, Math.max(1, Math.ceil(2 * R1 / 3000)), sig, "Reading the centre…");    // the centre: ≤ 3000² cells; coarse tiles fill what the fine ones lack
   } else {
     // the grid cell (m): the tiles' own resolution, coarser for a big view so the grid stays ≤ 3000 × 3000
     // (owner, 2026-10-13: a 3 km radius — 6000² cells at 1 m would not fit a phone's memory or textures)
@@ -460,7 +467,7 @@ function inView(x, y, R) { return Math.max(Math.abs(x), Math.abs(y)) <= R; }   /
 // is minimised on average") — no step where it meets real data. Solved coarse to fine: a pyramid of
 // means of known cells, relaxed at the coarsest level, then each finer level starts from the one above
 // and is relaxed (Gauss–Seidel) on its missing cells only.
-function fillHoles(a, n) {
+async function fillHoles(a, n, prog) {
   const levels = [{ v: a, n }];
   while (levels[levels.length - 1].n > 48) {
     const L = levels[levels.length - 1], m = Math.ceil(L.n / 2), v = new Float32Array(m * m);
@@ -471,14 +478,18 @@ function fillHoles(a, n) {
     }
     levels.push({ v, n: m });
   }
-  const relax = (L, miss, it) => {
+  const sweeps = li => li === levels.length - 1 ? 400 : 40, total = levels.reduce((a, L, li) => a + L.n * L.n * sweeps(li), 0); let done = 0;
+  const relax = async (L, miss, it) => {
     const v = L.v, m = L.n;
-    for (let t = 0; t < it; t++) for (const k of miss) {
-      const i = k % m, j = (k - i) / m;
-      let s = 0, c = 0;
-      if (i > 0) { s += v[k - 1]; c++; } if (i < m - 1) { s += v[k + 1]; c++; }
-      if (j > 0) { s += v[k - m]; c++; } if (j < m - 1) { s += v[k + m]; c++; }
-      v[k] = s / c;
+    for (let t = 0; t < it; t++) {
+      for (const k of miss) {
+        const i = k % m, j = (k - i) / m;
+        let s = 0, c = 0;
+        if (i > 0) { s += v[k - 1]; c++; } if (i < m - 1) { s += v[k + 1]; c++; }
+        if (j > 0) { s += v[k - m]; c++; } if (j < m - 1) { s += v[k + m]; c++; }
+        v[k] = s / c;
+      }
+      done += m * m; if (prog && (t % 4 === 3 || m * m * 4 > total / 50)) { prog(done / total); await tick(); }
     }
   };
   for (let li = levels.length - 1; li >= 0; li--) {
@@ -487,7 +498,7 @@ function fillHoles(a, n) {
     if (!miss.length) continue;
     if (li === levels.length - 1) { let s = 0, c = 0; for (const x of v) if (x === x) { s += x; c++; } const mu = c ? s / c : 0; for (const k of miss) v[k] = mu; }
     else { const U = levels[li + 1]; for (const k of miss) { const i = k % m, j = (k - i) / m; v[k] = U.v[Math.min(U.n - 1, j >> 1) * U.n + Math.min(U.n - 1, i >> 1)]; } }
-    relax(L, miss, li === levels.length - 1 ? 400 : 40);
+    await relax(L, miss, sweeps(li));
   }
 }
 // within r cells of no-data or of the window's border (box dilation by running sums, O(n²))
@@ -718,7 +729,7 @@ async function sunMonthly(G) {
         hz[(J * m + I) * NS + k] = best;   // tan of the horizon's elevation
       }
     }
-    if (J % 25 === 0) { busy("Sun: the terrain's horizons… " + Math.round(100 * J / m) + " %"); await tick(); }
+    if (J % 25 === 0) { busy("Sun: the terrain's horizons… " + pctOf(J / m), J / m); await tick(); }
   }
   // the cells' normals (per metre)
   const nx = new Float32Array(m * m), ny = new Float32Array(m * m), nz = new Float32Array(m * m);
@@ -729,7 +740,7 @@ async function sunMonthly(G) {
   }
   const months = [];
   for (let mo = 0; mo < 12; mo++) {
-    busy("Sun: " + MON[mo] + " …"); await tick();
+    busy("Sun: " + MON[mo] + " … " + (mo + 1) + " / 12", mo / 12); await tick();
     const acc = new Float32Array(m * m), days = [8, 22];
     for (const dd of days) for (let hr = 0; hr < 24; hr++) {
       const t = new Date(Date.UTC(YEAR, mo, dd, hr, 30)), p = sunPos(t, S.lat, S.lon);
@@ -855,7 +866,8 @@ async function featureMask(G, f) {
 }
 async function featuresOn() {   // the masks of every ticked feature, for every grid
   if (!S) return;
-  for (const f of FEATURES) { if (!$("ft_" + f.id).checked) continue; busy("Feature: " + f.name + "…"); await tick(); for (const G of S.out ? [S, S.out] : [S]) await featureMask(G, f); }
+  const on = FEATURES.filter(f => $("ft_" + f.id).checked); let k = 0;
+  for (const f of on) { busy("Feature: " + f.name + "… " + (k + 1) + " / " + on.length, k / on.length); await tick(); for (const G of S.out ? [S, S.out] : [S]) await featureMask(G, f); k++; }
   busy(false);
 }
 FEATURES.forEach(f => { $("ft_" + f.id).onchange = async () => { await featuresOn(); repaint(); }; });
@@ -1048,7 +1060,7 @@ async function drapeTiles(G, B) {
   for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) jobs.push([tx, ty]);
   await Promise.all(jobs.map(([tx, ty]) => new Promise(res => {
     const img = new Image(); img.crossOrigin = "anonymous";
-    img.onload = () => { mc.drawImage(img, (tx - tx0) * 256, (ty - ty0) * 256); if (++done % 20 === 0) busy("Loading the map… " + done + " / " + jobs.length); res(); };
+    img.onload = () => { mc.drawImage(img, (tx - tx0) * 256, (ty - ty0) * 256); if (++done % 20 === 0 || jobs.length <= 60) busy("Loading the map… " + done + " / " + jobs.length, done / jobs.length); res(); };
     img.onerror = () => { failed++; res(); };
     img.src = B.url.replace("{s}", (B.sub || "a")[(tx + ty) % (B.sub || "a").length]).replace("{z}", z).replace("{x}", tx).replace("{y}", ty);
   })));
@@ -1819,11 +1831,11 @@ let WCSV = null;   // { R, R1, items: [{name, blob, wcs}], skip: Set(no-data til
 async function wcsGather(lat, lon, R, res, R1) {   // the plan's tiles: those not in hand are fetched; returns the ones that exist
   const plan = wcsPlan(lat, lon, R, res, R1), have = new Map(WCSV.items.map(it => [it.name, it]));
   const todo = plan.items.filter(it => !have.has(it.name) && !WCSV.skip.has(it.name)); let done = 0;
-  if (todo.length) busy("Fetching the terrain… 0 / " + todo.length);
+  if (todo.length) busy("Fetching the terrain… 0 / " + todo.length, 0);
   for (const it of todo) {
     const b = await wcsFetch(it);
     if (b) { const t = { name: it.name, blob: b, wcs: true }; WCSV.items.push(t); have.set(it.name, t); } else WCSV.skip.add(it.name);
-    busy("Fetching the terrain… " + (++done) + " / " + todo.length);
+    busy("Fetching the terrain… " + (++done) + " / " + todo.length, done / todo.length);
   }
   busy(false);
   const items = plan.items.filter(it => have.has(it.name)).map(it => have.get(it.name));

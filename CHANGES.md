@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-18 — progress for the slow steps
+
+Owner: "when 'Reading the terrain…' et things go slow, also show progress". The busy overlay has a progress bar (`busy(text, fraction)`); every long step feeds it: fetching tiles (k / n), reading files, **reading the terrain** (tile k / n, and inside a big tile every 400 rows — "Reading the surround…" / "…the centre…" on a nested view), **filling missing DTM** (`fillHoles` is async now, a yield every few relaxation sweeps, the fraction weighted by cells × sweeps so the finest level dominates), the map tiles, the sun's horizons and months, and the features (k / n). Short synchronous steps are named without a bar (Smoothing, Slopes, Shading, Painting). Tested in Chrome with a MutationObserver on the overlay: 140 distinct states on a 1 m 1.5 km build, the reading bar 0 → 100 % over 16 tiles, the filler's progress monotone to 1 on a synthetic grid.
+
 ## 2026-10-18 — Fetch more: nothing in hand is asked for again, and the status says so
 
 Owner: "when fetching more tiles in a direction make sure the previously fetched tiles are not refetched." Already the rule (`wcsGather` skips every tile name in hand or known to have no data; the Cache API is the second guard) — now visible: the status line after a second fetch reads "… in N fetches (k tiles new this time, m reused)". Two things fixed on the way: a wide 1 m view asks 2 m tiles (`E…_2m.tif`), which `wcsShow` took for coarse ones (wrong model in scene.json, mixed-view detection off) — the cell is now read from the name (`tileCell`, fine = < 5 m); and a WCS tile is decoded (`sparseFix`) once and kept on its item, so a Fetch more re-renders without re-reading every tile.
