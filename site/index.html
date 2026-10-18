@@ -1354,6 +1354,7 @@ function parseGeoJSON(obj) {
 // items: [{name, blob}] (picked files) — or the standalone file's embedded folder
 let SRC = null;                   // { tiles:[{img, bbox, res, zone, nodata}], overlays:[...], scene:{} }
 async function loadFolder(items) {
+  if (!items.some(it => it.wcs)) WCSV = null;   // a folder, file or Drive view: nothing to fetch more of
   busy("Reading " + items.length + " files…");
   const tiles = [], overlays = [], basemaps = {}; let scene = {};
   let k = 0;
@@ -2535,6 +2536,16 @@ function pointMenu(x, y, cx, cy, v) {   // v: a file's point → its name and te
   const [la, lo] = UTM.inv(S.X + x, S.Y + y, S.zone);
   $("pmenuT").innerHTML = (v ? "<b>" + esc(v.name || "point") + "</b>" + (v.desc ? '<div style="margin:4px 0 6px;white-space:normal">' + esc(v.desc) + "</div>" : "<br>") : "") +
     (v ? "" : "<b>") + la.toFixed(5) + ", " + lo.toFixed(5) + (v ? "" : "</b>") + " · " + Math.round(sample(x, y)) + " m a.s.l.";
+  if (WCSV && !v) {   // a map-built view grows from here: the model, then Fetch more (the union) or Fetch (this square alone)
+    const row = document.createElement("div"); row.className = "row w"; row.style.marginTop = "8px";
+    row.innerHTML = '<select id="pmRes" style="width:auto"><option value="1">1 m</option><option value="10">10 m</option><option value="n">1 m centre + 10 m around</option></select>' +
+      '<button id="pmMore" title="Fetch the tiles round this point too (those in hand are not fetched again) and show everything fetched so far as one view">Fetch more</button>' +
+      '<button id="pmHere" title="Move the view here: the same radius, this model; tiles in hand are reused">Fetch</button>';
+    $("pmenuT").appendChild(row);
+    $("pmRes").value = WCSV.sq.length ? String(WCSV.sq[WCSV.sq.length - 1].res) : "1";
+    $("pmMore").onclick = () => { $("pmenu").hidden = true; wcsAt(la, lo, $("pmRes").value === "n" ? "n" : +$("pmRes").value, true); };
+    $("pmHere").onclick = () => { $("pmenu").hidden = true; wcsAt(la, lo, $("pmRes").value === "n" ? "n" : +$("pmRes").value, false); };
+  }
   const m = $("pmenu"); m.hidden = false;
   m.style.left = Math.max(8, Math.min(innerWidth - m.offsetWidth - 8, cx + 10)) + "px"; m.style.top = Math.max(8, Math.min(innerHeight - m.offsetHeight - 8, cy + 10)) + "px";
   if ($("lyClc").checked) {   // the exact CORINE class, from the WMS, when it answers
@@ -2853,27 +2864,56 @@ function linkPoints() {
     return feats.length ? new Blob([JSON.stringify({ type: "FeatureCollection", features: feats })], { type: "application/json" }) : null;
   } catch (e) { console.warn("the link's pts list was not read", e); return null; }
 }
-async function buildAt(lat, lon, R, res, R1) {
-  res = RMAX[res] ? res : 1; R = Math.max(100, Math.min(RMAX[res], Math.round(R || 1000))); R1 = Math.max(100, Math.min(1500, R, Math.round(R1 || 1000)));
-  if (!inNorway(lat, lon)) { $("dsrc").textContent = "Kartverket's terrain model covers Norway only."; return; }
-  const plan = wcsPlan(lat, lon, R, res, R1), items = []; let done = 0, missing = 0;
-  busy("Fetching the terrain… 0 / " + plan.items.length);
-  try {
-    for (const it of plan.items) {
-      const b = await wcsFetch(it); if (b) items.push({ name: it.name, blob: b, wcs: true }); else missing++;
-      busy("Fetching the terrain… " + (++done) + " / " + plan.items.length);
-    }
-  } catch (e) { busy(false); $("dsrc").textContent = "The terrain could not be fetched: " + e.message; return; }
+// ---- map-built views grow (owner, 2026-10-18: "user can add tiles at edges of the scene by clicking on a location …
+// 'fetch more' … fetches more tiles centered on that point (not re-fetching those existing) and expanding scene as the
+// union of all fetches done … also a 'fetch' option that only re-renders the tiles around the last point" + "an option
+// for 10m or 1m dtm tiles"). WCSV holds every tile in hand and every square asked for; Fetch shows one square, Fetch
+// more the bounding square of their union (ground no square covers is the usual grey "missing DTM" fill).
+let WCSV = null;   // { R, R1, items: [{name, blob, wcs}], skip: Set(no-data tile names), sq: [{X, Y, res}] }
+async function wcsGather(lat, lon, R, res, R1) {   // the plan's tiles: those not in hand are fetched; returns the ones that exist
+  const plan = wcsPlan(lat, lon, R, res, R1), have = new Map(WCSV.items.map(it => [it.name, it]));
+  const todo = plan.items.filter(it => !have.has(it.name) && !WCSV.skip.has(it.name)); let done = 0;
+  if (todo.length) busy("Fetching the terrain… 0 / " + todo.length);
+  for (const it of todo) {
+    const b = await wcsFetch(it);
+    if (b) { const t = { name: it.name, blob: b, wcs: true }; WCSV.items.push(t); have.set(it.name, t); } else WCSV.skip.add(it.name);
+    busy("Fetching the terrain… " + (++done) + " / " + todo.length);
+  }
   busy(false);
+  const items = plan.items.filter(it => have.has(it.name)).map(it => have.get(it.name));
+  return { items, missing: plan.items.length - items.length };
+}
+async function wcsShow(items, lat, lon, R, R1, nFetch, missing) {
   if (!items.length) { $("dsrc").textContent = "No terrain there: Kartverket's model has nothing within " + R + " m of " + lat.toFixed(5) + ", " + lon.toFixed(5) + "."; return; }
-  const scene = { title: lat.toFixed(5) + ", " + lon.toFixed(5), lat, lon, radius: R, radius_1m: res === "n" ? R1 : undefined, sigma: plan.cell === 1 ? 1.5 : 0, cell: plan.cell, res,
-    source: "Kartverket NHM DTM " + res + " m (CC BY 4.0), fetched from the Geonorge WCS" + (missing ? "; " + missing + " tile(s) have no data" : "") };
-  const lp = linkPoints(); if (lp) { items.push({ name: "points.geojson", blob: lp }); scene.layers = { "points.geojson": { title: "Points from the link" } }; }
-  items.push({ name: "scene.json", blob: new Blob([JSON.stringify(scene)], { type: "application/json" }) });
-  SRC = null; await loadFolder(items);
+  const fine = items.some(it => /_1m\.tif$/.test(it.name)), coarse = items.some(it => !/_1m\.tif$/.test(it.name)), res = fine && coarse ? "n" : fine ? 1 : 10;
+  const scene = { title: lat.toFixed(5) + ", " + lon.toFixed(5), lat, lon, radius: R, radius_1m: res === "n" ? R1 : undefined, sigma: fine ? 1.5 : 0, res,
+    source: "Kartverket NHM DTM " + (res === "n" ? "1 + 10" : res) + " m (CC BY 4.0), fetched from the Geonorge WCS" + (nFetch > 1 ? " in " + nFetch + " fetches" : "") + (missing ? "; " + missing + " tile(s) have no data" : "") };
+  const all = items.slice(), lp = linkPoints(); if (lp) { all.push({ name: "points.geojson", blob: lp }); scene.layers = { "points.geojson": { title: "Points from the link" } }; }
+  all.push({ name: "scene.json", blob: new Blob([JSON.stringify(scene)], { type: "application/json" }) });
+  SRC = null; await loadFolder(all);
   const q = new URL(location.href); ["folder", "drive", "res", "r1"].forEach(k => q.searchParams.delete(k));
   q.searchParams.set("lat", lat.toFixed(5)); q.searchParams.set("lon", lon.toFixed(5)); q.searchParams.set("r", R); if (res !== 1) q.searchParams.set("res", res); if (res === "n") q.searchParams.set("r1", R1);
   history.replaceState(null, "", q);
+}
+// one more square round (lat, lon) at model res: Fetch shows it alone, Fetch more shows the union of every square so far
+async function wcsAt(lat, lon, res, more) {
+  if (!inNorway(lat, lon)) { $("dsrc").textContent = "Kartverket's terrain model covers Norway only."; return; }
+  const { R, R1 } = WCSV, [X, Y] = UTM.fwd(lat, lon, 33); let g;
+  try { g = await wcsGather(lat, lon, R, res, R1); } catch (e) { busy(false); $("dsrc").textContent = "The terrain could not be fetched: " + e.message; return; }
+  WCSV.sq.push({ X, Y, res });
+  if (!more) { await wcsShow(g.items, lat, lon, R, R1, 1, g.missing); return; }
+  const sq = WCSV.sq, x0 = Math.min(...sq.map(s => s.X)) - R, x1 = Math.max(...sq.map(s => s.X)) + R, y0 = Math.min(...sq.map(s => s.Y)) - R, y1 = Math.max(...sq.map(s => s.Y)) + R;
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, cap = RMAX[sq.some(s => s.res !== 1) ? 10 : 1], RU = Math.min(cap, Math.ceil(Math.max(x1 - x0, y1 - y0) / 2 / 50) * 50);
+  // the 1 m squares' reach from the union's centre: the fine grid of a mixed view (one square, ≤ 1.5 km)
+  const fineR = sq.filter(s => s.res !== 10).reduce((m, s) => Math.max(m, Math.abs(s.X - cx) + (s.res === "n" ? R1 : R), Math.abs(s.Y - cy) + (s.res === "n" ? R1 : R)), 0);
+  const [la, lo] = UTM.inv(cx, cy, 33);
+  await wcsShow(WCSV.items, la, lo, RU, Math.max(100, Math.min(1500, RU, Math.ceil(fineR / 50) * 50)), sq.length, WCSV.skip.size);
+  if (RU >= cap) $("dsrc").textContent += " · The view is at its largest radius (" + cap / 1000 + " km): ground fetched beyond this square is kept but not shown.";
+}
+async function buildAt(lat, lon, R, res, R1) {
+  res = RMAX[res] ? res : 1; R = Math.max(100, Math.min(RMAX[res], Math.round(R || 1000))); R1 = Math.max(100, Math.min(1500, R, Math.round(R1 || 1000)));
+  WCSV = { R, R1, items: [], skip: new Set(), sq: [] };
+  await wcsAt(lat, lon, res, false);
 }
 let lmap = null, lmark = null, lsq = null, lsq1 = null, lh = null, lh1 = null, pickLL = null, lastDrag = 0;
 const snapR = r => r >= 1000 ? Math.round(r / 100) * 100 : Math.round(r / 50) * 50;   // radii in round steps: 100 m above 1 km, else 50 m
