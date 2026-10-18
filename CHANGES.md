@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-18 — points in the link
+
+Owner: "The 3d viewer must support rich params allowing in addition to lat, lon to specify dots with descriptive text from BirdsWhere app to be drawn in 3d view". `#pts=<URL-encoded JSON>` — `[[lat, lon, name, text, colour] …]` — on a `?lat=&lon=&r=` link is read at build time (`linkPoints`) and fed into the folder as `points.geojson` with a `scene.layers` title, so it takes the ordinary overlay path: a pin per point, the file row *Points from the link* under Map, name and text in the tap popup. Points outside the block and malformed entries are dropped; colour is any CSS colour (BirdsWhere sends `hsl(…)` species colours). The hash is used because the server never sees it and the viewer's `history.replaceState` keeps it; **Share…** copies it along for a map-built view. README.
+
 ## 2026-10-17 — no cliff layer in the viewer
 
 Owner: "remove 'Cliffs, quarries and islets' and the whole Birds sub section". The viewer no longer runs the cliff rules on a map-built view (the browser copy of the rules, `viewer/habitat.js`, its Overpass lookup of buildings, roads and quarries, and `tests/parity.py` are gone), and the Preikestolen demo lost its `habitat.geojson`. A map-built view is terrain, sun and the Terrain features only. The packager `viz3d.py` still writes a `habitat.geojson` (`lib/habitat.py`, `rules.json`), which the viewer shows as an ordinary overlay file under Map, starting switched off. README.

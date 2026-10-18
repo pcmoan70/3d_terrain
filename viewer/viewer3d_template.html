@@ -1722,7 +1722,7 @@ $("share").onclick = async () => {
   const u = new URL(location.href.split("?")[0]), drv = new URL(location.href).searchParams.get("drive"), fol = new URL(location.href).searchParams.get("folder");
   const sp0 = new URL(location.href).searchParams;
   if (drv) u.searchParams.set("drive", drv); else if (fol) u.searchParams.set("folder", fol);
-  else if (sp0.get("lat") && sp0.get("lon")) ["lat", "lon", "r", "res", "r1"].forEach(k => { if (sp0.get(k)) u.searchParams.set(k, sp0.get(k)); });
+  else if (sp0.get("lat") && sp0.get("lon")) { ["lat", "lon", "r", "res", "r1"].forEach(k => { if (sp0.get(k)) u.searchParams.set(k, sp0.get(k)); }); u.hash = location.hash; }   // the link's points go along
   else { $("shr").hidden = false; $("shr").textContent = "Only a terrain opened from Google Drive, a web folder or a place on the map can be shared as a link — files from this device stay here (Save them and send the file)."; return; }
   u.searchParams.set("day", $("day").value); u.searchParams.set("tod", $("tod").value);
   const link = u.href; let how = "";
@@ -1784,6 +1784,20 @@ async function wcsFetch(it) {
     busy("Terrain tile " + it.name + ": " + why + " — retry in " + waits[k] + " s"); await new Promise(r => setTimeout(r, waits[k] * 1000));
   }
 }
+// Points sent along in the link (owner, 2026-10-18: "rich params allowing … to specify dots with descriptive text
+// from BirdsWhere app to be drawn in 3d view"): the hash carries #pts=<URL-encoded JSON> — an array of
+// [lat, lon, name, text, colour] (text and colour optional; colour any CSS colour) — and becomes an ordinary
+// overlay file, "points.geojson": a pin per point under Map, its name and text in the popup on a tap. The hash
+// because the server never sees it (no URL length limit at the edge), and it survives the history rewrites.
+function linkPoints() {
+  const m = /[#&]pts=([^&]+)/.exec(location.hash); if (!m) return null;
+  let txt = m[1]; try { txt = decodeURIComponent(txt); } catch (e) {}
+  try {
+    const feats = JSON.parse(txt).filter(p => Array.isArray(p) && isFinite(p[0]) && isFinite(p[1])).map(p => ({ type: "Feature", geometry: { type: "Point", coordinates: [+p[1], +p[0]] },
+      properties: { name: String(p[2] || ""), desc: String(p[3] || ""), color: /^(#[0-9a-f]{3,8}|(hsla?|rgba?)\([^()]{1,40}\))$/i.test(p[4] || "") ? p[4] : null } }));
+    return feats.length ? new Blob([JSON.stringify({ type: "FeatureCollection", features: feats })], { type: "application/json" }) : null;
+  } catch (e) { console.warn("the link's pts list was not read", e); return null; }
+}
 async function buildAt(lat, lon, R, res, R1) {
   res = RMAX[res] ? res : 1; R = Math.max(100, Math.min(RMAX[res], Math.round(R || 1000))); R1 = Math.max(100, Math.min(1500, R, Math.round(R1 || 1000)));
   if (!inNorway(lat, lon)) { $("dsrc").textContent = "Kartverket's terrain model covers Norway only."; return; }
@@ -1799,6 +1813,7 @@ async function buildAt(lat, lon, R, res, R1) {
   if (!items.length) { $("dsrc").textContent = "No terrain there: Kartverket's model has nothing within " + R + " m of " + lat.toFixed(5) + ", " + lon.toFixed(5) + "."; return; }
   const scene = { title: lat.toFixed(5) + ", " + lon.toFixed(5), lat, lon, radius: R, radius_1m: res === "n" ? R1 : undefined, sigma: plan.cell === 1 ? 1.5 : 0, cell: plan.cell, res,
     source: "Kartverket NHM DTM " + res + " m (CC BY 4.0), fetched from the Geonorge WCS" + (missing ? "; " + missing + " tile(s) have no data" : "") };
+  const lp = linkPoints(); if (lp) { items.push({ name: "points.geojson", blob: lp }); scene.layers = { "points.geojson": { title: "Points from the link" } }; }
   items.push({ name: "scene.json", blob: new Blob([JSON.stringify(scene)], { type: "application/json" }) });
   SRC = null; await loadFolder(items);
   const q = new URL(location.href); ["folder", "drive", "res", "r1"].forEach(k => q.searchParams.delete(k));
