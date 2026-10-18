@@ -1368,7 +1368,7 @@ async function loadFolder(items) {
         if (it.url) {   // ranged reads (GitHub Pages serves byte ranges); a server without them: the whole file
           try { tif = await GeoTIFF.fromUrl(it.url, { headers: it.headers || {}, allowFullFile: false }); img = await tif.getImage(); await img.readRasters({ window: [0, 0, 1, 1] }); }
           catch (e) { const r = await fetch(it.url, { headers: it.headers || {} }); if (!r.ok) throw new Error("HTTP " + r.status); tif = await GeoTIFF.fromBlob(await r.blob()); img = await tif.getImage(); }
-        } else if (it.wcs) { ({ tif, img } = await sparseFix(it.blob)); }
+        } else if (it.wcs) { if (!it.parsed) it.parsed = await sparseFix(it.blob); ({ tif, img } = it.parsed); }   // decoded once: Fetch more re-renders without re-reading
         else { tif = await GeoTIFF.fromBlob(it.blob); img = await tif.getImage(); }
         const gk = img.getGeoKeys() || {}, epsg = gk.ProjectedCSTypeGeoKey || 25833;
         tiles.push({ img, bbox: img.getBoundingBox(), res: img.getResolution(), zone: zoneOf(epsg), epsg, nodata: img.getGDALNoData() });
@@ -2882,13 +2882,14 @@ async function wcsGather(lat, lon, R, res, R1) {   // the plan's tiles: those no
   }
   busy(false);
   const items = plan.items.filter(it => have.has(it.name)).map(it => have.get(it.name));
-  return { items, missing: plan.items.length - items.length };
+  return { items, missing: plan.items.length - items.length, fetched: todo.length };
 }
-async function wcsShow(items, lat, lon, R, R1, nFetch, missing) {
+const tileCell = it => +(/_(\d+)m\.tif$/.exec(it.name) || [0, 10])[1];   // the cell size in a WCS tile's name (a wide 1 m view asks 2 m tiles)
+async function wcsShow(items, lat, lon, R, R1, nFetch, missing, fetched) {
   if (!items.length) { $("dsrc").textContent = "No terrain there: Kartverket's model has nothing within " + R + " m of " + lat.toFixed(5) + ", " + lon.toFixed(5) + "."; return; }
-  const fine = items.some(it => /_1m\.tif$/.test(it.name)), coarse = items.some(it => !/_1m\.tif$/.test(it.name)), res = fine && coarse ? "n" : fine ? 1 : 10;
+  const fine = items.some(it => tileCell(it) < 5), coarse = items.some(it => tileCell(it) >= 5), res = fine && coarse ? "n" : fine ? 1 : 10;
   const scene = { title: lat.toFixed(5) + ", " + lon.toFixed(5), lat, lon, radius: R, radius_1m: res === "n" ? R1 : undefined, sigma: fine ? 1.5 : 0, res,
-    source: "Kartverket NHM DTM " + (res === "n" ? "1 + 10" : res) + " m (CC BY 4.0), fetched from the Geonorge WCS" + (nFetch > 1 ? " in " + nFetch + " fetches" : "") + (missing ? "; " + missing + " tile(s) have no data" : "") };
+    source: "Kartverket NHM DTM " + (res === "n" ? "1 + 10" : res) + " m (CC BY 4.0), fetched from the Geonorge WCS" + (nFetch > 1 ? " in " + nFetch + " fetches (" + fetched + " tile" + (fetched === 1 ? "" : "s") + " new this time, " + (items.length - fetched) + " reused)" : "") + (missing ? "; " + missing + " tile(s) have no data" : "") };
   const all = items.slice(), lp = linkPoints(); if (lp) { all.push({ name: "points.geojson", blob: lp }); scene.layers = { "points.geojson": { title: "Points from the link" } }; }
   all.push({ name: "scene.json", blob: new Blob([JSON.stringify(scene)], { type: "application/json" }) });
   SRC = null; await loadFolder(all);
@@ -2902,13 +2903,13 @@ async function wcsAt(lat, lon, res, more) {
   const { R, R1 } = WCSV, [X, Y] = UTM.fwd(lat, lon, 33); let g;
   try { g = await wcsGather(lat, lon, R, res, R1); } catch (e) { busy(false); $("dsrc").textContent = "The terrain could not be fetched: " + e.message; return; }
   WCSV.sq.push({ X, Y, res });
-  if (!more) { await wcsShow(g.items, lat, lon, R, R1, 1, g.missing); return; }
+  if (!more) { await wcsShow(g.items, lat, lon, R, R1, WCSV.sq.length, g.missing, g.fetched); return; }
   const sq = WCSV.sq, x0 = Math.min(...sq.map(s => s.X)) - R, x1 = Math.max(...sq.map(s => s.X)) + R, y0 = Math.min(...sq.map(s => s.Y)) - R, y1 = Math.max(...sq.map(s => s.Y)) + R;
   const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, cap = RMAX[sq.some(s => s.res !== 1) ? 10 : 1], RU = Math.min(cap, Math.ceil(Math.max(x1 - x0, y1 - y0) / 2 / 50) * 50);
   // the 1 m squares' reach from the union's centre: the fine grid of a mixed view (one square, ≤ 1.5 km)
   const fineR = sq.filter(s => s.res !== 10).reduce((m, s) => Math.max(m, Math.abs(s.X - cx) + (s.res === "n" ? R1 : R), Math.abs(s.Y - cy) + (s.res === "n" ? R1 : R)), 0);
   const [la, lo] = UTM.inv(cx, cy, 33);
-  await wcsShow(WCSV.items, la, lo, RU, Math.max(100, Math.min(1500, RU, Math.ceil(fineR / 50) * 50)), sq.length, WCSV.skip.size);
+  await wcsShow(WCSV.items, la, lo, RU, Math.max(100, Math.min(1500, RU, Math.ceil(fineR / 50) * 50)), sq.length, WCSV.skip.size, g.fetched);
   if (RU >= cap) $("dsrc").textContent += " · The view is at its largest radius (" + cap / 1000 + " km): ground fetched beyond this square is kept but not shown.";
 }
 async function buildAt(lat, lon, R, res, R1) {

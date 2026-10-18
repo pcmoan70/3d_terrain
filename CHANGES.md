@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-18 — Fetch more: nothing in hand is asked for again, and the status says so
+
+Owner: "when fetching more tiles in a direction make sure the previously fetched tiles are not refetched." Already the rule (`wcsGather` skips every tile name in hand or known to have no data; the Cache API is the second guard) — now visible: the status line after a second fetch reads "… in N fetches (k tiles new this time, m reused)". Two things fixed on the way: a wide 1 m view asks 2 m tiles (`E…_2m.tif`), which `wcsShow` took for coarse ones (wrong model in scene.json, mixed-view detection off) — the cell is now read from the name (`tileCell`, fine = < 5 m); and a WCS tile is decoded (`sparseFix`) once and kept on its item, so a Fetch more re-renders without re-reading every tile.
+
 ## 2026-10-18 — CORINE under Terrain features
 
 Owner: "Move the corrine option to 'Terrain features' subpane". The *CORINE land cover 2018 (NIBIO)* row and its legend sit at the end of the Terrain features section's fixed rows (after Facing, before the feature masks); nothing else changes — same ids, same behaviour. README.
