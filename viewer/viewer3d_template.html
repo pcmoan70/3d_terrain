@@ -88,9 +88,10 @@
          is sun open, while others closed"): Map, Birds closed, Sun open; Map and Layers one Map section (2026-10-16: "merge the
          Map and Layers subsections into a Map subsection") — the base map, then what is drawn on it -->
     <details class="sec" id="mapSec"><summary>Map</summary>
-    <div class="row w">Map <select id="basemap" style="width:auto"><option value="slope">Plain</option><option value="kv_topo">Kartverket topo</option><option value="kv_grey">Kartverket greyscale</option><option value="osm">OpenStreetMap (OpenTopoMap)</option><option value="cyclosm">Paths &amp; cycling (CyclOSM)</option><option value="esri_st">Streets (Esri)</option><option value="esri">Aerial (Esri)</option><option value="wayback">Aerial, earlier photos (Esri Wayback)</option></select>
+    <div class="row w">Map <select id="basemap" style="width:auto"><option value="slope">Plain</option><option value="kv_topo">Kartverket topo</option><option value="kv_grey">Kartverket greyscale</option><option value="osm">OpenStreetMap (OpenTopoMap)</option><option value="cyclosm">Paths &amp; cycling (CyclOSM)</option><option value="esri_st">Streets (Esri)</option><option value="esri">Aerial (Esri)</option><option value="wayback">Aerial, earlier photos (Esri Wayback)</option><option value="sat">Satellite, recent (NASA: Sentinel-2 &amp; Landsat 30 m, MODIS daily)</option></select>
 </div>
     <div class="row w" id="wbRow" hidden>Photo <select id="wbSel" style="width:auto;max-width:230px"></select></div>
+    <div class="row w" id="satRow" hidden>Photo <select id="satSel" style="width:auto;max-width:230px"></select></div>
       <div class="row"><label class="ly"><input type="checkbox" id="lyContours" checked> Contours (5 m, labelled every 25 m)</label></div>
       <div id="lyFiles"></div>
       <div class="row"><label class="ly"><input type="checkbox" id="lyMarkers" checked> Centre, circles &amp; steepest point</label></div>
@@ -107,6 +108,11 @@
       <!-- owner, 2026-10-18: "Move the corrine option to 'Terrain features' subpane" -->
       <div class="row"><label class="ly"><input type="checkbox" id="lyClc"> CORINE land cover 2018 (NIBIO)</label></div>
       <div class="row lg" id="lgClc" hidden></div>
+      <!-- owner, 2026-10-18: "go for snow depth and recent satelite imagery" + "make sure to include the daygt50sdyr" -->
+      <div class="row w"><label class="ly"><input type="checkbox" id="lySnow"> Snow depth (seNorge, NVE)</label><input id="snowDay" type="date" style="width:auto" title="Any day since 1957, and the next nine days (forecast)"></div>
+      <div class="row lg" id="lgSnow" hidden></div>
+      <div class="row w"><label class="ly"><input type="checkbox" id="lySnowD"> Snow days &gt; 5 cm (seNorge, NVE)</label><input id="snowYear" type="number" min="1957" step="1" style="width:64px" title="The year: days with more than 5 cm of snow in it"></div>
+      <div class="row lg" id="lgSnowD" hidden></div>
       <div id="featRows"></div>
       <div class="sub">Worked out from the terrain model (and the sun model for the last three — computed when first switched on). Not yet: streams and mires (flow accumulation), alpine plateaus, viewsheds, coastal wave exposure.</div>
     </details>
@@ -574,6 +580,10 @@ function paintBase(G, base) {   // G: the fine grid S or the coarse surround S.o
     const q = G.clc.data;
     for (let k = 0; k < n * n; k++) { const o = 4 * k; if (q[o + 3] < 128 || bad[k]) continue; d[o] = d[o] * .45 + q[o] * .55; d[o + 1] = d[o + 1] * .45 + q[o + 1] * .55; d[o + 2] = d[o + 2] * .45 + q[o + 2] * .55; }
   }
+  for (const sk of snowOn()) if (G[sk] && G[sk].img) {   // seNorge snow at 55 % over the map
+    const q = G[sk].img.data;
+    for (let k = 0; k < n * n; k++) { const o = 4 * k; if (q[o + 3] < 128 || bad[k]) continue; d[o] = d[o] * .45 + q[o] * .55; d[o + 1] = d[o + 1] * .45 + q[o + 1] * .55; d[o + 2] = d[o + 2] * .45 + q[o + 2] * .55; }
+  }
   if (lyS || lyF) {
     const SC = SLOPE_CL.map(x => hexRgb(x[1])), FC = FACE_CL.map(x => hexRgb(x[1]));
     for (let k = 0; k < n * n; k++) {
@@ -916,6 +926,46 @@ $("lyClc").onchange = async () => {
   if (on && S) { busy("Loading CORINE land cover…"); await tick(); for (const G of S.out ? [S, S.out] : [S]) await clcImage(G); busy(false); clcLegend(); }
   setAttr($("basemap").value); repaint();
 };
+// ---- seNorge snow (owner, 2026-10-18: "go for snow depth and recent satelite imagery" + "make sure to include the
+// daygt50sdyr"): NVE's 1 km grids from gridwms.nve.no (CORS open) — snow depth on a day (1957 … nine days ahead) and
+// the days with more than 5 cm of snow in a year — one GetMap per grid, blended at 55 % like CORINE. The legend is
+// seNorge's own palette (its legend graphic); the class under the pointer is read off the colour.
+const SNOW_WMS = "https://gridwms.nve.no/wms_server/wms_server.aspx?service=WMS&version=1.1.1&request=GetMap&styles=&srs=EPSG:25833&format=image/png&transparent=true";
+const SNOW_PAL = [[0, 0, 153], [0, 25, 255], [0, 153, 255], [64, 204, 255], [128, 235, 255], [179, 255, 255], [217, 255, 255], [204, 245, 122]];
+const SNOWL = {
+  snow:  { ly: "lySnow", lg: "lgSnow", when: "snowDay", layer: "sd", title: "Snow depth", busy: "Loading snow depth…", cls: ["over 400 cm", "200 – 400 cm", "150 – 200 cm", "100 – 150 cm", "50 – 100 cm", "25 – 50 cm", "under 25 cm", "bare ground"] },
+  snowd: { ly: "lySnowD", lg: "lgSnowD", when: "snowYear", layer: "daygt50sdyr", title: "Snow days > 5 cm", busy: "Loading snow days…", cls: ["over 350 days", "200 – 350 days", "100 – 200 days", "50 – 100 days", "25 – 50 days", "10 – 25 days", "under 10 days", "none"] }
+};
+async function snowImage(G, k) {   // the layer for one grid at its day / year as ImageData (kept per day; null → failed or nothing there)
+  const L = SNOWL[k], when = $(L.when).value; if (G[k] && G[k].when === when) return G[k].img;
+  const px = Math.min(G.n, 1500), bb = [S.X - G.R, S.Y - G.R, S.X + G.R, S.Y + G.R].map(v => v.toFixed(1)).join(",");
+  G[k] = { when, img: null };
+  try {
+    const r = await fetch(SNOW_WMS + "&layers=" + L.layer + "&time=" + encodeURIComponent(when) + "&bbox=" + bb + "&width=" + px + "&height=" + px); if (!r.ok) throw new Error("HTTP " + r.status);
+    const bm = await createImageBitmap(await r.blob()), cv = document.createElement("canvas"); cv.width = cv.height = G.n; const cx = cv.getContext("2d"); cx.imageSmoothingEnabled = false; cx.drawImage(bm, 0, 0, G.n, G.n);
+    const img = cx.getImageData(0, 0, G.n, G.n); let any = false; for (let o = 3; o < img.data.length && !any; o += 4 * 37) any = img.data[o] >= 128;
+    if (any) G[k].img = img; else $("dsrc").textContent = L.title + ": seNorge has nothing for " + when + " here.";
+  } catch (e) { $("dsrc").textContent = L.title + ": NVE's map service did not answer (" + e.message + ")."; }
+  return G[k].img;
+}
+const snowClass = (r, g, b) => { let best = -1, bd = 1e9; SNOW_PAL.forEach((c, i) => { const d = (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2; if (d < bd) { bd = d; best = i; } }); return bd < 40 * 40 ? best : -1; };
+function snowAt(G, k, x, y) {   // the class under a point, by its colour
+  const L = G && G[k] && G[k].img; if (!L) return null;
+  const n = G.n, i = Math.max(0, Math.min(n - 1, Math.floor((x + G.R) / G.c))), j = Math.max(0, Math.min(n - 1, Math.floor((G.R - y) / G.c))), o = 4 * (j * n + i), d = L.data;
+  if (d[o + 3] < 128) return null; const c = snowClass(d[o], d[o + 1], d[o + 2]); return c < 0 ? null : SNOWL[k].cls[c];
+}
+const snowOn = () => Object.keys(SNOWL).filter(k => $(SNOWL[k].ly).checked);
+for (const k of Object.keys(SNOWL)) {
+  const L = SNOWL[k];
+  $(L.lg).innerHTML = L.cls.map((t, i) => '<span><span class="sw" style="background:rgb(' + SNOW_PAL[i].join(",") + ')"></span> ' + t + "</span>").join("");
+  $(L.ly).onchange = async () => {
+    const on = $(L.ly).checked; $(L.lg).hidden = !on;
+    if (on && S) { busy(L.busy); await tick(); for (const G of S.out ? [S, S.out] : [S]) await snowImage(G, k); busy(false); }
+    setAttr($("basemap").value); repaint();
+  };
+  $(L.when).onchange = () => { if ($(L.ly).checked) $(L.ly).onchange(); };
+}
+$("snowDay").value = new Date().toISOString().slice(0, 10); $("snowYear").value = $("snowYear").max = new Date().getFullYear() - 1;   // the year's count exists once the year is over
 async function clcInfo(x, y) {   // the exact class at a point, from the WMS
   const h = 50, X = S.X + x, Y = S.Y + y;
   const r = await fetch(CLC_WMS + "&request=GetFeatureInfo&query_layers=CORINE_Land_Cover_2018&bbox=" + [X - h, Y - h, X + h, Y + h].map(v => v.toFixed(1)).join(",") + "&width=100&height=100&i=50&j=50&info_format=application/vnd.ogc.gml");
@@ -1023,7 +1073,35 @@ async function wbUI(S) {
     attr: "Imagery: Esri World Imagery Wayback (" + (p ? p.label : wbDate(r)) + ") · Esri, Maxar, Earthstar Geographics, and the GIS User Community" };
   return id;
 }
-function setAttr(id) { $("attr").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0)" + ($("lyClc").checked ? " · CORINE Land Cover 2018 © NIBIO / Copernicus" : "") + (BASEMAPS[id] ? " · " + BASEMAPS[id].attr : ""); }
+// ---- recent satellite imagery (owner, 2026-10-18: "go for … recent satelite imagery"): NASA GIBS (CORS open) — HLS, the
+// Harmonized Landsat Sentinel-2 surface reflectance at 30 m (a pass every few days, about a week behind), and MODIS Terra
+// true colour at 250 m every day. The photo list: the days of the last 30 with an HLS pass over the view's centre (one
+// small tile each, asked in parallel; an empty tile is a few hundred bytes), newest first, then the last three days of
+// MODIS. NVE's own Sentinel-2 image services were tried first: they ignore the scene chosen and mosaic clouds.
+const GIBS = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/";
+const SAT = { S30: ["HLS_S30_Nadir_BRDF_Adjusted_Reflectance", "GoogleMapsCompatible_Level12", 12, "png", "Sentinel-2, 30 m"], L30: ["HLS_L30_Nadir_BRDF_Adjusted_Reflectance", "GoogleMapsCompatible_Level12", 12, "png", "Landsat, 30 m"],
+  MOD: ["MODIS_Terra_CorrectedReflectance_TrueColor", "GoogleMapsCompatible_Level9", 9, "jpg", "MODIS Terra, 250 m"] };
+const satUrl = (k, day) => GIBS + SAT[k][0] + "/default/" + day + "/" + SAT[k][1] + "/{z}/{y}/{x}." + SAT[k][3];
+async function satStart(S) {   // the photo list at the view's centre
+  const z = 12, N = Math.pow(2, z), tx = Math.floor((S.lon + 180) / 360 * N), ty = Math.floor((1 - Math.log(Math.tan(S.lat * RAD) + 1 / Math.cos(S.lat * RAD)) / Math.PI) / 2 * N);
+  const days = []; for (let i = 0; i < 30; i++) { const d = new Date(); d.setUTCDate(d.getUTCDate() - i); days.push(d.toISOString().slice(0, 10)); }
+  const hits = await Promise.all(["S30", "L30"].flatMap(k => days.map(day => fetch(satUrl(k, day).replace("{z}", z).replace("{y}", ty).replace("{x}", tx)).then(r => r.ok ? r.blob() : null).then(b => b && b.size > 2000 ? { k, day } : null, () => null))));
+  S.sat = hits.filter(Boolean).sort((a, b) => b.day.localeCompare(a.day)).concat(days.slice(0, 3).map(day => ({ k: "MOD", day })));
+}
+async function satUI(S) {
+  const row = $("satRow"), sel = $("satSel");
+  if ($("basemap").value !== "sat") { row.hidden = true; return null; }
+  row.hidden = false;
+  if (!S.satP) { sel.innerHTML = "<option>Looking for photos…</option>"; S.satP = satStart(S).catch(() => { S.sat = []; }); }
+  await S.satP;
+  if (!S.sat.length) { sel.innerHTML = '<option value="">No photos here</option>'; return null; }
+  const cur = sel.value, ids = S.sat.map(p => p.k + ":" + p.day);
+  sel.innerHTML = S.sat.map(p => '<option value="' + p.k + ":" + p.day + '">' + p.day + " · " + SAT[p.k][4] + "</option>").join(""); if (ids.includes(cur)) sel.value = cur;
+  const [k, day] = sel.value.split(":"), id = "sat:" + sel.value;
+  BASEMAPS[id] = { url: satUrl(k, day), max: SAT[k][2], attr: "Imagery: NASA GIBS — " + SAT[k][4] + ", " + day + (k === "MOD" ? "" : " (HLS v2.0, NASA / USGS)") };
+  return id;
+}
+function setAttr(id) { $("attr").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0)" + ($("lyClc").checked ? " · CORINE Land Cover 2018 © NIBIO / Copernicus" : "") + (snowOn().length ? " · Snow: seNorge © NVE" : "") + (BASEMAPS[id] ? " · " + BASEMAPS[id].attr : ""); }
 async function getBase(G, id) {   // the map for one grid (a packaged map covers the fine grid: radius_1m, else radius)
   setAttr(id);
   if (!BASEMAPS[id]) return null;
@@ -1128,7 +1206,7 @@ function buildWalls(pos, m, B) {   // B: the outermost grid — the block
 // repaint the terrain's picture in place (map / overlay changed)
 async function repaint() {
   if (!S || !terrain) return;
-  const wb = await wbUI(S), id = wb || $("basemap").value;
+  const wb = (await wbUI(S)) || (await satUI(S)), id = wb || $("basemap").value;
   for (const G of S.out ? [S, S.out] : [S]) {
     G.tex = paintBase(G, await getBase(G, id));
     const mesh = G === S ? terrain : S.out.mesh, old = mesh.material.map; mesh.material.map = new THREE.CanvasTexture(G.tex); mesh.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
@@ -1316,6 +1394,7 @@ function build(s) {
   fileLayersUI(); restoreScroll();   // the panel's content is in place: back to where it was scrolled
   if ($("lySun").checked) setTimeout(() => $("lySun").onchange(), 0);
   if ($("lyClc").checked) setTimeout(() => $("lyClc").onchange(), 0);
+  for (const sk of snowOn()) setTimeout(() => $(SNOWL[sk].ly).onchange(), 0);
   if (FEATURES.some(f => $("ft_" + f.id).checked)) setTimeout(async () => { await featuresOn(); repaint(); }, 0);
   applyBold(); applyVis();
   shadowFrame(); setEx(); if (!keepCam) home(); keepCam = false; updateSun(); daylightIfNight(); resize();
@@ -1469,6 +1548,7 @@ canvas.addEventListener("pointermove", ev => {
   const face = sl >= 3 ? " facing " + FACE_CL[Math.round(facingOf(fx, fy, S.gam) / 45) % 8][0] + " (" + Math.round(facingOf(fx, fy, S.gam)) + "°)" : "";
   let html = (miss ? "<b>No DTM data here</b> — the surface is a smooth fill · " : "") + Math.round(sample(x, y)) + " m a.s.l. · slope " + Math.round(sl) + "°" + face + " · " + Math.round(Math.hypot(x, y)) + " m from centre";
   const cc = $("lyClc").checked ? clcAt(G, x, y) : null; if (cc) html += "<br>CORINE 2018: " + esc(cc[1]) + " (" + cc[0] + ")";
+  for (const sk of snowOn()) { const sc = snowAt(G, sk, x, y); if (sc) html += "<br>" + SNOWL[sk].title + " (" + esc($(SNOWL[sk].when).value) + "): " + sc; }
   const ft = featuresAt(G, x, y); if (ft.length) html += "<br>Features: " + esc(ft.join(", "));
   if ($("lySun").checked && G.sunAvg) html += "<br>Sun, average " + $("mLbl").textContent.replace(/ \(.*\)/, "") + ": <b>" + sunAt(G, x, y).toFixed(2) + " kWh/m² per day</b> (clear sky, direct)";
   if (SUN && $("lmode").value === "sun") {
@@ -1507,6 +1587,7 @@ function pointMenu(x, y, cx, cy, v) {   // v: a file's point → its name and te
   }
   const m = $("pmenu"); m.hidden = false;
   m.style.left = Math.max(8, Math.min(innerWidth - m.offsetWidth - 8, cx + 10)) + "px"; m.style.top = Math.max(8, Math.min(innerHeight - m.offsetHeight - 8, cy + 10)) + "px";
+  for (const sk of snowOn()) { const sc = snowAt(gridAt(x, y), sk, x, y); if (sc) { const el = document.createElement("div"); el.textContent = SNOWL[sk].title + " (" + $(SNOWL[sk].when).value + "): " + sc; $("pmenuT").appendChild(el); } }
   if ($("lyClc").checked) {   // the exact CORINE class, from the WMS, when it answers
     const el = document.createElement("div"); el.textContent = "CORINE 2018: …"; $("pmenuT").appendChild(el);
     clcInfo(x, y).then(c => { el.textContent = "CORINE 2018: " + (c ? c.en + " (" + c.code + (c.no ? ", " + c.no : "") + ")" : "no data here"); }, () => { el.textContent = "CORINE 2018: no answer from NIBIO"; });
@@ -1966,6 +2047,7 @@ $("render").onclick = () => render();
 let keepCam = false;
 $("basemap").onchange = () => repaint();
 $("wbSel").onchange = () => repaint();
+$("satSel").onchange = () => repaint();
 $("lyContours").onchange = $("lySlope").onchange = $("lyFacing").onchange = () => { $("lgSlope").hidden = !$("lySlope").checked; $("lgFacing").hidden = !$("lyFacing").checked; repaint(); };
 $("lyMarkers").onchange = () => { repaint(); applyVis(); };
 // the average sun and the sun at a date and time exclude each other (owner, 2026-10-14: "when user toggles Sun:
