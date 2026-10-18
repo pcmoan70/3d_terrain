@@ -68,6 +68,7 @@
   .pk-c{width:18px;height:18px;border-radius:50%;background:#e64a19;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6);box-sizing:border-box}
   .pk-h{width:26px;height:26px;border-radius:5px;background:#ff6d00;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6);box-sizing:border-box;cursor:nwse-resize}
   .pk-h1{background:#fff;border-color:#444;cursor:nesw-resize}
+  .pk-tt{background:rgba(0,0,0,.75);color:#fff;border:0;font:bold 12px system-ui,sans-serif;padding:2px 6px}.pk-tt::before{display:none}
   @media (pointer:coarse){#pickBar input,#pickBar select,#pickBar button{min-height:38px;font-size:16px}#pickBar{font-size:14px}.pk-c{width:22px;height:22px}.pk-h{width:34px;height:34px}}
 </style></head><body>
 <canvas id="c"></canvas>
@@ -137,7 +138,7 @@
       <div class="row w">Centre <input id="clat" type="number" step="0.00001" placeholder="lat"><input id="clon" type="number" step="0.00001" placeholder="lon"></div>
       <!-- the model, the view radius and the detail radius as text (owner, 2026-10-17); the inputs behind them feed render() -->
       <div class="sub" id="radTxt" style="margin:2px 0 4px"></div>
-      <input id="crad" type="number" min="100" max="15000" step="50" value="1000" hidden><input id="crad1" type="number" min="100" max="1500" step="50" value="1000" hidden><span id="crad1Row" hidden></span>
+      <input id="crad" type="number" min="100" max="15000" step="50" value="1000" hidden><input id="crad1" type="number" min="100" max="5000" step="50" value="1000" hidden><span id="crad1Row" hidden></span>
       <div class="row w"><button id="render">Render</button><button id="share" title="A link to this terrain for someone else">Share…</button></div>
       <div class="sub" id="shr" hidden></div>
       <div class="sub" id="dsrc"></div>
@@ -163,9 +164,9 @@
 <div id="pick" hidden><div id="pickMap"></div>
 <div id="pickBar" class="panel"><button class="minb" id="pickX" title="Close the map">×</button>
   <div style="padding-right:30px;margin-bottom:4px"><b>Tap the map</b> where you want the 3-D view — the square is what you get: drag its orange corner (or Shift + mouse wheel) to change the radius, drag the red dot to move it — then build it. The square follows the model's UTM grid, so it is turned a little against north.</div>
-  <div class="row w"><label>Terrain model <select id="pickRes" style="width:auto"><option value="1">1 m (view radius up to 5 km)</option><option value="10">10 m (view radius up to 15 km)</option><option value="n">1 m centre + 10 m around (up to 15 km)</option></select></label></div>
+  <div class="row w"><label>Terrain model <select id="pickRes" style="width:auto"><option value="1">1 m (view radius up to 5 km)</option><option value="10">10 m (view radius up to 15 km)</option><option value="n">1 m centre (up to 5 km) + 10 m around (up to 15 km)</option></select></label></div>
   <div class="row w"><label title="How far the 3-D view reaches from the tapped point — the yellow circle on the map">View radius <input id="pickRad" type="number" inputmode="decimal" min="0.1" max="5" step="0.1" value="1" style="width:64px"> km from the point</label>
-    <label id="pickR1Box" hidden title="The 1 m model covers this far from the point; the 10 m model the rest of the view">1 m detail within <input id="pickRad1" type="number" inputmode="decimal" min="0.1" max="1.5" step="0.1" value="1" style="width:56px"> km</label></div>
+    <label id="pickR1Box" hidden title="The 1 m model covers this far from the point; the 10 m model the rest of the view">1 m detail within <input id="pickRad1" type="number" inputmode="decimal" min="0.1" max="5" step="0.1" value="1" style="width:56px"> km</label></div>
   <div class="row w"><button id="pickGo" disabled>Build 3-D view</button></div>
   <div class="sub" id="pickS" style="margin:4px 0 0"></div>
 </div></div>
@@ -1467,7 +1468,7 @@ async function render() {
   busy("Reading the terrain…"); await tick();
   let G, O = null;
   if (nested) {
-    const R1 = Math.max(100, Math.min(1500, R, Math.round(+$("crad1").value || 1000))); $("crad1").value = R1;
+    const R1 = Math.max(100, Math.min(RMAX[1], R, Math.round(+$("crad1").value || 1000))); $("crad1").value = R1;   // the centre reaches as far as the 1 m model does (5 km)
     O = await makeGrid(coarse, X, Y, R, Math.max(10, Math.ceil(2 * R / 1500)), sig, "Reading the surround…");         // the surround: ≤ 1500² cells
     G = await makeGrid(SRC.tiles, X, Y, R1, Math.max(1, Math.ceil(2 * R1 / 3000)), sig, "Reading the centre…");    // the centre: ≤ 3000² cells; coarse tiles fill what the fine ones lack
   } else {
@@ -2918,14 +2919,19 @@ async function wcsAt(lat, lon, res, more) {
   if (!more) { await wcsShow(g.items, lat, lon, R, R1, WCSV.sq.length, g.missing, g.fetched); return; }
   const sq = WCSV.sq, x0 = Math.min(...sq.map(s => s.X)) - R, x1 = Math.max(...sq.map(s => s.X)) + R, y0 = Math.min(...sq.map(s => s.Y)) - R, y1 = Math.max(...sq.map(s => s.Y)) + R;
   const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, cap = RMAX[sq.some(s => s.res !== 1) ? 10 : 1], RU = Math.min(cap, Math.ceil(Math.max(x1 - x0, y1 - y0) / 2 / 50) * 50);
-  // the 1 m squares' reach from the union's centre: the fine grid of a mixed view (one square, ≤ 1.5 km)
+  // the 1 m squares' reach from the union's centre: the fine grid of a mixed view (one square, ≤ 5 km — the 1 m limit)
   const fineR = sq.filter(s => s.res !== 10).reduce((m, s) => Math.max(m, Math.abs(s.X - cx) + (s.res === "n" ? R1 : R), Math.abs(s.Y - cy) + (s.res === "n" ? R1 : R)), 0);
   const [la, lo] = UTM.inv(cx, cy, 33);
-  await wcsShow(WCSV.items, la, lo, RU, Math.max(100, Math.min(1500, RU, Math.ceil(fineR / 50) * 50)), sq.length, WCSV.skip.size, g.fetched);
+  await wcsShow(WCSV.items, la, lo, RU, Math.max(100, Math.min(RMAX[1], RU, Math.ceil(fineR / 50) * 50)), sq.length, WCSV.skip.size, g.fetched);
   if (RU >= cap) $("dsrc").textContent += " · The view is at its largest radius (" + cap / 1000 + " km): ground fetched beyond this square is kept but not shown.";
 }
 async function buildAt(lat, lon, R, res, R1) {
-  res = RMAX[res] ? res : 1; R = Math.max(100, Math.min(RMAX[res], Math.round(R || 1000))); R1 = Math.max(100, Math.min(1500, R, Math.round(R1 || 1000)));
+  res = RMAX[res] ? res : 1; R = Math.max(100, Math.min(RMAX.n, Math.round(R || 1000)));
+  if (res === 1 && R > RMAX[1]) { res = "n"; R1 = RMAX[1]; }   // past the 1 m limit the view flips to a 1 m centre in a 10 m surround (owner, 2026-10-18)
+  R = Math.min(RMAX[res], R);
+  // the 1 m centre: as chosen; a 1 m or 10 m view takes the 1 m model's reach (5 km) so that Fetch more at "1 m centre + 10 m
+  // around" fetches the centre 5 km at 1 m (owner, 2026-10-18: "center 5k should be fetched at 1m even if 10m tiles exist")
+  R1 = res === "n" ? Math.max(100, Math.min(RMAX[1], R, Math.round(R1 || 1000))) : Math.min(R, RMAX[1]);
   WCSV = { R, R1, items: [], skip: new Set(), sq: [] };
   await wcsAt(lat, lon, res, false);
 }
@@ -2941,14 +2947,20 @@ function leafletLoad() {
 }
 const resOf = () => $("pickRes").value === "n" ? "n" : +$("pickRes").value;
 // the picker's radii are typed in km (owner, 2026-10-17: "write radius in km not m"); inside, everything stays in metres
-const pickRad = () => { const res = resOf(), r = Math.max(100, Math.min(RMAX[res], Math.round((+$("pickRad").value || 1) * 20) * 50)); $("pickRad").max = RMAX[res] / 1000; $("pickRad").value = r / 1000; return r; };
-const pickRad1 = () => { const r = Math.max(100, Math.min(1500, pickRad(), Math.round((+$("pickRad1").value || 1) * 20) * 50)); $("pickRad1").value = r / 1000; return r; };
+const pickRad = () => {
+  let r = Math.round((+$("pickRad").value || 1) * 20) * 50;
+  // a 1 m square beyond the 1 m limit flips to "1 m centre + 10 m around", the centre at that limit (owner, 2026-10-18)
+  if (resOf() === 1 && r > RMAX[1]) { $("pickRes").value = "n"; $("pickRad1").value = RMAX[1] / 1000; }
+  const res = resOf(); r = Math.max(100, Math.min(RMAX[res], r)); $("pickRad").max = RMAX[res] / 1000; $("pickRad").value = r / 1000; return r;
+};
+const pickRad1 = () => { const r = Math.max(100, Math.min(RMAX[1], pickRad(), Math.round((+$("pickRad1").value || 1) * 20) * 50)); $("pickRad1").value = r / 1000; return r; };
 function pickInfo() {
   const R = pickRad(), res = resOf(), R1 = pickRad1(); $("pickR1Box").hidden = res !== "n";
   if (lsq && pickLL) {   // the block's square (and the 1 m detail square), exact in the UTM grid; a drag handle on a corner of each
     const [X, Y] = UTM.fwd(pickLL[0], pickLL[1], 33), sq = r => [[X - r, Y - r], [X + r, Y - r], [X + r, Y + r], [X - r, Y + r]].map(([x, y]) => UTM.inv(x, y, 33));
     lsq.setLatLngs(sq(R)); lsq1.setLatLngs(res === "n" ? sq(R1) : []);
     lh.setLatLng(UTM.inv(X + R, Y - R, 33)); lh1.setLatLng(UTM.inv(X + R1, Y + R1, 33)); lh1.setOpacity(res === "n" ? 1 : 0); lh1.options.interactive = res === "n";
+    lh.setTooltipContent(res === "n" ? "10 m" : res + " m"); if (res === "n") lh1.openTooltip(); else lh1.closeTooltip();   // each frame says its model
   }
   const ok = pickLL && inNorway(pickLL[0], pickLL[1]); $("pickGo").disabled = !ok;
   if (!pickLL) { $("pickS").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0), fetched when you build."; return; }
@@ -2972,6 +2984,7 @@ function pickSet(lat, lon) {
       return h; };
     lh = handle("pk-h", r => { $("pickRad").value = Math.max(100, r) / 1000; });
     lh1 = handle("pk-h pk-h1", r => { $("pickRad1").value = Math.max(100, r) / 1000; });
+    lh.bindTooltip("", { permanent: true, direction: "right", offset: [16, 0], className: "pk-tt" }); lh1.bindTooltip("1 m", { permanent: true, direction: "right", offset: [16, 0], className: "pk-tt" });
   } else lmark.setLatLng(pickLL);
   pickInfo();
 }
