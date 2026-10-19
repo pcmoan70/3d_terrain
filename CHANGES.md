@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-19 · Cliff drops: coloured on the face, the brink and the foot
+
+Owner: "the vertical coloring should be on the side of the face and the first non-cliff 1m tile on top of cliff and bottom of cliff." The 2 m band around marked cells is gone: a passing face colours its own cells and, for each run, the highest neighbour of its top cell and the lowest neighbour of its bottom cell — one tile each. The bigger class wins where runs meet.
+
 ## 2026-10-19 · Cliff drops: two cells of smear allowed, the band widened
 
 Owner: "I still do not see cliff faces detected and colored." Measured at Preikestolen (1 m, r = 800 m): 388 000 face cells drop ≥ 5 m, but after the one-cell allowance only 2.6 % measured 85°, the angles peaking at 75–80° — the 1 m DTM smears a vertical wall over two to three cells. Now two cells are taken off the run on 1 m grids (one on coarser), 12 % pass, and the marked cells are widened by 2 m so a face shows as a band rather than a one-cell hairline. Help and README say so.

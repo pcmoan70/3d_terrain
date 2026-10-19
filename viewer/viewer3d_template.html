@@ -961,15 +961,20 @@ const pct = (arr, q, sel) => { const v = []; for (let k = 0; k < arr.length; k++
 // run first: a face counts as 85–90° when H / (L − the smear) ≥ tan 85° (a face within the smear always does); the class is H.
 // The smear is two cells on 1 m grids, one on coarser ones: at Preikestolen — vertical walls if anywhere — 388 000 face cells
 // drop 5 m or more, and after one cell only 2.6 % of them measure 85°, the measured angles peaking at 75–80°; after two cells
-// 12 % do (owner, 2026-10-19: "I still do not see cliff faces detected"). The marked cells are then widened by 2 m so a face
-// reads as a band, not a hairline.
+// 12 % do (owner, 2026-10-19: "I still do not see cliff faces detected"). The colour goes on the face's own cells and on
+// the first tile past its top (the brink) and past its bottom (the foot), as asked — not a band spread around it.
 function cliffClasses(G) {
   if (G.cliffCls) return G.cliffCls;
-  const n = G.n, c = G.c, h = G.h, bad = G.bad, N = n * n, out = new Uint8Array(N), T = Math.tan(60 * RAD), T85 = Math.tan(85 * RAD), D = c * Math.SQRT2, smear = c <= 2 ? 2 * c : c;
+  const n = G.n, c = G.c, h = G.h, bad = G.bad, N = n * n, out = new Uint8Array(N), edge = new Uint8Array(N), T = Math.tan(60 * RAD), T85 = Math.tan(85 * RAD), D = c * Math.SQRT2, smear = c <= 2 ? 2 * c : c;
   const NB = [[1, 0, c], [-1, 0, c], [0, 1, c], [0, -1, c], [1, 1, D], [1, -1, D], [-1, 1, D], [-1, -1, D]];
   const step = (k, dir) => {   // the steepest neighbour up (dir 1) or down (−1) with a step of 60° or more, as [index, distance], else null
     const i = k % n, j = (k - i) / n; let best = null, bg = T;
     for (const [di, dj, d] of NB) { const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue; const q = jj * n + ii; if (bad[q]) continue; const g = dir * (h[q] - h[k]) / d; if (g >= bg) { bg = g; best = [q, d]; } }
+    return best;
+  };
+  const beyond = (k, dir) => {   // the highest (dir 1) or lowest (−1) neighbour, whatever its slope: the first tile past the face
+    const i = k % n, j = (k - i) / n; let best = -1, bh = -Infinity;
+    for (const [di, dj] of NB) { const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue; const q = jj * n + ii; if (bad[q]) continue; const v = dir * h[q]; if (v > bh) { bh = v; best = q; } }
     return best;
   };
   for (let k = 0; k < N; k++) {
@@ -980,11 +985,12 @@ function cliffClasses(G) {
     g = 0; while (dn && g++ < 300) { L += dn[1]; bot = dn[0]; dn = step(bot, -1); }
     const H = h[top] - h[bot], Lf = L - smear;
     if (H < 5 || (Lf > 0 && H / Lf < T85)) continue;
-    out[k] = H >= 50 ? 5 : H >= 25 ? 4 : H >= 15 ? 3 : H >= 10 ? 2 : 1;
+    const cls = out[k] = H >= 50 ? 5 : H >= 25 ? 4 : H >= 15 ? 3 : H >= 10 ? 2 : 1;
+    const a = beyond(top, 1), b = beyond(bot, -1);   // the brink above and the foot below, one tile each
+    if (a >= 0 && cls > edge[a]) edge[a] = cls; if (b >= 0 && cls > edge[b]) edge[b] = cls;
   }
-  const r = Math.max(1, Math.round(2 / c)), wide = new Uint8Array(N);   // the band: each marked cell spread 2 m around, the bigger class winning
-  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const v = out[j * n + i]; if (!v) continue; for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) { const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue; const q = jj * n + ii; if (v > wide[q]) wide[q] = v; } }
-  return G.cliffCls = wide;
+  for (let k = 0; k < N; k++) if (edge[k] > out[k]) out[k] = edge[k];   // the face itself plus the first tile beyond its top and its bottom
+  return G.cliffCls = out;
 }
 async function featureMask(G, f) {
   G.feat = G.feat || {}; if (G.feat[f.id] !== undefined) return G.feat[f.id];
@@ -2539,7 +2545,7 @@ function helpOpen(k) { $("help").hidden = false; const el = k && $("h_" + k); if
 $("helpB").onclick = () => helpOpen(); $("helpX").onclick = () => { $("help").hidden = true; };
 for (const f of FEATURES) if (f.cliff) FEAT_HELP["ft_" + f.id] = [f.name,
   "The cells of near-vertical rock faces whose drop is " + f.name.replace("Cliff drops ", "") + ". From every cell whose steepest step to a neighbour is 60° or more, the face is followed up and down its steepest line while the steps stay that steep; the drop from the top to the foot and the horizontal run of the face give its angle, and only faces of 85–90° count — nest ledges, roosts and the owl's cliffs are on faces like these. The five classes are separate toggles, one colour each, named under the pointer.",
-  "The DTM's gridding smears a vertical wall over two to three cells of a 1 m grid, so two cells (one on coarser grids) are taken off the run before the angle is judged, and a face within that smear always counts as vertical; the unsmoothed heights are used. Even so the rule is strict: at Preikestolen about one face in eight that drops 5 m or more passes it. The marked cells are widened by 2 m so a face shows as a band. On a 10 m grid a drop under 10 m cannot be told at all and the classes are coarse — use a 1 m view. Overhangs are not in a DTM."];
+  "The DTM's gridding smears a vertical wall over two to three cells of a 1 m grid, so two cells (one on coarser grids) are taken off the run before the angle is judged, and a face within that smear always counts as vertical; the unsmoothed heights are used. Even so the rule is strict: at Preikestolen about one face in eight that drops 5 m or more passes it. The colour goes on the face itself and on the first tile beyond its top and its bottom. On a 10 m grid a drop under 10 m cannot be told at all and the classes are coarse — use a 1 m view. Overhangs are not in a DTM."];
 helpUI();
 $("lyContours").onchange = $("lySlope").onchange = $("lyFacing").onchange = () => { $("lgSlope").hidden = !$("lySlope").checked; $("lgFacing").hidden = !$("lyFacing").checked; repaint(); };
 $("lyMarkers").onchange = () => { repaint(); applyVis(); };
