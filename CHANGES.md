@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-19 · A place-name search in the map picker
+
+Owner: "in the 2d map point picker, add a good location name search." A search box above the picker's map: Kartverket's stedsnavn API for Norway (fuzzy prefix search; each hit with its kind and municipality), Photon (OpenStreetMap) for what Kartverket does not know; searched as you type, an exact name first; a hit moves the map to it at zoom 13 or closer and places the point, Enter takes the first hit.
+
 ## 2026-10-19 · The view link carries only departures from the defaults
 
 Owner: "the sharing link should only represent overrides from defaults, keep link as short as possible." The `v=` parameter is now a short text: `1=` boxes switched on, `0=` boxes switched off (relative to the defaults), `s=` settings that differ (plus the wind, snow and month choices of layers that are on), `h=` hidden legend classes of layers that are on, `c=` the camera only when it has left the home position; the separators stay unencoded. A view with nothing changed adds nothing. The first day's JSON links still open.

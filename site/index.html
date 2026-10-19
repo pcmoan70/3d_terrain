@@ -72,6 +72,7 @@
   #pickMap{position:absolute;inset:0;background:#c8d4dc}
   #pickBar{position:absolute;left:10px;right:10px;bottom:10px;margin:auto;max-width:440px;z-index:1000;font-size:13px}
   #pickBar .minb{top:6px}
+  #pickQ{flex:1 1 auto;min-width:0}#pickQR{position:absolute;left:0;right:30px;bottom:100%;margin-bottom:4px;max-height:40vh;overflow:auto;z-index:1001;padding:2px 0}#pickQR div{padding:5px 8px;cursor:pointer}#pickQR div:hover{background:#39414b}
   .pk-c{width:18px;height:18px;border-radius:50%;background:#e64a19;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6);box-sizing:border-box}
   .pk-h{width:26px;height:26px;border-radius:5px;background:#ff6d00;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6);box-sizing:border-box;cursor:nwse-resize}
   .pk-h1{background:#fff;border-color:#444;cursor:nesw-resize}
@@ -187,6 +188,8 @@
      terrain from the Geonorge WCS (1 km tiles at 1 m, 10 km tiles at 10 m) -->
 <div id="pick" hidden><div id="pickMap"></div>
 <div id="pickBar" class="panel"><button class="minb" id="pickX" title="Close the map">×</button>
+  <!-- owner, 2026-10-19: "in the 2d map point picker, add a good location name search" -->
+  <div class="row w" style="padding-right:30px;position:relative;margin-bottom:6px"><input id="pickQ" type="search" placeholder="Search a place name…" autocomplete="off" title="Norwegian place names from Kartverket (any spelling close enough); the rest of the world from OpenStreetMap"><div id="pickQR" class="panel" hidden></div></div>
   <div style="padding-right:30px;margin-bottom:4px"><b>Tap the map</b> where you want the 3-D view — the square is what you get: drag its orange corner (or Shift + mouse wheel) to change the radius, drag the red dot to move it — then build it. The square follows the model's UTM grid, so it is turned a little against north.</div>
   <div class="row w"><label>Terrain model <select id="pickRes" style="width:auto"><option value="1">1 m (view radius up to 5 km)</option><option value="10">10 m (view radius up to 15 km)</option><option value="n">1 m centre (up to 5 km) + 10 m around (up to 15 km)</option></select></label></div>
   <div class="row w"><label title="How far the 3-D view reaches from the tapped point — the yellow circle on the map">View radius <input id="pickRad" type="number" inputmode="decimal" min="0.1" max="5" step="0.1" value="1" style="width:64px"> km from the point</label>
@@ -3390,6 +3393,31 @@ function pickInfo() {
   const [Xc, Yc] = UTM.fwd(pickLL[0], pickLL[1], 33), [la2, lo2] = UTM.inv(Xc, Yc, 33), [x2, y2] = UTM.fwd(la2 + 0.01, lo2, 33), turn = Math.atan2(x2 - Xc, y2 - Yc) / RAD;   // grid convergence: how far the square turns from north
   $("pickS").textContent = "Point " + pickLL[0].toFixed(5) + ", " + pickLL[1].toFixed(5) + " · a " + (2 * R >= 1000 ? (2 * R / 1000) + " km" : 2 * R + " m") + " square round it, turned " + Math.abs(turn).toFixed(1) + "° " + (turn > 0 ? "clockwise" : "anticlockwise") + " of north (the model's grid)" + (res === "n" ? " (1 m detail in the middle " + (2 * R1 / 1000) + " km)" : "") + " · " + pl.items.length + " tile" + (pl.items.length > 1 ? "s" : "") + " ≈ " + (pl.mb < 10 ? pl.mb.toFixed(1) : Math.round(pl.mb)) + " MB to fetch (cached for next time)";
 }
+// ---- a place-name search in the picker (owner, 2026-10-19: "add a good location name search"): Kartverket's stedsnavn API
+// for Norway (fuzzy, with the name's kind and municipality), Photon (OpenStreetMap) for anything it does not know. Searched as
+// you type (250 ms after the last key); a result moves the map there and places the point; Enter takes the first.
+let pqT = null, pqN = 0;
+async function placeSearch(q) {   // both services at once; exact names first, then OpenStreetMap's importance order (biased to the map's centre), then Kartverket's finer places; near-duplicates folded
+  const c = lmap ? lmap.getCenter() : { lat: 62, lng: 10 }, ql = q.toLowerCase();
+  const [ph, kv] = await Promise.all([
+    fetch("https://photon.komoot.io/api/?q=" + encodeURIComponent(q) + "&limit=8&lang=default&lat=" + c.lat.toFixed(3) + "&lon=" + c.lng.toFixed(3)).then(r => r.json()).then(d => (d.features || []).filter(f => f.properties.name && f.properties.osm_key !== "highway").map(f => { const p = f.properties; return { name: p.name, what: [(p.osm_value || "").replace(/_/g, " "), p.city || p.county || p.state, p.country].filter(Boolean).join(", "), lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0], no: p.country === "Norge" }; })).catch(() => []),   // roads and paths left out: Kartverket names the places themselves
+    fetch("https://api.kartverket.no/stedsnavn/v1/navn?sok=" + encodeURIComponent(q + "*") + "&fuzzy=true&utkoordsys=4258&treffPerSide=10").then(r => r.json()).then(d => (d.navn || []).filter(n => n.representasjonspunkt).map(n => ({ name: n["skrivemåte"], what: [n.navneobjekttype, n.kommuner && n.kommuner.map(k => k.kommunenavn).join(" / ")].filter(Boolean).join(", "), lat: n.representasjonspunkt.nord, lon: n.representasjonspunkt["øst"], no: true }))).catch(() => [])]);
+  const out = [], same = (a, b) => a.name.toLowerCase() === b.name.toLowerCase() && Math.abs(a.lat - b.lat) < 0.1 && Math.abs(a.lon - b.lon) < 0.2;   // one name within about ten kilometres
+  for (const p of ph.concat(kv)) if (!out.some(o => same(o, p))) out.push(p);
+  const rank = p => (p.name.toLowerCase() === ql ? 0 : 2) + (p.no ? 0 : 1);   // the exact name first, Norway before abroad, else as the services ranked them
+  return out.sort((a, b) => rank(a) - rank(b)).slice(0, 10);
+}
+function pickQShow(list) {
+  const el = $("pickQR"); el.innerHTML = list.length ? list.map((p, i) => '<div data-i="' + i + '"><b>' + esc(p.name) + "</b> — " + esc(p.what) + "</div>").join("") : '<div style="color:#aab;cursor:default">Nothing found</div>'; el.hidden = false;
+  for (const d of el.querySelectorAll("div[data-i]")) d.onclick = () => pickQGo(list[+d.dataset.i]);
+}
+function pickQGo(p) { $("pickQR").hidden = true; $("pickQ").value = p.name; if (lmap) lmap.setView([p.lat, p.lon], Math.max(lmap.getZoom(), 13)); pickSet(p.lat, p.lon); }
+$("pickQ").oninput = () => { clearTimeout(pqT); const q = $("pickQ").value.trim(); if (q.length < 2) { $("pickQR").hidden = true; return; } pqT = setTimeout(async () => { const n = ++pqN, list = await placeSearch(q); if (n === pqN) pickQShow(list); }, 250); };
+$("pickQ").onkeydown = async e => {
+  if (e.key === "Escape") { $("pickQR").hidden = true; return; }
+  if (e.key !== "Enter") return; e.preventDefault(); clearTimeout(pqT); const q = $("pickQ").value.trim(); if (q.length < 2) return;
+  const list = await placeSearch(q); if (list.length) pickQGo(list[0]); else pickQShow(list);
+};
 function pickSet(lat, lon) {
   pickLL = [lat, lon];
   if (!lmark) {
@@ -3508,7 +3536,7 @@ const FEAT_HELP = {   // row checkbox id → [title, what it shows, the assumpti
     "Sky view from the terrain's horizons in 32 directions on the coarse grid; the world beyond the view's edge is taken as open. Shelter from the terrain only."]
 };
 const HELP = [
-  ["Getting a terrain", "<p>Tap the coordinates in the title (or <i>pick a place on the map</i>) to open the map: tap a place, set the <b>view radius</b> and the <b>model</b>, then Render. <b>1 m</b> is Kartverket's 1 m terrain model (DTM) and reaches 5 km from the point; <b>10 m</b> reaches 15 km; <b>1 m centre + 10 m around</b> nests a 1 m square (up to 5 km) inside a 10 m view (up to 15 km). A 1 m radius dragged or typed past 5 km flips to the mixed model by itself; the frames on the map show both squares. A view can also come from a <b>link</b> (<code>?lat=&amp;lon=&amp;r=&amp;res=</code>), from BirdsWhere (its points come along as pins), from a <b>folder</b> of DTM GeoTIFF tiles with .geojson / .kml / .kmz overlays (Data → Load), from a saved one-file view, or from a Google Drive folder.</p><p>Tapping the terrain opens a popup with the model to fetch at and a row of buttons: <b>Fetch+</b> (fetch the tiles round that point too and show everything fetched so far as one view), <b>Fetch</b> (move the view there) and <b>Ground view</b>. Tiles already in hand are not fetched again.</p>"],
+  ["Getting a terrain", "<p>The search box above the map finds a place by name — Norwegian names from Kartverket's place-name register (a spelling close enough will do; each hit says what kind of place it is and its municipality), anything else from OpenStreetMap; a hit moves the map there and places the point, Enter takes the first. </p><p>Tap the coordinates in the title (or <i>pick a place on the map</i>) to open the map: tap a place, set the <b>view radius</b> and the <b>model</b>, then Render. <b>1 m</b> is Kartverket's 1 m terrain model (DTM) and reaches 5 km from the point; <b>10 m</b> reaches 15 km; <b>1 m centre + 10 m around</b> nests a 1 m square (up to 5 km) inside a 10 m view (up to 15 km). A 1 m radius dragged or typed past 5 km flips to the mixed model by itself; the frames on the map show both squares. A view can also come from a <b>link</b> (<code>?lat=&amp;lon=&amp;r=&amp;res=</code>), from BirdsWhere (its points come along as pins), from a <b>folder</b> of DTM GeoTIFF tiles with .geojson / .kml / .kmz overlays (Data → Load), from a saved one-file view, or from a Google Drive folder.</p><p>Tapping the terrain opens a popup with the model to fetch at and a row of buttons: <b>Fetch+</b> (fetch the tiles round that point too and show everything fetched so far as one view), <b>Fetch</b> (move the view there) and <b>Ground view</b>. Tiles already in hand are not fetched again.</p>"],
   ["Moving around", "<p>Drag to move the map (✋ — tap it for ⟳, then drag rotates and tilts) · twist two fingers, right-drag or Shift+drag to rotate · pinch, wheel or <kbd>+</kbd> <kbd>−</kbd> to zoom · ⟲ ⟳ ▲ ▼ rotate and tilt in steps, <kbd>N</kbd> puts north up · arrow keys pan. <b>Reset view</b> returns to the start, <b>Top view</b> looks straight down, <b>Ground view</b> stands 1.75 m above the ground at the point the view turns about (the centre at first; the tap popup's <i>Ground view</i> stands at the tapped point) and looks level at the horizon in the current heading — rotate to look round, tilt to look down, drag to walk; every overlay is painted on the terrain, so all of them show. <b>Height ×</b> exaggerates heights (1–3; shadows are exact at ×1). <b>Smooth terrain</b> softens the model with a Gaussian of the given σ in metres (off: the raw cells). ‹ tucks the panels away, › the map controls.</p>"],
   ["Map", "<p>The <b>base map</b> is draped onto the terrain for the view's box: plain (a light tint), Kartverket topo and greyscale, OpenTopoMap, CyclOSM (paths), Esri streets and aerial, Esri Wayback (every earlier aerial photo of the spot — a <i>Photo</i> list), and NASA's recent satellite imagery (the days of the last 30 with a Sentinel-2 or Landsat pass over the centre at 30 m, about a week behind, then the last three days of MODIS at 250 m — clouds are yours to judge). <b>Contours</b> every 5 m, labelled every 25 m. One layer per loaded <b>overlay file</b> (its polygons, lines and points), <b>centre, circles & steepest point</b> (the centre mark, a 500 m circle and the view's edge, the steepest cell within 500 m), and <b>bold markers</b> (bigger pins, seen through hills, areas outlined).</p>"],
   ["Terrain features", null],
