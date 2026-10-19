@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-19 · Cliff drops: two cells of smear allowed, the band widened
+
+Owner: "I still do not see cliff faces detected and colored." Measured at Preikestolen (1 m, r = 800 m): 388 000 face cells drop ≥ 5 m, but after the one-cell allowance only 2.6 % measured 85°, the angles peaking at 75–80° — the 1 m DTM smears a vertical wall over two to three cells. Now two cells are taken off the run on 1 m grids (one on coarser), 12 % pass, and the marked cells are widened by 2 m so a face shows as a band rather than a one-cell hairline. Help and README say so.
+
 ## 2026-10-19 · Cliff drops in five height classes
 
 Owner: "add the following terrain features: vertical cliff drops, 5-10m,10-15m, 15-25m,25-50m, 50m+ (85 -90 degrees)". Five DTM-derived masks (`cliff5` … `cliff50`), one toggle and colour each, from a shared class map (`cliffClasses`): from every cell whose steepest step to a neighbour is ≥ 60° (unsmoothed heights), the face is followed up and down its steepest line while the steps stay that steep; drop H over run L less one cell (the DTM smears a vertical wall over a cell) must be ≥ tan 85°; the class is H. Help per class, named under the pointer.
