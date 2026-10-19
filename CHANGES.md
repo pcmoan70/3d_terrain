@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-19 · The MIT licence named in the viewer
+
+Owner: "Make sure all apps exposed on pages make it clear that they carry a mit licence." The attribution line under the view ends with "Viewer: MIT licence, github.com/pcmoan70/3d_terrain", and the help's last section says the same with the link.
+
 ## 2026-10-19 · NIBIO overlays: SR16, AR5, forestry plans, vegetation types, MIS habitats
 
 Owner: "add nibo sr16 overlays, where user is allowed to toggle each type on and off" and "Any other nibio overlays that might be of interest, relevant to breeding and forage behaviours should be added as overlay options too." Five collapsible groups under Terrain features, one checkbox per layer (33 in all), served by NIBIO's WMS like CORINE (EPSG:25833, CORS open, one GetMap per grid, up to 3000 px because AR5 draws nothing coarser than 1:50 000): **SR16** (11 rasters), **AR5** (4), **Forestry plans** (2), **Vegetation types** (2), **MIS forest habitats** (14). The map-filling layers paint the whole ground, so one of them is on at a time (switching one on switches the others off); the MIS features stack. Legends are the services' own legend images; the help translates the Norwegian labels and says what each group means for nesting and foraging. A tap asks each service with a layer on for its values at the point: SR16's HTML answer carries every layer's cell value (heights dm → m, LAI ÷ 100), the others answer GML (AR5's four classes; the stand's class, age, site index and species; each MIS feature with its note). Attribution lists the groups on. One `blendImg` loop now serves CORINE, snow and these. Plan: `tasks/terrain3d-sr16_20261019.md` in the workspace.
