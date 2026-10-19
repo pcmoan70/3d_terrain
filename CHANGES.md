@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-19 · Openness within 500 m, edge distance coloured to 250 m
+
+Owner: "Topographic openness: let that be 500m, Distance to ridge : 250m." The openness rays run to 500 m (sampled every cell out to 50 m, then every 10 m, so a near wall still counts without a five-fold cost) and the edge-distance colours run 0–250 m.
+
 ## 2026-10-19 · Terrain features: streams, mires, alpine plateaus, viewshed; openness, edge distance, ruggedness
 
 Owner: "implement the terrain feature: streams and mires (flow accumulation), alpine plateaus, viewsheds (area seen /total area in 3d view)", then "and Topographic Openness", "and Distance to Ridge / Cliff Edges", "and Ruggedness (TRI/VRM)". Four new masks (`stream`, `mire`, `plateau`, `viewshed`) on the usual machinery — `flowAcc()` (priority flood + ε with a binary heap, D8, accumulation in the flood's order), a TWI rule for mires, a latitude-only tree line for plateaus, `viewshed()` (a ray to every edge cell from 1.75 m over the centre or a tapped point: the point popup gets a *Viewshed* button, the row writes the share of the view seen, the point travels in the view link as `vs:x/y`) — and a small graded-layer mechanism (`GRADED`, `gradedOn()`): a Float32 field per grid, colours over the fine grid's 1st–99th percentiles or a fixed range, a legend bar, the value under the pointer. Fields: `openness()` (Yokoyama, 100 m, on a ≤ 400² grid), `edgeDist()` (Felzenszwalb EDT to ridge crests and cliff brinks, 0–200 m), `triOf()`, `vrmOf()`. Eight help entries; README and the subpane's note updated (only coastal wave exposure is still "not yet").

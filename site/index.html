@@ -2001,8 +2001,8 @@ const FEATURES = [
 // cell, coloured over the view's 1st–99th percentiles (or a fixed range), a legend with the numbers, the value under the pointer
 const EDGE_RAMP = [[0, [255, 150, 0]], [0.5, [235, 232, 220]], [1, [30, 70, 200]]], RUG_RAMP = [[0, [235, 232, 220]], [0.5, [255, 140, 0]], [1, [110, 0, 120]]];
 const GRADED = [
-  { id: "open", name: "Topographic openness", note: "positive openness (Yokoyama): 90° less the mean, over eight directions, of the highest angle to the ground within 100 m — above 90° convex and open, below it enclosed", ramp: WIND_RAMP, rev: true, fmt: v => v.toFixed(0) + "°", read: v => v >= 95 ? "convex, open" : v <= 85 ? "enclosed" : "about level", calc: G => openness(G) },
-  { id: "edge", name: "Distance to ridge or cliff edge", note: "metres to the nearest ridge crest or cliff brink (a cell under 30° with a lower neighbour of 45° or more)", rng: [0, 200], ramp: EDGE_RAMP, fmt: v => v > 999 ? "> 1 km" : Math.round(v) + " m", calc: G => edgeDist(G) },
+  { id: "open", name: "Topographic openness", note: "positive openness (Yokoyama): 90° less the mean, over eight directions, of the highest angle to the ground within 500 m — above 90° convex and open, below it enclosed", ramp: WIND_RAMP, rev: true, fmt: v => v.toFixed(0) + "°", read: v => v >= 95 ? "convex, open" : v <= 85 ? "enclosed" : "about level", calc: G => openness(G) },
+  { id: "edge", name: "Distance to ridge or cliff edge", note: "metres to the nearest ridge crest or cliff brink (a cell under 30° with a lower neighbour of 45° or more)", rng: [0, 250], ramp: EDGE_RAMP, fmt: v => v > 999 ? "> 1 km" : Math.round(v) + " m", calc: G => edgeDist(G) },
   { id: "tri", name: "Ruggedness, TRI", note: "terrain ruggedness index (Riley): the mean height difference to the eight neighbouring cells, in metres", ramp: RUG_RAMP, fmt: v => v.toFixed(2) + " m", calc: G => triOf(G) },
   { id: "vrm", name: "Ruggedness, VRM", note: "vector ruggedness measure (Sappington): how much the surface normals within 5 m (one cell on coarse grids) disagree, 0 smooth … 1 chaotic", ramp: RUG_RAMP, fmt: v => v.toFixed(3), calc: G => vrmOf(G) }];
 $("featRows").innerHTML = FEATURES.map(f => '<div class="row"><label class="ly" title="' + f.note + '"><input type="checkbox" id="ft_' + f.id + '"> <span class="sw" style="background:' + f.col + '"></span> ' + f.name + '<span class="ftx" id="ftx_' + f.id + '"></span></label></div>').join("") +   // the texts are the page's own
@@ -2083,13 +2083,14 @@ function viewshed(G, px, py, m) {   // the cells in sight from GROUND_H over the
   };
   for (let i = 0; i < n; i++) { ray(i, 0); ray(i, n - 1); } for (let j = 1; j < n - 1; j++) { ray(0, j); ray(n - 1, j); }
 }
-function openness(G) {   // positive topographic openness (Yokoyama et al. 2002) within 100 m, on a ≤ 400² evaluation grid, bilinear back onto the cells
-  const n = G.n, c = G.c, hs = G.hs, bad = G.bad, N = n * n, L = 100, st = Math.max(1, Math.round(n / 400)), m = Math.max(2, Math.ceil(n / st)), ds = Math.max(c, 2), ns = Math.round(L / ds), E = new Float32Array(m * m);
+function openness(G) {   // positive topographic openness (Yokoyama et al. 2002) within 500 m (owner, 2026-10-19), on a ≤ 400² evaluation grid, bilinear back onto the cells
+  const n = G.n, c = G.c, hs = G.hs, bad = G.bad, N = n * n, L = 500, st = Math.max(1, Math.round(n / 400)), m = Math.max(2, Math.ceil(n / st)), E = new Float32Array(m * m);
+  const DS = []; for (let d = Math.max(c, 2); d <= 50; d += Math.max(c, 2)) DS.push(d); for (let d = 60; d <= L; d += 10) DS.push(d);   // every cell (2 m at least) out to 50 m, then every 10 m: a near wall still counts
   for (let J = 0; J < m; J++) for (let I = 0; I < m; I++) {
     const i = Math.min(n - 1, I * st), j = Math.min(n - 1, J * st), k = j * n + i; if (bad[k]) { E[J * m + I] = 90; continue; }
     const z0 = hs[k]; let sum = 0;
     for (const [di, dj] of NB8) { let mx = -Infinity, f = di && dj ? Math.SQRT2 : 1;
-      for (let q = 1; q <= ns; q++) { const d = q * ds, ii = Math.round(i + di * d / c), jj = Math.round(j + dj * d / c); if (ii < 0 || jj < 0 || ii >= n || jj >= n) break; const t = jj * n + ii; if (bad[t]) continue; const a = Math.atan((hs[t] - z0) / (d * f)); if (a > mx) mx = a; }
+      for (const d of DS) { const ii = Math.round(i + di * d / c), jj = Math.round(j + dj * d / c); if (ii < 0 || jj < 0 || ii >= n || jj >= n) break; const t = jj * n + ii; if (bad[t]) continue; const a = Math.atan((hs[t] - z0) / (d * f)); if (a > mx) mx = a; }
       sum += mx === -Infinity ? 0 : mx; }
     E[J * m + I] = 90 - sum / 8 / RAD;
   }
@@ -3686,10 +3687,10 @@ const FEAT_HELP = {   // row checkbox id → [title, what it shows, the assumpti
     "The ground in sight from 1.75 m above a point — the view's centre, or a tapped point after its popup's Viewshed button. The row says what share of the view's area is seen (and the km²). A ray is traced to every cell on the view's edge; a cell is seen when its angle tops every cell before it on the ray, the Earth's curvature less refraction allowed for.",
     "Bare ground only: trees and buildings are not in the model, so the forest floor is 'seen' through a forest. The smoothed heights are used. Only the view's own square is judged."],
   ft_open: ["Topographic openness",
-    "Yokoyama's positive openness: in eight directions the highest angle to the ground within 100 m is found; openness is 90° less their mean. Level ground gives 90°, a crest or a knoll more (the ground falls away all round), a hollow, a gorge or the foot of a wall less. Worked out on a grid of up to 400 × 400 points and interpolated.",
-    "The 100 m radius sets the scale: a feature wider than that reads as level. Colours run over the view's 1st to 99th percentile, so a flat view is coloured by its small differences."],
+    "Yokoyama's positive openness: in eight directions the highest angle to the ground within 500 m is found; openness is 90° less their mean. Level ground gives 90°, a crest or a knoll more (the ground falls away all round), a hollow, a gorge or the foot of a wall less. Worked out on a grid of up to 400 × 400 points (the ground sampled every cell out to 50 m, then every 10 m) and interpolated.",
+    "The 500 m radius sets the scale: a feature wider than that reads as level, and the view's edge cuts the rays short near the border. Colours run over the view's 1st to 99th percentile, so a flat view is coloured by its small differences."],
   ft_edge: ["Distance to ridge or cliff edge",
-    "Metres to the nearest crest or brink, by an exact Euclidean distance transform: crests are the Ridges rule (ground 3 m above its surroundings within 25 m, under 45°), brinks are cells under 30° with a lower neighbouring cell of 45° or more. Coloured from 0 m (orange) to 200 m and beyond (blue).",
+    "Metres to the nearest crest or brink, by an exact Euclidean distance transform: crests are the Ridges rule (ground 3 m above its surroundings within 25 m, under 45°), brinks are cells under 30° with a lower neighbouring cell of 45° or more. Coloured from 0 m (orange) to 250 m and beyond (blue).",
     "An edge outside the view is unknown, so distances near the view's border are too long. Any 45° step counts as a brink — a road cutting, a quarry face, a river bank."],
   ft_tri: ["Ruggedness, TRI",
     "Riley's terrain ruggedness index: the mean height difference between a cell and its eight neighbours, in metres, on the smoothed heights.",
