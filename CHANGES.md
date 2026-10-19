@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-19 · The view link carries only departures from the defaults
+
+Owner: "the sharing link should only represent overrides from defaults, keep link as short as possible." The `v=` parameter is now a short text: `1=` boxes switched on, `0=` boxes switched off (relative to the defaults), `s=` settings that differ (plus the wind, snow and month choices of layers that are on), `h=` hidden legend classes of layers that are on, `c=` the camera only when it has left the home position; the separators stay unencoded. A view with nothing changed adds nothing. The first day's JSON links still open.
+
 ## 2026-10-19 · A pin in the title
 
 Owner: "on top line, next to coordinates show a pin icon, for selecting new pont. if on mobile do not show lon,lat". A 📍 after the coordinates opens the map picker (the coordinates still do too); on screens up to 640 px wide the coordinates are hidden once a terrain is loaded and the pin stands alone.

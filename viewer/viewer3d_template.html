@@ -377,6 +377,7 @@ async function loadFolder(items) {
   if (scene.radius_1m) $("crad1").value = scene.radius_1m;
   if (scene.sigma != null) { $("csig").value = scene.sigma || 1.5; $("csmooth").checked = scene.sigma > 0; }
   else if (scene.smoothed_sigma != null) { $("csmooth").checked = scene.smoothed_sigma > 0; if (scene.smoothed_sigma > 0) $("csig").value = scene.smoothed_sigma; }   // older folders: 0 = the DTM is already smoothed
+  if (typeof CK_DEF !== "undefined") { CK_DEF[$("csmooth").checked ? "add" : "delete"]("csmooth"); VW_DEF.csig = $("csig").value; }   // the scene's own smoothing is the default a view link measures from
   $("dsrc").textContent = tiles.length + " DTM tile(s), UTM zone " + SRC.zone + ", " + overlays.length + " overlay feature(s)" + (scene.source ? " · " + scene.source : "");
   await render();
 }
@@ -1657,7 +1658,7 @@ function shadowFrame() {
 const ex = $("ex");
 function setEx() { if (!world) return; world.scale.y = +ex.value; $("exv").textContent = (+ex.value).toFixed(1); letters.forEach(sp => sp.position.set(sp.userData.x, (sp.userData.z - 9) * world.scale.y + 9, -sp.userData.y)); draw(); }
 ex.oninput = setEx;
-function home() { const k = Math.max(1, 1.0 / camera.aspect), R = S.RB, cz0 = (sample(0, 0) - S.h0) * world.scale.y; camera.position.set(0, cz0 + R * 1.9 * k, R * 0.9 * k); controls.target.set(0, (sample(0, 0) - S.h0) * world.scale.y, 0); controls.update(); draw(); }
+function home() { const k = Math.max(1, 1.0 / camera.aspect), R = S.RB, cz0 = (sample(0, 0) - S.h0) * world.scale.y; camera.position.set(0, cz0 + R * 1.9 * k, R * 0.9 * k); controls.target.set(0, (sample(0, 0) - S.h0) * world.scale.y, 0); controls.update(); draw(); homeCam = camNow(); }
 $("reset").onclick = () => S && home();
 // ---- ground view (owner, 2026-10-19: "a mode where view is from 175m above ground [1.75 m] viewing the horizon supporting all overlays
 // etc. 'Ground view'"): the camera 1.75 m (in the model's vertical scale) over the ground at a point, looking level in the current
@@ -2119,14 +2120,38 @@ function linkBase() {   // the terrain's link, or null for files from this devic
   else return null;
   return u;
 }
-const VIEW_IDS = ["windDir", "snowDay", "snowYear", "mFrom", "mTo", "lmode", "tz", "day", "tod", "basemap", "ex", "csig"];
-const CK_DEF = new Set([...document.querySelectorAll('#info input[type="checkbox"][id]')].filter(e => e.checked).map(e => e.id));   // the boxes on by default: the link carries only departures
+// Only departures from the defaults go into the link, in a short text form (owner, 2026-10-19: "keep link as short as
+// possible"): 1=boxes switched on; 0=boxes switched off; s=settings that differ (and the wind, snow and month choices of
+// layers that are on); h=hidden legend classes; c=the camera when it has left the home position.
+const CK_ALL = () => document.querySelectorAll('#info input[type="checkbox"][id]');
+const CK_DEF = new Set([...CK_ALL()].filter(e => e.checked).map(e => e.id)), VW_IDS = ["lmode", "tz", "basemap", "ex", "csig"], VW_DEF = {}; for (const id of VW_IDS) VW_DEF[id] = $(id).value;
+let homeCam = null;   // where home() put the camera; a link carries the camera only when it has moved from there
+const camNow = () => [camera.position.x, camera.position.y, camera.position.z, controls.target.x, controls.target.y, controls.target.z].map(Math.round);
 function viewState() {
-  const c1 = [], c0 = [], v = {}, nbo = {}, r1 = n => Math.round(n * 10) / 10;
-  for (const el of document.querySelectorAll('#info input[type="checkbox"][id]')) if (el.checked !== CK_DEF.has(el.id)) (el.checked ? c1 : c0).push(el.id);
-  for (const id of VIEW_IDS) v[id] = $(id).value;
-  for (const k in nbOff) if (nbOff[k].size) nbo[k] = [...nbOff[k]];
-  return { c1, c0, v, off: { slope: [...clsOff.slope], face: [...clsOff.face], nb: nbo }, cam: [camera.position.x, camera.position.y, camera.position.z, controls.target.x, controls.target.y, controls.target.z].map(r1) };
+  const on = [], off = [], sv = [], hid = [];
+  for (const el of CK_ALL()) if (el.checked !== CK_DEF.has(el.id)) (el.checked ? on : off).push(el.id);
+  for (const id of VW_IDS) if ($(id).value !== VW_DEF[id] && !(id === "lmode" && $("lySun").checked)) sv.push(id + ":" + $(id).value);   // the average sun forces fixed light: not a choice
+  if ($("lyWind").checked) sv.push("windDir:" + $("windDir").value);
+  if ($("lySnow").checked) sv.push("snowDay:" + $("snowDay").value);
+  if ($("lySnowD").checked) sv.push("snowYear:" + $("snowYear").value);
+  if ($("lySun").checked) sv.push("mFrom:" + $("mFrom").value, "mTo:" + $("mTo").value);
+  if ($("lySlope").checked && clsOff.slope.size) hid.push("slope~" + [...clsOff.slope].join("."));
+  if ($("lyFacing").checked && clsOff.face.size) hid.push("face~" + [...clsOff.face].join("."));
+  for (const k in nbOff) if (nbOff[k].size && $("nb_" + k.replace(":", "_")).checked) hid.push(k + "~" + [...nbOff[k]].join("."));
+  const cam = camNow(), moved = !homeCam || cam.some((v, i) => Math.abs(v - homeCam[i]) >= 1);
+  return [on.length && "1=" + on.join(","), off.length && "0=" + off.join(","), sv.length && "s=" + sv.join(","), hid.length && "h=" + hid.join("|"), moved && "c=" + cam.join(",")].filter(Boolean).join(";");
+}
+function parseView(str) {   // the short form (or the first day's JSON) → {c1, c0, v, off, cam}
+  if (str[0] === "{") return JSON.parse(str);
+  const st = { c1: [], c0: [], v: {}, off: { slope: [], face: [], nb: {} } };
+  for (const f of str.split(";")) {
+    const k = f.slice(0, 2), val = f.slice(2);
+    if (k === "1=") st.c1 = val.split(","); else if (k === "0=") st.c0 = val.split(",");
+    else if (k === "s=") for (const it of val.split(",")) { const c = it.indexOf(":"); st.v[it.slice(0, c)] = it.slice(c + 1); }
+    else if (k === "h=") for (const it of val.split("|")) { const c = it.lastIndexOf("~"), key = it.slice(0, c), idx = it.slice(c + 1).split(".").map(Number); if (key === "slope" || key === "face") st.off[key] = idx; else st.off.nb[key] = idx; }
+    else if (k === "c=") st.cam = val.split(",").map(Number);
+  }
+  return st;
 }
 let pendingCam = null;
 function applyViewState(st) {   // before the terrain is built: the panel's choices; the camera waits for build()
@@ -2146,8 +2171,9 @@ $("linkB").onclick = async () => {
   const u = linkBase();
   if (!u) { $("dataSec").open = true; $("shr").hidden = false; $("shr").textContent = "Only a terrain opened from Google Drive, a web folder or a place on the map can be shared as a link — files from this device stay here (Save them and send the file)."; return; }
   u.searchParams.set("day", $("day").value); u.searchParams.set("tod", $("tod").value);
-  if (S) u.searchParams.set("v", JSON.stringify(viewState()));
-  const link = u.href; let ok = false;
+  const st = S ? viewState() : "";
+  const link = u.href + (st ? "&v=" + encodeURIComponent(st).replace(/%2C/g, ",").replace(/%3A/g, ":").replace(/%3B/g, ";").replace(/%3D/g, "=").replace(/%7C/g, "|") : "");   // the separators may stay as they are in a query
+  let ok = false;
   try { await navigator.clipboard.writeText(link); ok = true; } catch (e) {}
   if (ok) { $("linkB").textContent = "✓"; setTimeout(() => { $("linkB").textContent = "⧉"; }, 1500); }
   else { $("dataSec").open = true; $("shr").hidden = false; $("shr").innerHTML = 'Copy this link:<br><input type="text" readonly style="width:100%" value="' + esc(link) + '">'; }
@@ -2488,7 +2514,7 @@ setNow();
     const sp = new URL(location.href).searchParams, f = sp.get("folder"), dl = sp.get("drive");
     if (f || dl) $("dataSec").open = !!dl && !f;   // opened from a link: closed (a Drive link stays open — its sign-in button is in there)
     if (sp.get("day")) { $("day").value = sp.get("day"); $("tod").value = sp.get("tod") || 720; updateSun(); }
-    if (sp.get("v")) try { applyViewState(JSON.parse(sp.get("v"))); } catch (e) {}   // a link to an exact view: its choices first
+    if (sp.get("v")) try { applyViewState(parseView(sp.get("v"))); } catch (e) {}   // a link to an exact view: its choices first
     if (dl) {   // the sign-in popup needs a tap: one big button for it
       $("path").value = dl; $("dsrc").textContent = "A Google Drive link is filled in: press Load.";
       $("gate").hidden = false;
