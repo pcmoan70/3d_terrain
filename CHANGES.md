@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-19 · NIBIO classes in English
+
+Owner: "in the hover text, and legend for NBIO overlays only show english names." `NB_EN` translates every class name the style sheets return (AR5, forestry plans, the 54 vegetation types and 13 main types) and the tap readouts' values; the legend and the pointer show the English only, a name without a translation is shown as served. SR16 species are spruce / pine / broadleaf.
+
 ## 2026-10-19 · NIBIO classes under the pointer
 
 Owner: "the NBIO legends need to be showing in hover text. need some ocr and color detection for this maybe?" No OCR: the vector layers (AR5, forestry plans, vegetation types) answer WMS GetStyles with each class's name and fill colour, fetched once per layer; the SR16 rasters have no style sheet, so their eleven class tables were transcribed from NIBIO's legend images (`SR16_CL`, colours read by script, labels by eye; heights dm → m, LAI ÷ 100). The pointer samples the overlay's own pixel and names the nearest class (`nbAt`); the MIS layers, being symbols, are named by which of them have a pixel under the pointer. The legends are now built from the same tables (swatch + label), so legend and pointer always agree; a layer without a table (MIS) keeps the service's legend image.
