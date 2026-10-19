@@ -81,7 +81,7 @@
      column collapsible"): the controls, the views list under them; ‹ tucks the whole column away, › brings it back -->
 <div id="side"><button id="sideX" title="Hide the panels">‹</button>
 <div id="info" class="panel">
-  <button class="minb" id="infoMin" title="Minimise / restore">−</button><button class="minb" id="helpB" title="Help" style="right:40px">?</button>
+  <button class="minb" id="infoMin" title="Minimise / restore">−</button><button class="minb" id="helpB" title="Help" style="right:40px">?</button><button class="minb" id="linkB" title="Copy a link to this exact view — the place, the layers and legend choices, the sun, the map and the camera" style="right:74px">⧉</button>
   <!-- the coordinates in the title open the map to pick a place (owner, 2026-10-17: "executed when user clicks on coordinates in title") -->
   <h1 id="ttl">Terrain 3D — <span id="ttlName"></span><a id="ttlPos" href="#" title="Pick a place on the map">pick a place on the map</a></h1>
   <div class="body">
@@ -1634,6 +1634,7 @@ function build(s) {
   if ($("lyWind").checked) setTimeout(windOn, 0);
   if ($("lyClc").checked) setTimeout(() => $("lyClc").onchange(), 0);
   if (nbOn().length) setTimeout(nbRefresh, 0);
+  if (pendingCam) { const c = pendingCam; pendingCam = null; setTimeout(() => { camera.position.set(c[0], c[1], c[2]); controls.target.set(c[3], c[4], c[5]); controls.update(); draw(); }, 0); }   // a shared view's camera
   for (const sk of snowOn()) setTimeout(() => $(SNOWL[sk].ly).onchange(), 0);
   if (FEATURES.some(f => $("ft_" + f.id).checked)) setTimeout(async () => { await featuresOn(); repaint(); }, 0);
   applyBold(); applyVis();
@@ -2105,6 +2106,50 @@ $("share").onclick = async () => {
   $("shr").innerHTML = esc(how) + " " + (drv ? "The other person signs in with their own Google account — share the Drive folder with it first (Drive → Share → their address, Viewer)." : "") +
     '<br><input type="text" readonly style="width:100%" value="' + esc(link) + '">';
 };
+// ---- a link to this exact view (owner, 2026-10-19: "add a copy icon, allowing user to share a link (must respect active
+// selections, location, view etc)"): the terrain's own link (place / folder / Drive, as Share… builds it) plus ?v= with every
+// choice in the panel, the hidden legend classes and the camera. On load the choices are set before the terrain is built,
+// so the usual switch-on paths run, and the camera is put back once build() has stood the terrain up.
+function linkBase() {   // the terrain's link, or null for files from this device
+  const u = new URL(location.href.split("?")[0]), sp0 = new URL(location.href).searchParams, drv = sp0.get("drive"), fol = sp0.get("folder");
+  if (drv) u.searchParams.set("drive", drv); else if (fol) u.searchParams.set("folder", fol);
+  else if (sp0.get("lat") && sp0.get("lon")) { ["lat", "lon", "r", "res", "r1"].forEach(k => { if (sp0.get(k)) u.searchParams.set(k, sp0.get(k)); }); u.hash = location.hash; }   // the link's points go along
+  else return null;
+  return u;
+}
+const VIEW_IDS = ["windDir", "snowDay", "snowYear", "mFrom", "mTo", "lmode", "tz", "day", "tod", "basemap", "ex", "csig"];
+const CK_DEF = new Set([...document.querySelectorAll('#info input[type="checkbox"][id]')].filter(e => e.checked).map(e => e.id));   // the boxes on by default: the link carries only departures
+function viewState() {
+  const c1 = [], c0 = [], v = {}, nbo = {}, r1 = n => Math.round(n * 10) / 10;
+  for (const el of document.querySelectorAll('#info input[type="checkbox"][id]')) if (el.checked !== CK_DEF.has(el.id)) (el.checked ? c1 : c0).push(el.id);
+  for (const id of VIEW_IDS) v[id] = $(id).value;
+  for (const k in nbOff) if (nbOff[k].size) nbo[k] = [...nbOff[k]];
+  return { c1, c0, v, off: { slope: [...clsOff.slope], face: [...clsOff.face], nb: nbo }, cam: [camera.position.x, camera.position.y, camera.position.z, controls.target.x, controls.target.y, controls.target.z].map(r1) };
+}
+let pendingCam = null;
+function applyViewState(st) {   // before the terrain is built: the panel's choices; the camera waits for build()
+  try {
+    for (const id of st.c1 || []) if ($(id)) $(id).checked = true;
+    for (const id of st.c0 || []) if ($(id)) $(id).checked = false;
+    for (const id in st.v || {}) if ($(id)) $(id).value = st.v[id];
+    if (st.off) {
+      clsOff.slope = new Set(st.off.slope || []); clsOff.face = new Set(st.off.face || []); for (const k in st.off.nb || {}) nbOff[k] = new Set(st.off.nb[k]);
+      for (const el of document.querySelectorAll("#lgSlope .tg, #lgFacing .tg")) el.classList.toggle("off", clsOff[el.dataset.k].has(+el.dataset.i));
+    }
+    $("lgSlope").hidden = !$("lySlope").checked; $("lgFacing").hidden = !$("lyFacing").checked; $("sunBox").hidden = !$("lySun").checked; $("exv").textContent = (+$("ex").value).toFixed(1); monthUI(); updateSun();
+    if (st.cam && st.cam.length === 6) pendingCam = st.cam;
+  } catch (e) {}
+}
+$("linkB").onclick = async () => {
+  const u = linkBase();
+  if (!u) { $("dataSec").open = true; $("shr").hidden = false; $("shr").textContent = "Only a terrain opened from Google Drive, a web folder or a place on the map can be shared as a link — files from this device stay here (Save them and send the file)."; return; }
+  u.searchParams.set("day", $("day").value); u.searchParams.set("tod", $("tod").value);
+  if (S) u.searchParams.set("v", JSON.stringify(viewState()));
+  const link = u.href; let ok = false;
+  try { await navigator.clipboard.writeText(link); ok = true; } catch (e) {}
+  if (ok) { $("linkB").textContent = "✓"; setTimeout(() => { $("linkB").textContent = "⧉"; }, 1500); }
+  else { $("dataSec").open = true; $("shr").hidden = false; $("shr").innerHTML = 'Copy this link:<br><input type="text" readonly style="width:100%" value="' + esc(link) + '">'; }
+};
 // ---- a place picked on a flat map → the terrain fetched from Kartverket's model (owner, 2026-10-17). The Geonorge WCS
 // serves the national 1 m model (EPSG:25833, CORS open) resampled to any size: 1 km tiles at 1 m, or 10 km tiles at
 // 10 m, and coarser cells for a wide 1 m view (a 3 km view asks 2 m tiles: a quarter of the bytes). Tiles are fetched
@@ -2386,7 +2431,7 @@ const HELP = [
   ["Terrain features", null],
   ["Sun", "<p><b>Sun at date and time</b> lights and shadows the terrain as the sun stands then (NOAA sun position; Norway time or UTC) — <b>Fixed light (NW)</b> is a plain studio light instead; <b>Now</b> sets the moment, <b>▶ Day</b> runs through the day. The line under the sliders gives the sun's height and azimuth, the clear-sky direct radiation on level ground, sunrise, solar noon and sunset. <b>Sun: average direct radiation</b> colours the terrain by the clear-sky direct sun on the ground in kWh/m² per day over a month range (the two-handle slider, Jan – Apr to begin with; From after To runs over the new year; the range you set is remembered on this device): hourly, two days per month, the beam times the cosine of its incidence on the cell's slope, nothing when the sun is below the cell's own terrain horizon (32 directions). The colours run from the view's lowest to its highest; the pointer gives the point's value.</p><p class=\"as\"><b>Assumptions:</b> clear sky always; direct beam only (no diffuse sky light, no reflection from snow); terrain horizons on a coarse grid of at most 250 × 250 cells; no trees.</p>"],
   ["Pointing, tapping, measuring", "<p><b>Hovering</b> shows the height, slope, facing and distance from the centre under the pointer, and the value of every overlay that is on. <b>Tapping</b> the terrain opens a popup with the coordinates (a link to the map), height, the overlays' classes, then a row of buttons: <i>Fetch+</i> (fetch the tiles round the point too and show everything fetched so far as one view), <i>Fetch</i> (move the view there) and <i>Ground view</i> (stand there); tapping a pin shows its name and text. <b>📏 Measure</b>: tap two points for the distance, height difference, slope and bearing between them. <b>🛰</b> opens Norgeskart's aerial photo of the place, <b>🐦</b> opens BirdsWhere there.</p>"],
-  ["Data, saving, sharing", "<p>The terrain comes from Kartverket's height model service (NHM DTM, CC BY 4.0), 1 m or 10 m, resampled so that a view is at most 3000 cells across — a 1 m view wider than 3 km is shown on a 2, 3 … m grid, as the Data section states. Cells without data are filled smoothly and greyed. <b>Save as one offline file</b> writes a single HTML file with the terrain and layers inside, which opens anywhere without the network (with Kartverket topo already draped); <b>folder</b> writes the DTM tiles, the layers and a scene.json that Load opens again. <b>Share…</b> gives a link to a terrain picked on the map, a web folder or a Drive folder (the other person signs in to their own Drive; the folder must be shared with them). Overlays from the network (base maps, CORINE, NIBIO's forest, land, vegetation and MIS layers, snow, winds) need the network each time and are not saved into files.</p><p>The viewer and its tools are open source under the <b>MIT licence</b> — <a href=\"https://github.com/pcmoan70/3d_terrain\" target=\"_blank\" rel=\"noopener\">github.com/pcmoan70/3d_terrain</a> (the data keep their own licences, named in the line under the view).</p>"]
+  ["Data, saving, sharing", "<p>The terrain comes from Kartverket's height model service (NHM DTM, CC BY 4.0), 1 m or 10 m, resampled so that a view is at most 3000 cells across — a 1 m view wider than 3 km is shown on a 2, 3 … m grid, as the Data section states. Cells without data are filled smoothly and greyed. <b>Save as one offline file</b> writes a single HTML file with the terrain and layers inside, which opens anywhere without the network (with Kartverket topo already draped); <b>folder</b> writes the DTM tiles, the layers and a scene.json that Load opens again. <b>Share…</b> gives a link to a terrain picked on the map, a web folder or a Drive folder (the other person signs in to their own Drive; the folder must be shared with them); the <b>⧉</b> button in the title copies a link to this <i>exact</i> view — the place, every layer and legend choice, the sun, the map and the camera — which opens just so for the other person. Overlays from the network (base maps, CORINE, NIBIO's forest, land, vegetation and MIS layers, snow, winds) need the network each time and are not saved into files.</p><p>The viewer and its tools are open source under the <b>MIT licence</b> — <a href=\"https://github.com/pcmoan70/3d_terrain\" target=\"_blank\" rel=\"noopener\">github.com/pcmoan70/3d_terrain</a> (the data keep their own licences, named in the line under the view).</p>"]
 ];
 function helpUI() {
   $("helpT").innerHTML = HELP.map(([t, h]) => "<h2>" + t + "</h2>" + (h || Object.keys(FEAT_HELP).map(k => { const f = FEAT_HELP[k]; return '<h3 id="h_' + k + '">' + f[0] + "</h3><p>" + f[1] + "</p>" + (f[2] ? '<p class="as"><b>Assumptions:</b> ' + f[2] + "</p>" : ""); }).join(""))).join("");
@@ -2441,6 +2486,7 @@ setNow();
     const sp = new URL(location.href).searchParams, f = sp.get("folder"), dl = sp.get("drive");
     if (f || dl) $("dataSec").open = !!dl && !f;   // opened from a link: closed (a Drive link stays open — its sign-in button is in there)
     if (sp.get("day")) { $("day").value = sp.get("day"); $("tod").value = sp.get("tod") || 720; updateSun(); }
+    if (sp.get("v")) try { applyViewState(JSON.parse(sp.get("v"))); } catch (e) {}   // a link to an exact view: its choices first
     if (dl) {   // the sign-in popup needs a tap: one big button for it
       $("path").value = dl; $("dsrc").textContent = "A Google Drive link is filled in: press Load.";
       $("gate").hidden = false;

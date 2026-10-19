@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-19 · ⧉ copies a link to the exact view
+
+Owner: "on top line of the left pane add a copy icon, allowing user to share a link (must respect active selections, location, view etc)". A ⧉ button in the title row copies the terrain's link (as Share… builds it) with a `v=` parameter carrying every checkbox in the panel (on and off), the selects and sliders (wind, snow day and year, sun months, light mode, time zone, date, time, base map, height exaggeration, smoothing σ), the hidden slope / facing / NIBIO legend classes and the camera (position and target). On load the choices are applied before the terrain is built so the normal switch-on paths run, and the camera is put back once the terrain stands. The button shows ✓ for a moment; where the clipboard is not allowed the link is shown in the Data section to copy by hand.
+
 ## 2026-10-19 · "DTM derived" subpane
 
 Owner: "the DTM derived features should be under a collapsible subpan \"DTM derived\"." Slope, Facing, Wind exposure and the masks worked out from the model (ridges … sheltered ground) now sit in a collapsible *DTM derived* subpane at the top of Terrain features, open by default; CORINE, the NIBIO groups and the snow layers follow it.
