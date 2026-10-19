@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-19 · "DTM derived" subpane
+
+Owner: "the DTM derived features should be under a collapsible subpan \"DTM derived\"." Slope, Facing, Wind exposure and the masks worked out from the model (ridges … sheltered ground) now sit in a collapsible *DTM derived* subpane at the top of Terrain features, open by default; CORINE, the NIBIO groups and the snow layers follow it.
+
 ## 2026-10-19 · No "nothing in view" entries
 
 Owner: "I dont want \"Nothing in view\" in legend, those entries should not show!" A layer with nothing in the view gets no legend entry at all; a group whose layers all have nothing shows no legend row.

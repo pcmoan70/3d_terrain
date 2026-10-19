@@ -107,6 +107,8 @@
     <!-- terrain features: slope and facing, then the masks worked out from the model and the sun (owner, 2026-10-17: "add the
          various features listed as possible selections in the menu"), each painted at 70 % in its colour -->
     <details class="sec" id="featSec"><summary>Terrain features</summary>
+      <!-- owner, 2026-10-19: "the DTM derived features should be under a collapsible subpan \"DTM derived\"" -->
+      <details class="nb" id="dtmSec" open><summary id="dtmh">DTM derived</summary>
       <div class="row"><label class="ly"><input type="checkbox" id="lySlope"> Slope (NVE steepness classes)</label></div>
       <div class="row lg" id="lgSlope" hidden></div>
       <div class="row"><label class="ly"><input type="checkbox" id="lyFacing"> Facing (the way slopes ≥ 15° face)</label></div>
@@ -115,6 +117,9 @@
       <div class="row w"><label class="ly"><input type="checkbox" id="lyWind"> Wind exposure</label><select id="windDir" style="width:auto" title="The wind to judge shelter from: every direction alike, the winds at the view's centre over the last three years (Open-Meteo), or one compass point">
         <option value="all">all directions</option><option value="rose">the winds here (Open-Meteo)</option><option value="0">from N</option><option value="45">from NE</option><option value="90">from E</option><option value="135">from SE</option><option value="180">from S</option><option value="225">from SW</option><option value="270">from W</option><option value="315">from NW</option></select></div>
       <div class="row lg" id="lgWind" hidden><span id="windLeg"></span></div>
+      <div id="featRows"></div>
+      <div class="sub">Worked out from the terrain model (and the sun model for the last three — computed when first switched on). Not yet: streams and mires (flow accumulation), alpine plateaus, viewsheds, coastal wave exposure.</div>
+      </details>
       <!-- owner, 2026-10-18: "Move the corrine option to 'Terrain features' subpane" -->
       <div class="row"><label class="ly"><input type="checkbox" id="lyClc"> CORINE land cover 2018 (NIBIO)</label></div>
       <div class="row lg" id="lgClc" hidden></div>
@@ -125,8 +130,6 @@
       <div class="row lg" id="lgSnow" hidden></div>
       <div class="row w"><label class="ly"><input type="checkbox" id="lySnowD"> Snow days &gt; 5 cm (seNorge, NVE)</label><input id="snowYear" type="number" min="1957" step="1" style="width:64px" title="The year: days with more than 5 cm of snow in it"></div>
       <div class="row lg" id="lgSnowD" hidden></div>
-      <div id="featRows"></div>
-      <div class="sub">Worked out from the terrain model (and the sun model for the last three — computed when first switched on). Not yet: streams and mires (flow accumulation), alpine plateaus, viewsheds, coastal wave exposure.</div>
     </details>
     <details class="sec" id="sunSec" open><summary>Sun</summary>
       <div class="row w"><select id="lmode" style="width:auto"><option value="sun">Sun at date and time</option><option value="fixed">Fixed light (NW)</option></select>
