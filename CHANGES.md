@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-19 · Cliff drops in five height classes
+
+Owner: "add the following terrain features: vertical cliff drops, 5-10m,10-15m, 15-25m,25-50m, 50m+ (85 -90 degrees)". Five DTM-derived masks (`cliff5` … `cliff50`), one toggle and colour each, from a shared class map (`cliffClasses`): from every cell whose steepest step to a neighbour is ≥ 60° (unsmoothed heights), the face is followed up and down its steepest line while the steps stay that steep; drop H over run L less one cell (the DTM smears a vertical wall over a cell) must be ≥ tan 85°; the class is H. Help per class, named under the pointer.
+
 ## 2026-10-19 · A place-name search in the map picker
 
 Owner: "in the 2d map point picker, add a good location name search." A search box above the picker's map: Kartverket's stedsnavn API for Norway (fuzzy prefix search; each hit with its kind and municipality), Photon (OpenStreetMap) for what Kartverket does not know; searched as you type, an exact name first; a hit moves the map to it at zoom 13 or closer and places the point, Enter takes the first hit.

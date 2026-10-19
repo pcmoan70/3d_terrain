@@ -1990,6 +1990,12 @@ const FEATURES = [
   { id: "ridge", name: "Ridges and crests", col: "#ffb300", note: "ground more than 3 m above its surroundings within 25 m (cliff faces left out)" },
   { id: "gully", name: "Gullies and ravines", col: "#3f51b5", note: "ground more than 3 m below its surroundings within 25 m (cliff faces left out)" },
   { id: "ledge", name: "Ledges on cliffs", col: "#ff4081", note: "a near-flat step (< 20°) with cliff (≥ 45°) within 3 m both above and below it — 1 m grids only", fine: true },
+  // owner, 2026-10-19: "vertical cliff drops, 5-10m,10-15m, 15-25m,25-50m, 50m+ (85 -90 degrees)"
+  { id: "cliff5", name: "Cliff drops 5–10 m", col: "#ffe082", cliff: 1, note: "a near-vertical face (85–90°, allowing one grid cell for the model's smear of a vertical wall) dropping 5–10 m" },
+  { id: "cliff10", name: "Cliff drops 10–15 m", col: "#ffab40", cliff: 2, note: "a near-vertical face dropping 10–15 m" },
+  { id: "cliff15", name: "Cliff drops 15–25 m", col: "#ff5252", cliff: 3, note: "a near-vertical face dropping 15–25 m" },
+  { id: "cliff25", name: "Cliff drops 25–50 m", col: "#d500f9", cliff: 4, note: "a near-vertical face dropping 25–50 m" },
+  { id: "cliff50", name: "Cliff drops 50 m and more", col: "#6a1b9a", cliff: 5, note: "a near-vertical face dropping 50 m or more" },
   { id: "scree", name: "Scree and boulder fields", col: "#8d6e63", note: "rough ground (height residue ≥ 0.35 m over 5 m) on 15–40° slopes — 1 m grids only", fine: true },
   { id: "water", name: "Lakes and ponds", col: "#4fc3f7", note: "level ground (< 0.5°) above sea level in patches ≥ 400 m²: the model is flat on water" },
   { id: "updraft", name: "Updraft slopes", col: "#26c6da", note: "slopes ≥ 20° facing the prevailing wind, south-west to north-west" },
@@ -2004,6 +2010,31 @@ function boxMean(a, n, r) {   // the mean over a (2r+1)² box, running sums (edg
   return out;
 }
 const pct = (arr, q, sel) => { const v = []; for (let k = 0; k < arr.length; k++) if (!sel || sel(k)) v.push(arr[k]); if (!v.length) return NaN; v.sort((a, b) => a - b); return v[Math.min(v.length - 1, Math.floor(q * v.length))]; };
+// The cliff drops (owner, 2026-10-19): from every cell whose steepest step to a neighbour is 60° or more (the unsmoothed
+// heights), the face is followed up and down the steepest line while the steps stay that steep; its drop H and horizontal
+// run L give the face's angle. A vertical wall is smeared over one cell by the DTM's gridding, so one cell is taken off the
+// run first: a face counts as 85–90° when H / (L − one cell) ≥ tan 85° (a single-cell face always does); the class is H.
+function cliffClasses(G) {
+  if (G.cliffCls) return G.cliffCls;
+  const n = G.n, c = G.c, h = G.h, bad = G.bad, N = n * n, out = new Uint8Array(N), T = Math.tan(60 * RAD), T85 = Math.tan(85 * RAD), D = c * Math.SQRT2;
+  const NB = [[1, 0, c], [-1, 0, c], [0, 1, c], [0, -1, c], [1, 1, D], [1, -1, D], [-1, 1, D], [-1, -1, D]];
+  const step = (k, dir) => {   // the steepest neighbour up (dir 1) or down (−1) with a step of 60° or more, as [index, distance], else null
+    const i = k % n, j = (k - i) / n; let best = null, bg = T;
+    for (const [di, dj, d] of NB) { const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue; const q = jj * n + ii; if (bad[q]) continue; const g = dir * (h[q] - h[k]) / d; if (g >= bg) { bg = g; best = [q, d]; } }
+    return best;
+  };
+  for (let k = 0; k < N; k++) {
+    if (bad[k]) continue;
+    let up = step(k, 1), dn = step(k, -1); if (!up && !dn) continue;
+    let top = k, bot = k, L = 0, g = 0;
+    while (up && g++ < 300) { L += up[1]; top = up[0]; up = step(top, 1); }
+    g = 0; while (dn && g++ < 300) { L += dn[1]; bot = dn[0]; dn = step(bot, -1); }
+    const H = h[top] - h[bot], Lf = L - c;
+    if (H < 5 || (Lf > 0 && H / Lf < T85)) continue;
+    out[k] = H >= 50 ? 5 : H >= 25 ? 4 : H >= 15 ? 3 : H >= 10 ? 2 : 1;
+  }
+  return G.cliffCls = out;
+}
 async function featureMask(G, f) {
   G.feat = G.feat || {}; if (G.feat[f.id] !== undefined) return G.feat[f.id];
   const n = G.n, c = G.c, hs = G.hs, slope = G.slope, N = n * n, m = new Uint8Array(N);
@@ -2019,6 +2050,8 @@ async function featureMask(G, f) {
       for (const [di, dj] of off) { const q = (j + dj) * n + i + di; if (slope[q] < 45) continue; if (hs[q] > hs[k] + 1) up = true; else if (hs[q] < hs[k] - 1) dn = true; }
       m[k] = up && dn;
     }
+  } else if (f.cliff) {
+    const cl = cliffClasses(G); for (let k = 0; k < N; k++) m[k] = cl[k] === f.cliff;
   } else if (f.id === "scree") {
     const r = Math.max(1, Math.round(5 / c)), b = boxMean(hs, n, r), res = new Float32Array(N); for (let k = 0; k < N; k++) res[k] = Math.abs(hs[k] - b[k]);
     const rough = boxMean(res, n, r);
@@ -3553,6 +3586,9 @@ function helpUI() {
 }
 function helpOpen(k) { $("help").hidden = false; const el = k && $("h_" + k); if (el) el.scrollIntoView({ block: "start" }); else $("help").scrollTop = 0; }
 $("helpB").onclick = () => helpOpen(); $("helpX").onclick = () => { $("help").hidden = true; };
+for (const f of FEATURES) if (f.cliff) FEAT_HELP["ft_" + f.id] = [f.name,
+  "The cells of near-vertical rock faces whose drop is " + f.name.replace("Cliff drops ", "") + ". From every cell whose steepest step to a neighbour is 60° or more, the face is followed up and down its steepest line while the steps stay that steep; the drop from the top to the foot and the horizontal run of the face give its angle, and only faces of 85–90° count — nest ledges, roosts and the owl's cliffs are on faces like these. The five classes are separate toggles, one colour each, named under the pointer.",
+  "A vertical wall is smeared over one grid cell by the DTM's gridding, so one cell is taken off the run before the angle is judged (a face within a single cell always counts as vertical); the unsmoothed heights are used. On a 10 m grid a drop under 10 m cannot be told at all and the classes are coarse — use a 1 m view. Overhangs are not in a DTM; a face that leans back more than the cells allow reads as a slope."];
 helpUI();
 $("lyContours").onchange = $("lySlope").onchange = $("lyFacing").onchange = () => { $("lgSlope").hidden = !$("lySlope").checked; $("lgFacing").hidden = !$("lyFacing").checked; repaint(); };
 $("lyMarkers").onchange = () => { repaint(); applyVis(); };
