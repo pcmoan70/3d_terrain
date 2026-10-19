@@ -2,6 +2,8 @@
 
 ## 2026-10-19 · Ground view
 
+Later the same day (owner: "the buttons in the point popup should be Fetch+,Fetch,Ground view on one line under the 1m,10m ... dropdown"): the tap popup shows the model dropdown on its own line and one row of buttons under it — **Fetch+** (was *Fetch more*), **Fetch**, **Ground view** (was *Ground view here*); without a fetch context the row holds Ground view alone.
+
 Owner: "in the 3d view, there should be a mode where view is from 175m above ground viewing the horizon supporting all overlays etc. 'Ground view'". A **Ground view** button beside Reset view / Top view (`groundView`): the camera is put 1.75 m (in the model's vertical scale, so it matches the exaggeration) above the ground at the point the view turns about and looks level in the current heading; the orbit target sits 60 m ahead and 1 m down, so ⟲ ⟳ and a rotate-drag turn the head, ▲ ▼ tilt, a drag walks, and the near-horizontal polar limit still holds. The tap popup gets **Ground view here** for the tapped point. First built at 175 m from the request's "175m"; the owner meant eye height ("I ment 1.75m"). Overlays are the terrain's paint, so all show.
 
 ## 2026-10-19 · Help: a ? behind every terrain feature, a sectioned help in the title
