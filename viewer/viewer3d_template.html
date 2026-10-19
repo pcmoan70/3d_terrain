@@ -89,7 +89,7 @@
   <h1 id="ttl">Terrain 3D — <span id="ttlName"></span><a id="ttlPos" href="#" title="Pick a place on the map">pick a place on the map</a><a id="ttlPin" href="#" title="Pick a new place on the map">📍</a></h1>
   <div class="body">
     <div class="sub" id="sub">A viewer for 1 m terrain models (DTM) of Norway: pick a place on the map and the terrain is fetched from Kartverket, or open a folder with DTM GeoTIFF tiles (any UTM zone) and any .geojson / .kml / .kmz overlays.</div>
-    <div class="row">Height ×<input id="ex" type="range" min="1" max="3" step="0.1" value="1.5"><span id="exv">1.5</span></div>
+    <div class="row">Height ×<input id="ex" type="range" min="1" max="3" step="0.1" value="1"><span id="exv">1.0</span></div>
     <div class="row"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="csmooth" checked> Smooth terrain, σ</label><input id="csig" type="number" min="0.5" max="5" step="0.5" value="1.5" style="width:56px"> m</div>
     <!-- owner, 2026-10-19: "a mode where view is from 175m above ground [1.75 m] viewing the horizon supporting all overlays etc. 'Ground view'" -->
     <div class="row"><button id="reset">Reset view</button><button id="top">Top view</button><button id="ground" title="Stand 1.75 m above the ground at the point the view turns about and look at the horizon — drag to walk, rotate to look round, tilt to look down">Ground view</button></div>

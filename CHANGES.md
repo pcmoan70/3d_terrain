@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-19 · Height ×1 by default
+
+Owner: "default height should be 1x." The height slider starts at ×1 (was ×1.5). View links record the slider only when it is moved off this default, so links carrying `ex:1.5` still open at ×1.5.
+
 ## 2026-10-19 · The steepest-point pin removed
 
 Owner: "remove red pin for steepest point." The red needle and ring are gone, with the search for the steepest cell within 500 m (and the edge-band helper it used); a `role` = `steepest` overlay point is no longer drawn. The compass is placed 250 m south of the centre instead. The Map toggle reads "Centre & circles".
