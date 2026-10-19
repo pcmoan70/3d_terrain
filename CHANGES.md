@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-19 · A pin in the title
+
+Owner: "on top line, next to coordinates show a pin icon, for selecting new pont. if on mobile do not show lon,lat". A 📍 after the coordinates opens the map picker (the coordinates still do too); on screens up to 640 px wide the coordinates are hidden once a terrain is loaded and the pin stands alone.
+
 ## 2026-10-19 · ⧉ copies a link to the exact view
 
 Owner: "on top line of the left pane add a copy icon, allowing user to share a link (must respect active selections, location, view etc)". A ⧉ button in the title row copies the terrain's link (as Share… builds it) with a `v=` parameter carrying every checkbox in the panel (on and off), the selects and sliders (wind, snow day and year, sun months, light mode, time zone, date, time, base map, height exaggeration, smoothing σ), the hidden slope / facing / NIBIO legend classes and the camera (position and target). On load the choices are applied before the terrain is built so the normal switch-on paths run, and the camera is put back once the terrain stands. The button shows ✓ for a moment; where the clipboard is not allowed the link is shown in the Data section to copy by hand.

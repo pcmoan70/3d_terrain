@@ -10,6 +10,8 @@
   #info{top:10px;left:10px;width:min(360px,calc(100% - 44px));max-height:calc(100% - 30vh - 110px);overflow:auto;box-sizing:border-box}
   #info h1{font-size:15px;margin:0 0 4px;padding-right:36px}
   #ttlPos{color:#ffd54f;text-decoration:underline dotted;cursor:pointer}
+  #ttlPin{text-decoration:none;cursor:pointer;margin-left:4px;font-size:15px}
+  @media (max-width:640px){#ttl.loaded #ttlPos{display:none}}   /* a phone: the pin alone, the coordinates would crowd the title (owner, 2026-10-19) */
   .sub{color:#aab;font-size:12px;margin:2px 0 8px}
   .row{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:13px}
   .row.w{flex-wrap:wrap}
@@ -83,7 +85,7 @@
 <div id="info" class="panel">
   <button class="minb" id="infoMin" title="Minimise / restore">−</button><button class="minb" id="helpB" title="Help" style="right:40px">?</button><button class="minb" id="linkB" title="Copy a link to this exact view — the place, the layers and legend choices, the sun, the map and the camera" style="right:74px">⧉</button>
   <!-- the coordinates in the title open the map to pick a place (owner, 2026-10-17: "executed when user clicks on coordinates in title") -->
-  <h1 id="ttl">Terrain 3D — <span id="ttlName"></span><a id="ttlPos" href="#" title="Pick a place on the map">pick a place on the map</a></h1>
+  <h1 id="ttl">Terrain 3D — <span id="ttlName"></span><a id="ttlPos" href="#" title="Pick a place on the map">pick a place on the map</a><a id="ttlPin" href="#" title="Pick a new place on the map">📍</a></h1>
   <div class="body">
     <div class="sub" id="sub">A viewer for 1 m terrain models (DTM) of Norway: pick a place on the map and the terrain is fetched from Kartverket, or open a folder with DTM GeoTIFF tiles (any UTM zone) and any .geojson / .kml / .kmz overlays.</div>
     <div class="row">Height ×<input id="ex" type="range" min="1" max="3" step="0.1" value="1.5"><span id="exv">1.5</span></div>
@@ -1624,7 +1626,7 @@ function build(s) {
   camera.far = Math.max(30000, 6 * R); camera.updateProjectionMatrix(); controls.maxDistance = Math.max(12000, 3 * R);
   // panels
   const posTxt = S.lat.toFixed(5) + ", " + S.lon.toFixed(5);
-  $("ttlName").textContent = S.title && S.title !== posTxt ? S.title + " · " : ""; $("ttlPos").textContent = posTxt;
+  $("ttlName").textContent = S.title && S.title !== posTxt ? S.title + " · " : ""; $("ttlPos").textContent = posTxt; $("ttl").classList.add("loaded");
   $("sub").textContent = S.c + " m grid" + (O ? " within " + S.R + " m, " + O.c + " m grid around" : "") + ", " + R + " m radius, " + Math.round(Math.min(S.lo, B.lo)) + "–" + Math.round(Math.max(S.hi, B.hi)) + " m a.s.l. · " + S.areas.length + " areas, " + S.pts.length + " points" +
     (S.nMiss ? " · " + (100 * S.nMiss / (S.n * S.n)).toFixed(1) + " % without DTM (filled smoothly, greyed)" : "");
   const km = v => (v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + " km" : v + " m"), native = Math.max(1, Math.round(Math.min.apply(null, SRC.tiles.map(t => t.res[0]))));
@@ -2343,7 +2345,7 @@ async function pickOpen() {
   } else lmap.invalidateSize();
   pickInfo();
 }
-$("ttlPos").onclick = ev => { ev.preventDefault(); pickOpen(); };
+$("ttlPos").onclick = $("ttlPin").onclick = ev => { ev.preventDefault(); pickOpen(); };   // the pin (owner, 2026-10-19: "next to coordinates show a pin icon, for selecting new point")
 $("pickX").onclick = () => { $("pick").hidden = true; };
 $("pickRes").onchange = $("pickRad").onchange = $("pickRad1").onchange = pickInfo;
 $("pickGo").onclick = () => { if (!pickLL) return; $("pick").hidden = true; buildAt(pickLL[0], pickLL[1], pickRad(), resOf(), pickRad1()); };
