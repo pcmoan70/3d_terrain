@@ -1,5 +1,19 @@
 # Changes
 
+## 2026-10-19 · Forestry plans group removed
+
+Owner: "remove the subpane \"Forestry plans\"." The skogbruksplan group (development class, age of the oldest forest) is gone from the viewer; four NIBIO groups remain.
+
+## 2026-10-19 · MIS habitats visible on 1 m views
+
+Owner: "The MIS NBIO habitat overlays do not show in the 3d view when turned on." NIBIO draws the MIS features as outlines and symbols a few pixels wide at any scale; a 1 m view asked for 3000 px, so a key biotope came back as a 1 m hairline (0.09 % of the box against 0.84 % at 10 m per pixel). The MIS layers are now fetched at 10 m per pixel and scaled up onto the grid, so they look as they do on NIBIO's map; a MIS legend entry says "nothing in view" when its layer has no feature in the view.
+
+## 2026-10-19 · NIBIO legends list only the classes in view, and toggle them
+
+Owner, same request: "user should be able to turn specific overlays on/off by clicking legend." A click on a class in a NIBIO legend hides or shows that class (dimmed and struck through while hidden, as the slope and facing legends do; the pointer still names it, marked hidden); a click on a MIS entry switches that layer off. Each overlay image gets a per-pixel class map once (`nbClsMap`, memoised by colour), which the legend shares, the pointer and the paint all read.
+
+Owner: "Only show legend for types in the selectd area (eg vegetation types have very many, keep it to those present in image)." `nbShares` counts the classes over both grids (every 5th pixel, as the CORINE legend does) and the legend lists those with at least 0.3 % of the painted area, largest first, with the share; "nothing in view" when none.
+
 ## 2026-10-19 · NIBIO classes in English
 
 Owner: "in the hover text, and legend for NBIO overlays only show english names." `NB_EN` translates every class name the style sheets return (AR5, forestry plans, the 54 vegetation types and 13 main types) and the tap readouts' values; the legend and the pointer show the English only, a name without a translation is shown as served. SR16 species are spruce / pine / broadleaf.
