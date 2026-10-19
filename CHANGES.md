@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-19 · Sun average: Jan – Apr to begin with, the range remembered
+
+Owner: "The 'Sun: average direct radiations' should be default 'Jan-Apr', but remember state when user changes it." The two-handle month slider starts at Jan – Apr instead of the whole year; every move of a handle (and *Whole year*) stores the range in localStorage (`terrain3d-sunMonths`, device-wide, not per view), and the viewer restores it on load. Help, README updated.
+
 ## 2026-10-19 · Ground view
 
 Later the same day (owner: "the buttons in the point popup should be Fetch+,Fetch,Ground view on one line under the 1m,10m ... dropdown"): the tap popup shows the model dropdown on its own line and one row of buttons under it — **Fetch+** (was *Fetch more*), **Fetch**, **Ground view** (was *Ground view here*); without a fetch context the row holds Ground view alone.
