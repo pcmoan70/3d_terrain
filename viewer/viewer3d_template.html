@@ -51,6 +51,7 @@
   button:disabled,select:disabled,input:disabled{opacity:.45;cursor:not-allowed}
   #pmenu{position:fixed;z-index:20;max-width:min(320px,calc(100vw - 24px));padding:8px 10px;font-size:13px}
   .row.lg{flex-wrap:wrap;gap:4px 10px;padding-left:24px;font-size:12px;color:#ccd}
+  .lg .tg{cursor:pointer}.lg .tg.off{opacity:.4;text-decoration:line-through}
   .row.lg[hidden]{display:none}
   #sunBox[hidden]{display:none}
   .mrange{position:relative;height:26px;margin:4px 0 0}
@@ -105,6 +106,10 @@
       <div class="row lg" id="lgSlope" hidden></div>
       <div class="row"><label class="ly"><input type="checkbox" id="lyFacing"> Facing (the way slopes ≥ 15° face)</label></div>
       <div class="row lg" id="lgFacing" hidden></div>
+      <!-- owner, 2026-10-19: "a wind-exposure overlay, it should also have an option based on the dominating wind-direction" -->
+      <div class="row w"><label class="ly"><input type="checkbox" id="lyWind"> Wind exposure</label><select id="windDir" style="width:auto" title="The wind to judge shelter from: every direction alike, the winds at the view's centre over the last three years (Open-Meteo), or one compass point">
+        <option value="all">all directions</option><option value="rose">the winds here (Open-Meteo)</option><option value="0">from N</option><option value="45">from NE</option><option value="90">from E</option><option value="135">from SE</option><option value="180">from S</option><option value="225">from SW</option><option value="270">from W</option><option value="315">from NW</option></select></div>
+      <div class="row lg" id="lgWind" hidden><span id="windLeg"></span></div>
       <!-- owner, 2026-10-18: "Move the corrine option to 'Terrain features' subpane" -->
       <div class="row"><label class="ly"><input type="checkbox" id="lyClc"> CORINE land cover 2018 (NIBIO)</label></div>
       <div class="row lg" id="lgClc" hidden></div>
@@ -576,6 +581,15 @@ function paintBase(G, base) {   // G: the fine grid S or the coarse surround S.o
       d[o] = d[o] * (1 - al) + col[0] * al; d[o + 1] = d[o + 1] * (1 - al) + col[1] * al; d[o + 2] = d[o + 2] * (1 - al) + col[2] * al;
     }
   }
+  if ($("lyWind").checked && G.windAvg) {   // wind exposure: exposed (red) … the view's median (pale) … sheltered (blue)
+    const lo = G.windLo, md = G.windMed, hi = G.windHi;
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const k = j * n + i; if (bad[k]) continue;
+      const v = windAt(G, (i + 0.5) * c - R, R - (j + 0.5) * c), t = v < md ? 0.5 * (v - lo) / ((md - lo) || 1) : 0.5 + 0.5 * (v - md) / ((hi - md) || 1);
+      const col = ramp(WIND_RAMP, t), o = 4 * k, al = 0.68;
+      d[o] = d[o] * (1 - al) + col[0] * al; d[o + 1] = d[o + 1] * (1 - al) + col[1] * al; d[o + 2] = d[o + 2] * (1 - al) + col[2] * al;
+    }
+  }
   if ($("lyClc").checked && G.clc) {   // CORINE land cover at 55 % over the map
     const q = G.clc.data;
     for (let k = 0; k < n * n; k++) { const o = 4 * k; if (q[o + 3] < 128 || bad[k]) continue; d[o] = d[o] * .45 + q[o] * .55; d[o + 1] = d[o + 1] * .45 + q[o + 1] * .55; d[o + 2] = d[o + 2] * .45 + q[o + 2] * .55; }
@@ -589,8 +603,8 @@ function paintBase(G, base) {   // G: the fine grid S or the coarse surround S.o
     for (let k = 0; k < n * n; k++) {
       if (bad[k]) continue;
       const sl = slope[k]; let col = null, al = 0;
-      if (lyF && sl >= FACE_MIN) { col = FC[Math.round(facingOf(gx[k], gyN[k], gam) / 45) % 8]; al = 0.8; }
-      if (lyS && sl >= 27) { let i = SLOPE_CL.length - 1; while (i > 0 && sl < SLOPE_CL[i][0]) i--; col = SC[i]; al = 0.62; }
+      if (lyF && sl >= FACE_MIN) { const i = Math.round(facingOf(gx[k], gyN[k], gam) / 45) % 8; if (!clsOff.face.has(i)) { col = FC[i]; al = 0.8; } }
+      if (lyS && sl >= 27) { let i = SLOPE_CL.length - 1; while (i > 0 && sl < SLOPE_CL[i][0]) i--; if (!clsOff.slope.has(i)) { col = SC[i]; al = 0.62; } }
       if (!col) continue;
       const o = 4 * k; d[o] = d[o] * (1 - al) + col[0] * al; d[o + 1] = d[o + 1] * (1 - al) + col[1] * al; d[o + 2] = d[o + 2] * (1 - al) + col[2] * al;
     }
@@ -674,8 +688,15 @@ const FACE_MIN = 15;
 const hexRgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 const fileOn = {};                                  // overlay file → shown (default on)
 const layerOn = src => src === "__markers" ? $("lyMarkers").checked : fileOn[src || ""] !== false;
-$("lgSlope").innerHTML = SLOPE_CL.map(c => '<span><span class="sw" style="background:' + c[1] + '"></span> ' + c[2] + "</span>").join("");
-$("lgFacing").innerHTML = FACE_CL.map(c => '<span><span class="sw" style="background:' + c[1] + '"></span> ' + c[0] + "</span>").join("");
+// each class in the slope and facing legends is a toggle: a click on its swatch hides / shows that class alone
+const clsOff = { slope: new Set(), face: new Set() };
+const lgHtml = (key, cls, lab) => cls.map((c, i) => '<span class="tg" data-k="' + key + '" data-i="' + i + '" title="Click to hide or show this class"><span class="sw" style="background:' + c[1] + '"></span> ' + lab(c) + "</span>").join("");
+$("lgSlope").innerHTML = lgHtml("slope", SLOPE_CL, c => c[2]);
+$("lgFacing").innerHTML = lgHtml("face", FACE_CL, c => c[0]);
+for (const el of document.querySelectorAll("#lgSlope .tg, #lgFacing .tg")) el.onclick = () => {
+  const off = clsOff[el.dataset.k], i = +el.dataset.i; if (off.has(i)) off.delete(i); else off.add(i);
+  el.classList.toggle("off", off.has(i)); repaint();
+};
 function facingOf(gx, gyN, gam) {   // the way the slope faces (downhill), true bearing 0–360
   return ((Math.atan2(-gx, -gyN) / RAD - gam) % 360 + 360) % 360;
 }
@@ -704,19 +725,24 @@ function fileLayersUI() {
 // them at once (weighted by the days in each month).
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], MDAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 const SUN_RAMP = [[0, [33, 25, 72]], [0.25, [70, 60, 160]], [0.5, [60, 160, 160]], [0.75, [240, 200, 60]], [1, [220, 50, 30]]];
-function sunRamp(t) { t = Math.max(0, Math.min(1, t)); let k = 0; while (k < SUN_RAMP.length - 2 && t > SUN_RAMP[k + 1][0]) k++; const a = SUN_RAMP[k], b = SUN_RAMP[k + 1], f = (t - a[0]) / (b[0] - a[0]); return [0, 1, 2].map(i => a[1][i] + (b[1][i] - a[1][i]) * f); }
-const EARTH_DROP = d => d * d / (2 * 6371000) * (1 - 0.13);   // the ground falls away with distance: curvature less refraction (≈ 15 m at 15 km)
-async function sunMonthly(G) {
-  if (G.sunM) return G.sunM;
-  const O = S.out, beyond = O && G !== O ? await sunMonthly(O) : null;   // the fine grid's horizons go on through the coarse surround
-  const cs = Math.max(G.c, Math.ceil(2 * G.R / 250)), m = Math.floor(2 * G.R / cs), R = G.R, NS = 32;
-  busy("Sun: the terrain's horizons…"); await tick();
-  const H = new Float32Array(m * m);   // the cells' mean heights
+function ramp(RAMP, t) { t = Math.max(0, Math.min(1, t)); let k = 0; while (k < RAMP.length - 2 && t > RAMP[k + 1][0]) k++; const a = RAMP[k], b = RAMP[k + 1], f = (t - a[0]) / (b[0] - a[0]); return [0, 1, 2].map(i => a[1][i] + (b[1][i] - a[1][i]) * f); }
+const sunRamp = t => ramp(SUN_RAMP, t);
+function coarseH(G) {   // the grid's mean heights on cells of ≤ 250 × 250: the sun and wind models' grid
+  if (G.cH) return G.cH;
+  const cs = Math.max(G.c, Math.ceil(2 * G.R / 250)), m = Math.floor(2 * G.R / cs), R = G.R, H = new Float32Array(m * m);
   for (let J = 0; J < m; J++) for (let I = 0; I < m; I++) {
     let s = 0, c = 0;
     for (let y = J * cs; y < (J + 1) * cs; y += G.c) for (let x = I * cs; x < (I + 1) * cs; x += G.c) { s += sampleG(G, x + G.c / 2 - R, R - y - G.c / 2); c++; }
     H[J * m + I] = s / c;
   }
+  return G.cH = { m, cs, H };
+}
+const EARTH_DROP = d => d * d / (2 * 6371000) * (1 - 0.13);   // the ground falls away with distance: curvature less refraction (≈ 15 m at 15 km)
+async function sunMonthly(G) {
+  if (G.sunM) return G.sunM;
+  const O = S.out, beyond = O && G !== O ? await sunMonthly(O) : null;   // the fine grid's horizons go on through the coarse surround
+  const { m, cs, H } = coarseH(G), R = G.R, NS = 32;
+  busy("Sun: the terrain's horizons…"); await tick();
   const hz = new Float32Array(m * m * NS), dirs = [];
   for (let k = 0; k < NS; k++) { const a = 2 * Math.PI * k / NS; dirs.push([Math.sin(a), Math.cos(a)]); }   // grid bearing → (east, north)
   for (let J = 0; J < m; J++) {
@@ -789,8 +815,8 @@ function sunAverageAll() {   // both grids, one shared colour range — the seam
   if (!S) return; sunAverage(S); const O = S.out;
   if (O && O.sunM) { sunAverage(O); const lo = Math.min(S.sunLo, O.sunLo), hi = Math.max(S.sunHi, O.sunHi); S.sunLo = O.sunLo = lo; S.sunHi = O.sunHi = hi; }
 }
-function sunAt(G, x, y) {   // the average at a point (bilinear)
-  const M = G.sunM, A = G.sunAvg; if (!M || !A) return null;
+const sunAt = (G, x, y) => G.sunM && G.sunAvg ? atCoarse(G, G.sunM, G.sunAvg, x, y) : null;
+function atCoarse(G, M, A, x, y) {   // a coarse-cell map's value at a point (bilinear); M: {m, cs}
   const u = (x + G.R) / M.cs - 0.5, v = (G.R - y) / M.cs - 0.5, i = Math.max(0, Math.min(M.m - 2, Math.floor(u))), j = Math.max(0, Math.min(M.m - 2, Math.floor(v)));
   const fx = Math.max(0, Math.min(1, u - i)), fy = Math.max(0, Math.min(1, v - j)), k = j * M.m + i;
   return (A[k] * (1 - fx) + A[k + 1] * fx) * (1 - fy) + (A[k + M.m] * (1 - fx) + A[k + M.m + 1] * fx) * fy;
@@ -808,6 +834,85 @@ function sunLegend(S) {
   $("sunLeg").innerHTML = '<span style="display:inline-block;width:110px;height:10px;vertical-align:middle;border-radius:2px;background:' + g + '"></span> ' +
     S.sunLo.toFixed(1) + " – " + S.sunHi.toFixed(1) + " kWh/m² per day (clear sky, direct)";
 }
+// ---- wind exposure (owner, 2026-10-19: "a wind-exposure overlay, it should also have an option based on the dominating
+// wind-direction"). Winstral's shelter index Sx: for each cell the steepest line of sight to the terrain upwind within 300 m, as an
+// angle — positive when higher ground stands upwind (sheltered), negative when the ground falls away (exposed) — on the sun model's
+// coarse cells in its 32 directions, each direction taken with its two neighbours (a 34° sector); the fine grid's lines go on into
+// the coarse surround. The overlay is a weighted mean over the directions: all 32 alike, one compass point, or the view centre's
+// own wind rose — the last three years' days from Open-Meteo's ERA5 archive, each day's dominant direction weighted by its peak speed.
+const WIND_D = 300, WIND_NS = 32;   // the upwind search: 300 m (Winstral's range for shelter), at least three cells
+const WIND_RAMP = [[0, [200, 30, 20]], [0.5, [235, 232, 220]], [1, [30, 70, 200]]];
+async function windSx(G) {
+  if (G.wsx) return G.wsx;
+  const { m, cs, H } = coarseH(G), NS = WIND_NS, R = G.R, O = S.out, beyond = O && G !== O ? coarseH(O) : null;
+  const sx = new Float32Array(m * m * NS), dirs = [], lim = Math.max(WIND_D, 3 * cs);
+  for (let q = 0; q < NS; q++) { const a = 2 * Math.PI * q / NS; dirs.push([Math.sin(a), Math.cos(a)]); }
+  busy("Wind: shelter from each direction…"); await tick();
+  for (let J = 0; J < m; J++) {
+    for (let I = 0; I < m; I++) {
+      const h0 = H[J * m + I];
+      for (let q = 0; q < NS; q++) {
+        let best = -Infinity, d = 1; const [dx, dy] = dirs[q];
+        for (; d * cs <= lim; d++) {
+          const ii = Math.round(I + dx * d), jj = Math.round(J - dy * d);
+          if (ii < 0 || jj < 0 || ii >= m || jj >= m) break;
+          const t = (H[jj * m + ii] - h0) / (d * cs); if (t > best) best = t;
+        }
+        if (beyond) {   // on through the coarse surround's cells
+          const x0 = (I + 0.5) * cs - R, y0 = R - (J + 0.5) * cs, cb = beyond.cs, mb = beyond.m, RB = O.R;
+          for (let dist = d * cs; dist <= lim; dist += cb) {
+            const x = x0 + dx * dist, y = y0 + dy * dist; if (Math.max(Math.abs(x), Math.abs(y)) > RB) break;
+            const ib = Math.max(0, Math.min(mb - 1, Math.floor((x + RB) / cb))), jb = Math.max(0, Math.min(mb - 1, Math.floor((RB - y) / cb)));
+            const t = (beyond.H[jb * mb + ib] - h0) / dist; if (t > best) best = t;
+          }
+        }
+        sx[(J * m + I) * NS + q] = best === -Infinity ? 0 : Math.atan(best) / RAD;
+      }
+    }
+    if (J % 25 === 0) { busy("Wind: shelter from each direction… " + pctOf(J / m), J / m); await tick(); }
+  }
+  const out = new Float32Array(m * m * NS);   // each direction with its neighbours: the steepest in the sector
+  for (let k = 0; k < m * m; k++) for (let q = 0; q < NS; q++) out[k * NS + q] = Math.max(sx[k * NS + q], sx[k * NS + (q + 1) % NS], sx[k * NS + (q + NS - 1) % NS]);
+  return G.wsx = { m, cs, NS, sx: out };
+}
+async function windRose(S) {   // the view centre's winds: Open-Meteo's ERA5 archive, each day's dominant direction weighted by its peak speed
+  if (S.rose !== undefined) return S.rose;
+  const end = new Date(Date.now() - 7 * 864e5), start = new Date(end); start.setFullYear(start.getFullYear() - 3);
+  const iso = d => d.toISOString().slice(0, 10);
+  busy("Wind: the winds here (Open-Meteo)…"); await tick();
+  try {
+    const j = await (await fetch("https://archive-api.open-meteo.com/v1/archive?latitude=" + S.lat.toFixed(4) + "&longitude=" + S.lon.toFixed(4) + "&start_date=" + iso(start) + "&end_date=" + iso(end) + "&daily=wind_direction_10m_dominant,wind_speed_10m_max&timezone=UTC")).json();
+    const w = new Float32Array(WIND_NS), s8 = new Float32Array(8), dd = j.daily; let tot = 0;
+    dd.wind_direction_10m_dominant.forEach((a, i) => { const v = dd.wind_speed_10m_max[i]; if (a == null || v == null) return; w[Math.round(((a + S.gam) % 360 + 360) % 360 / (360 / WIND_NS)) % WIND_NS] += v; s8[Math.round(a / 45) % 8] += v; tot += v; });
+    if (!tot) throw new Error("no data");
+    for (let q = 0; q < WIND_NS; q++) w[q] /= tot;
+    const top = [...s8].map((v, i) => [FACE_CL[i][0], Math.round(100 * v / tot)]).sort((a, b) => b[1] - a[1]).slice(0, 3).map(e => e[0] + " " + e[1] + " %").join(", ");
+    return S.rose = { w, text: top + " (Open-Meteo ERA5 at the centre, " + iso(start).slice(0, 7) + " – " + iso(end).slice(0, 7) + ", days weighted by their peak wind)" };
+  } catch (e) { busy("Open-Meteo did not answer: the winds here are unknown."); return S.rose = null; }
+}
+const windAt = (G, x, y) => atCoarse(G, G.wsx, G.windAvg, x, y);
+const windLbl = () => { const v = $("windDir").value; return v === "all" ? "all directions" : v === "rose" ? "the winds here" : "from " + FACE_CL[v / 45][0]; };
+async function windOn() {
+  const on = $("lyWind").checked; $("lgWind").hidden = !on;
+  if (on && S) {
+    const mode = $("windDir").value, w = new Float32Array(WIND_NS); let note = "";
+    if (mode === "all") w.fill(1 / WIND_NS);
+    else if (mode === "rose") { const r = await windRose(S); if (r) { w.set(r.w); note = "Winds here: " + r.text; } else w.fill(1 / WIND_NS); }
+    else w[Math.round(((+mode + S.gam) % 360 + 360) % 360 / (360 / WIND_NS)) % WIND_NS] = 1;
+    for (const G of S.out ? [S, S.out] : [S]) {
+      const X = await windSx(G), A = new Float32Array(X.m * X.m);
+      for (let k = 0; k < A.length; k++) { let v = 0; for (let q = 0; q < X.NS; q++) if (w[q]) v += w[q] * X.sx[k * X.NS + q]; A[k] = v; }
+      G.windAvg = A;
+    }
+    const Gs = S.out ? [S, S.out] : [S], lo = Math.min(...Gs.map(G => pct(G.windAvg, 0.01))), hi = Math.max(...Gs.map(G => pct(G.windAvg, 0.99))), md = pct(Gs[Gs.length - 1].windAvg, 0.5);   // one colour range for both grids, pale at the median
+    for (const G of Gs) { G.windLo = lo; G.windMed = md; G.windHi = hi; }
+    const g = "linear-gradient(90deg," + [0, .5, 1].map(t => "rgb(" + ramp(WIND_RAMP, t).map(Math.round).join(",") + ")").join(",") + ")";
+    $("windLeg").innerHTML = "exposed " + Math.round(lo) + '° <span style="display:inline-block;width:110px;height:10px;vertical-align:middle;border-radius:2px;background:' + g + '"></span> +' + Math.round(hi) + "° sheltered (pale: the view's middle, " + (md > 0 ? "+" : "") + Math.round(md) + "°) — the steepest line to higher ground upwind within " + WIND_D + " m, " + esc(windLbl()) + (note ? "<br>" + esc(note) : "");
+    if (!/did not answer/.test($("busyt").textContent)) busy(false);
+  }
+  repaint();
+}
+$("lyWind").onchange = $("windDir").onchange = windOn;
 // ---- terrain features (owner, 2026-10-17): masks on a grid, from its heights, slopes, a terrain position index (height
 // above the mean within 25 m) and, for the last three, the sun model's monthly maps and horizons. Thresholds are plain
 // and stated in each feature's note; they are starting points, not calibrated habitat models.
@@ -1101,7 +1206,7 @@ async function satUI(S) {
   BASEMAPS[id] = { url: satUrl(k, day), max: SAT[k][2], attr: "Imagery: NASA GIBS — " + SAT[k][4] + ", " + day + (k === "MOD" ? "" : " (HLS v2.0, NASA / USGS)") };
   return id;
 }
-function setAttr(id) { $("attr").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0)" + ($("lyClc").checked ? " · CORINE Land Cover 2018 © NIBIO / Copernicus" : "") + (snowOn().length ? " · Snow: seNorge © NVE" : "") + (BASEMAPS[id] ? " · " + BASEMAPS[id].attr : ""); }
+function setAttr(id) { $("attr").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0)" + ($("lyClc").checked ? " · CORINE Land Cover 2018 © NIBIO / Copernicus" : "") + (snowOn().length ? " · Snow: seNorge © NVE" : "") + ($("lyWind").checked && $("windDir").value === "rose" && S && S.rose ? " · Winds: Open-Meteo (ERA5)" : "") + (BASEMAPS[id] ? " · " + BASEMAPS[id].attr : ""); }
 async function getBase(G, id) {   // the map for one grid (a packaged map covers the fine grid: radius_1m, else radius)
   setAttr(id);
   if (!BASEMAPS[id]) return null;
@@ -1393,6 +1498,7 @@ function build(s) {
   $("radTxt").textContent = "Terrain model: " + (O ? "1 m centre + 10 m around" : native + " m" + (S.c > native ? " (shown on a " + S.c + " m grid)" : "")) + " · view radius " + km(R) + (O ? " · 1 m detail within " + km(S.R) : "");
   fileLayersUI(); restoreScroll();   // the panel's content is in place: back to where it was scrolled
   if ($("lySun").checked) setTimeout(() => $("lySun").onchange(), 0);
+  if ($("lyWind").checked) setTimeout(windOn, 0);
   if ($("lyClc").checked) setTimeout(() => $("lyClc").onchange(), 0);
   for (const sk of snowOn()) setTimeout(() => $(SNOWL[sk].ly).onchange(), 0);
   if (FEATURES.some(f => $("ft_" + f.id).checked)) setTimeout(async () => { await featuresOn(); repaint(); }, 0);
@@ -1550,6 +1656,7 @@ canvas.addEventListener("pointermove", ev => {
   const cc = $("lyClc").checked ? clcAt(G, x, y) : null; if (cc) html += "<br>CORINE 2018: " + esc(cc[1]) + " (" + cc[0] + ")";
   for (const sk of snowOn()) { const sc = snowAt(G, sk, x, y); if (sc) html += "<br>" + SNOWL[sk].title + " (" + esc($(SNOWL[sk].when).value) + "): " + sc; }
   const ft = featuresAt(G, x, y); if (ft.length) html += "<br>Features: " + esc(ft.join(", "));
+  if ($("lyWind").checked && G.windAvg) { const v = windAt(G, x, y); html += "<br>Wind exposure (" + esc(windLbl()) + "): <b>" + (v > 0 ? "+" : "") + v.toFixed(0) + "°</b> " + (v <= -5 ? "exposed" : v >= 5 ? "sheltered" : "neither"); }
   if ($("lySun").checked && G.sunAvg) html += "<br>Sun, average " + $("mLbl").textContent.replace(/ \(.*\)/, "") + ": <b>" + sunAt(G, x, y).toFixed(2) + " kWh/m² per day</b> (clear sky, direct)";
   if (SUN && $("lmode").value === "sun") {
     const r = surfIrr(x, y, SUN.p.el, SUN.p.az, SUN.Ib);
