@@ -2177,14 +2177,13 @@ function nbAt(G, g, L, x, y) {   // the class under a point: the overlay pixel's
 }
 async function nbLegend() {   // each group's row: the classes of every layer of it that is on (the same table the pointer is read with), else the service's legend image
   for (const g of NB_GROUPS) {
-    const on = g.layers.filter(([L]) => $(nbId(g, L)).checked); $("lg_" + g.id).hidden = !on.length; let html = "";
-    for (const [L, t] of on) {
-      const cls = await nbClasses(g, L);
-      const sh = cls && S ? nbShares(g, L, cls) : [], key = g.id + ":" + L, off = nbOff[key] || new Set();   // only the classes present in the view, largest first, with their share; a click hides or shows a class
-      html += cls ? "<b>" + esc(t) + ":</b> " + (sh.length ? sh.map(([i, pc]) => '<span class="tg' + (off.has(i) ? " off" : "") + '" data-k="' + key + '" data-i="' + i + '" title="Click to hide or show this class"><span class="sw" style="background:' + cls[i][1] + '"></span> ' + esc(cls[i][0]) + " " + pc.toFixed(pc < 1 ? 1 : 0) + " %</span>").join("") : "nothing in view")
-        : '<span class="tg" data-ly="' + nbId(g, L) + '" title="Click to switch this layer off" style="display:inline-flex;align-items:flex-start;gap:6px"><img src="' + NB_WMS + g.svc + "?service=WMS&version=1.3.0&request=GetLegendGraphic&sld_version=1.1.0&format=image/png&style=default&layer=" + L + '" alt=""> ' + esc(t) + (nbAny(key) ? "" : " — nothing in view") + "</span>";
+    const on = g.layers.filter(([L]) => $(nbId(g, L)).checked); let html = "";
+    for (const [L, t] of on) {   // only what is in the view (owner, 2026-10-19: "those entries should not show"): the classes present, largest first, with their share; a layer with nothing here has no entry
+      const cls = await nbClasses(g, L), key = g.id + ":" + L, off = nbOff[key] || new Set();
+      if (cls) { const sh = S ? nbShares(g, L, cls) : []; if (sh.length) html += "<b>" + esc(t) + ":</b> " + sh.map(([i, pc]) => '<span class="tg' + (off.has(i) ? " off" : "") + '" data-k="' + key + '" data-i="' + i + '" title="Click to hide or show this class"><span class="sw" style="background:' + cls[i][1] + '"></span> ' + esc(cls[i][0]) + " " + pc.toFixed(pc < 1 ? 1 : 0) + " %</span>").join(""); }
+      else if (nbAny(key)) html += '<span class="tg" data-ly="' + nbId(g, L) + '" title="Click to switch this layer off" style="display:inline-flex;align-items:flex-start;gap:6px"><img src="' + NB_WMS + g.svc + "?service=WMS&version=1.3.0&request=GetLegendGraphic&sld_version=1.1.0&format=image/png&style=default&layer=" + L + '" alt=""> ' + esc(t) + "</span>";
     }
-    $("lg_" + g.id).innerHTML = html;
+    $("lg_" + g.id).hidden = !html; $("lg_" + g.id).innerHTML = html;
     for (const el of $("lg_" + g.id).querySelectorAll(".tg")) el.onclick = () => {
       if (el.dataset.ly) { $(el.dataset.ly).checked = false; $(el.dataset.ly).onchange(); return; }   // a MIS entry is a layer: off
       const off = nbOff[el.dataset.k] = nbOff[el.dataset.k] || new Set(), i = +el.dataset.i; if (off.has(i)) off.delete(i); else off.add(i); el.classList.toggle("off", off.has(i)); repaint();

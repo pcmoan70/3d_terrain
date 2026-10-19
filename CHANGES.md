@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-19 · No "nothing in view" entries
+
+Owner: "I dont want \"Nothing in view\" in legend, those entries should not show!" A layer with nothing in the view gets no legend entry at all; a group whose layers all have nothing shows no legend row.
+
 ## 2026-10-19 · Forestry plans group removed
 
 Owner: "remove the subpane \"Forestry plans\"." The skogbruksplan group (development class, age of the oldest forest) is gone from the viewer; four NIBIO groups remain.
