@@ -135,8 +135,7 @@
       <div class="row lg" id="lgSnowD" hidden></div>
     </details>
     <details class="sec" id="sunSec" open><summary>Sun</summary>
-      <div class="row w"><select id="lmode" style="width:auto"><option value="sun">Sun at date and time</option><option value="fixed">Fixed light (NW)</option></select>
-        <select id="tz" style="width:auto"><option value="eu">Norway time (CET/CEST)</option><option value="utc">UTC</option></select></div>
+      <div class="row w"><select id="lmode" style="width:auto"><option value="sun">Sun at date and time</option><option value="fixed">Fixed light (NW)</option></select></div>
       <div class="row">Date <input id="day" type="range" min="1" max="365" step="1"><span id="dayv" style="min-width:52px"></span></div>
       <div class="row">Time <input id="tod" type="range" min="0" max="1435" step="5"><span id="todv" style="min-width:52px"></span></div>
       <div class="row"><button id="now">Now</button><button id="play">▶ Day</button></div>
@@ -2821,24 +2820,22 @@ if (innerWidth < 600) $("infoMin").onclick();
 // ---- the sun
 const now0 = new Date();
 function doyOf(d) { return Math.floor((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86400000) + 1; }
-function setNow() { const off = $("tz").value === "eu" ? euOffset(new Date()) : 0, t = new Date(Date.now() + off * 3600000); $("day").value = doyOf(t); $("tod").value = Math.round((t.getUTCHours() * 60 + t.getUTCMinutes()) / 5) * 5; updateSun(); }
+function setNow() { const t = new Date(Date.now() + euOffset(new Date()) * 3600000); $("day").value = doyOf(t); $("tod").value = Math.round((t.getUTCHours() * 60 + t.getUTCMinutes()) / 5) * 5; updateSun(); }
 let daySet = false;
 function daylightIfNight() {   // first view of a scene: at night, open at today's solar noon instead (a black terrain shows nothing)
   if (daySet || !S || new URL(location.href).searchParams.get("tod")) return; daySet = true;
   const p = sunPos(chosenUTC(), S.lat, S.lon); if (p.el > 3) return;
-  const off = $("tz").value === "eu" ? euOffset(chosenUTC()) : 0;
-  $("tod").value = Math.round(((p.noon + off * 60) % 1440) / 5) * 5; updateSun();
+  $("tod").value = Math.round(((p.noon + euOffset(chosenUTC()) * 60) % 1440) / 5) * 5; updateSun();
 }
 const YEAR = now0.getFullYear();
-function chosenUTC() {   // the date + local time on the sliders → a UTC instant
+function chosenUTC() {   // the date + Norway time on the sliders → a UTC instant
   const day = +$("day").value, tod = +$("tod").value, base = Date.UTC(YEAR, 0, day, 0, tod);
-  if ($("tz").value === "utc") return new Date(base);
   let t = new Date(base - 3600000); t = new Date(base - euOffset(t) * 3600000); return t;
 }
 const fmtHM = (min, off) => { if (min == null) return "—"; let m = Math.round(min + off * 60); m = ((m % 1440) + 1440) % 1440; return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
 let SUN = null;
 function updateSun() {
-  const t = chosenUTC(), utc = $("tz").value === "utc", off = utc ? 0 : euOffset(t), zn = utc ? "UTC" : off === 2 ? "CEST" : "CET";
+  const t = chosenUTC(), off = euOffset(t), zn = off === 2 ? "CEST" : "CET";   // Norway time only (owner, 2026-10-19)
   const dd = new Date(Date.UTC(YEAR, 0, +$("day").value));
   $("dayv").textContent = dd.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
   $("todv").textContent = fmtHM(+$("tod").value, 0) + " " + zn;
@@ -2860,10 +2857,10 @@ function updateSun() {
   for (const L of [sun, sun2]) { L.target.position.set(0, 0, 0); L.position.copy(dir.clone().multiplyScalar(D)); L.intensity = inten; L.castShadow = cast; if (hsl) L.color.setHSL(hsl[0], hsl[1], hsl[2]); }
   $("sunv").innerHTML = fixed ? "Fixed light from the north-west." :
     "Sun " + p.el.toFixed(1) + "° high, azimuth " + p.az.toFixed(0) + "° (true) · direct " + Math.round(Ib) + " W/m² (clear sky)<br>" +
-    (p.polar ? (p.polar === "day" ? "Midnight sun — no sunset." : "Polar night — no sunrise.") : "Sunrise " + fmtHM(p.rise, off) + " · solar noon " + fmtHM(p.noon, off) + " · sunset " + fmtHM(p.set, off) + " " + (utc ? "UTC" : off === 2 ? "CEST" : "CET"));
+    (p.polar ? (p.polar === "day" ? "Midnight sun — no sunset." : "Polar night — no sunrise.") : "Sunrise " + fmtHM(p.rise, off) + " · solar noon " + fmtHM(p.noon, off) + " · sunset " + fmtHM(p.set, off) + " " + zn);
   draw();
 }
-["day", "tod"].forEach(id => $(id).oninput = updateSun); $("tz").onchange = setNow; $("lmode").onchange = updateSun; $("now").onclick = setNow;
+["day", "tod"].forEach(id => $(id).oninput = updateSun); $("lmode").onchange = updateSun; $("now").onclick = setNow;
 let playT = null;
 $("play").onclick = () => { if (playT) { clearInterval(playT); playT = null; $("play").textContent = "▶ Day"; return; } $("play").textContent = "■ Stop"; playT = setInterval(() => { $("tod").value = (+$("tod").value + 10) % 1440; updateSun(); }, 120); };
 
@@ -3230,7 +3227,7 @@ function linkBase() {   // the terrain's link, or null for files from this devic
 // possible"): 1=boxes switched on; 0=boxes switched off; s=settings that differ (and the wind, snow and month choices of
 // layers that are on); h=hidden legend classes; c=the camera when it has left the home position.
 const CK_ALL = () => document.querySelectorAll('#info input[type="checkbox"][id]');
-const CK_DEF = new Set([...CK_ALL()].filter(e => e.checked).map(e => e.id)), VW_IDS = ["lmode", "tz", "basemap", "ex", "csig"], VW_DEF = {}; for (const id of VW_IDS) VW_DEF[id] = $(id).value;
+const CK_DEF = new Set([...CK_ALL()].filter(e => e.checked).map(e => e.id)), VW_IDS = ["lmode", "basemap", "ex", "csig"], VW_DEF = {}; for (const id of VW_IDS) VW_DEF[id] = $(id).value;
 let homeCam = null;   // where home() put the camera; a link carries the camera only when it has moved from there
 const camNow = () => [camera.position.x, camera.position.y, camera.position.z, controls.target.x, controls.target.y, controls.target.z].map(Math.round);
 function viewState() {
@@ -3588,7 +3585,7 @@ const HELP = [
   ["Moving around", "<p>Drag to move the map (✋ — tap it for ⟳, then drag rotates and tilts) · twist two fingers, right-drag or Shift+drag to rotate · pinch, wheel or <kbd>+</kbd> <kbd>−</kbd> to zoom · ⟲ ⟳ ▲ ▼ rotate and tilt in steps, <kbd>N</kbd> puts north up · arrow keys pan. <b>Reset view</b> returns to the start, <b>Top view</b> looks straight down, <b>Ground view</b> stands 1.75 m above the ground at the point the view turns about (the centre at first; the tap popup's <i>Ground view</i> stands at the tapped point) and looks level at the horizon in the current heading — rotate to look round, tilt to look down, drag to walk; every overlay is painted on the terrain, so all of them show. <b>Height ×</b> exaggerates heights (1–3; shadows are exact at ×1). <b>Smooth terrain</b> softens the model with a Gaussian of the given σ in metres (off: the raw cells). ‹ tucks the panels away, › the map controls.</p>"],
   ["Map", "<p>The <b>base map</b> is draped onto the terrain for the view's box: plain (a light tint), Kartverket topo and greyscale, OpenTopoMap, CyclOSM (paths), Esri streets and aerial, Esri Wayback (every earlier aerial photo of the spot — a <i>Photo</i> list), and NASA's recent satellite imagery (the days of the last 30 with a Sentinel-2 or Landsat pass over the centre at 30 m, about a week behind, then the last three days of MODIS at 250 m — clouds are yours to judge). <b>Contours</b> every 5 m, labelled every 25 m. One layer per loaded <b>overlay file</b> (its polygons, lines and points), <b>centre, circles & steepest point</b> (the centre mark, a 500 m circle and the view's edge, the steepest cell within 500 m), and <b>bold markers</b> (bigger pins, seen through hills, areas outlined).</p>"],
   ["Terrain features", null],
-  ["Sun", "<p><b>Sun at date and time</b> lights and shadows the terrain as the sun stands then (NOAA sun position; Norway time or UTC) — <b>Fixed light (NW)</b> is a plain studio light instead; <b>Now</b> sets the moment, <b>▶ Day</b> runs through the day. The line under the sliders gives the sun's height and azimuth, the clear-sky direct radiation on level ground, sunrise, solar noon and sunset. <b>Sun: average direct radiation</b> colours the terrain by the clear-sky direct sun on the ground in kWh/m² per day over a month range (the two-handle slider, Jan – Apr to begin with; From after To runs over the new year; the range you set is remembered on this device): hourly, two days per month, the beam times the cosine of its incidence on the cell's slope, nothing when the sun is below the cell's own terrain horizon (32 directions). The colours run from the view's lowest to its highest; the pointer gives the point's value.</p><p class=\"as\"><b>Assumptions:</b> clear sky always; direct beam only (no diffuse sky light, no reflection from snow); terrain horizons on a coarse grid of at most 250 × 250 cells; no trees.</p>"],
+  ["Sun", "<p><b>Sun at date and time</b> lights and shadows the terrain as the sun stands then (NOAA sun position; times are Norway time, CET/CEST) — <b>Fixed light (NW)</b> is a plain studio light instead; <b>Now</b> sets the moment, <b>▶ Day</b> runs through the day. The line under the sliders gives the sun's height and azimuth, the clear-sky direct radiation on level ground, sunrise, solar noon and sunset. <b>Sun: average direct radiation</b> colours the terrain by the clear-sky direct sun on the ground in kWh/m² per day over a month range (the two-handle slider, Jan – Apr to begin with; From after To runs over the new year; the range you set is remembered on this device): hourly, two days per month, the beam times the cosine of its incidence on the cell's slope, nothing when the sun is below the cell's own terrain horizon (32 directions). The colours run from the view's lowest to its highest; the pointer gives the point's value.</p><p class=\"as\"><b>Assumptions:</b> clear sky always; direct beam only (no diffuse sky light, no reflection from snow); terrain horizons on a coarse grid of at most 250 × 250 cells; no trees.</p>"],
   ["Pointing, tapping, measuring", "<p><b>Hovering</b> shows the height, slope, facing and distance from the centre under the pointer, and the value of every overlay that is on. <b>Tapping</b> the terrain opens a popup with the coordinates (a link to the map), height, the overlays' classes, then a row of buttons: <i>Fetch+</i> (fetch the tiles round the point too and show everything fetched so far as one view), <i>Fetch</i> (move the view there) and <i>Ground view</i> (stand there); tapping a pin shows its name and text. <b>📏 Measure</b>: tap two points for the distance, height difference, slope and bearing between them. <b>🛰</b> opens Norgeskart's aerial photo of the place, <b>🐦</b> opens BirdsWhere there.</p>"],
   ["Data, saving, sharing", "<p>The terrain comes from Kartverket's height model service (NHM DTM, CC BY 4.0), 1 m or 10 m, resampled so that a view is at most 3000 cells across — a 1 m view wider than 3 km is shown on a 2, 3 … m grid, as the Data section states. Cells without data are filled smoothly and greyed. <b>Save as one offline file</b> writes a single HTML file with the terrain and layers inside, which opens anywhere without the network (with Kartverket topo already draped); <b>folder</b> writes the DTM tiles, the layers and a scene.json that Load opens again. <b>Share…</b> gives a link to a terrain picked on the map, a web folder or a Drive folder (the other person signs in to their own Drive; the folder must be shared with them); the <b>⧉</b> button in the title copies a link to this <i>exact</i> view — the place, every layer and legend choice, the sun, the map and the camera — which opens just so for the other person. Overlays from the network (base maps, CORINE, NIBIO's forest, land, vegetation and MIS layers, snow, winds) need the network each time and are not saved into files.</p><p>The viewer and its tools are open source under the <b>MIT licence</b> — <a href=\"https://github.com/pcmoan70/3d_terrain\" target=\"_blank\" rel=\"noopener\">github.com/pcmoan70/3d_terrain</a> (the data keep their own licences, named in the line under the view).</p>"]
 ];
@@ -3613,7 +3610,7 @@ $("lyMarkers").onchange = () => { repaint(); applyVis(); };
 // back as they were
 let sunPrevMode = null;
 function sunAvgLock(on) {
-  const ids = ["lmode", "tz", "day", "tod", "now", "play"];
+  const ids = ["lmode", "day", "tod", "now", "play"];
   if (on) {
     if (playT) $("play").onclick();                                   // stop the day animation
     if (sunPrevMode === null) sunPrevMode = $("lmode").value;

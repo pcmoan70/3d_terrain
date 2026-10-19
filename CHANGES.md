@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-19 · Sun: Norway time only
+
+Owner: "make norway time the only time option, and remove dropdown." The time-zone selector (Norway time / UTC) is gone; the sliders, the readout, Now and the first-view noon are all Norway time (CET/CEST by the EU rule). Old view links carrying a `tz` value are ignored.
+
 ## 2026-10-19 · Cliff drops painted solid
 
 Owner: "the coloring of cliff faces should not be transparent." The five cliff classes now replace the base colour outright and are painted after the contour lines, which on a vertical face fall in nearly every cell and were darkening the colour; the other masks keep their 70 % blend under the contours.
