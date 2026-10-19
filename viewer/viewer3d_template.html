@@ -49,6 +49,9 @@
   label.file input{display:none}
   label.ly{display:flex;align-items:center;gap:6px}
   button:disabled,select:disabled,input:disabled{opacity:.45;cursor:not-allowed}
+  .qb{width:18px;height:18px;border-radius:50%;border:1px solid #889;background:#2a3038;color:#cde;font-size:12px;line-height:16px;padding:0;cursor:pointer;flex:none}
+  #help{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:25;width:min(600px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;box-sizing:border-box;font-size:13px;line-height:1.45}
+  #help h2{font-size:14px;margin:14px 0 4px;color:#ffd54f}#help h2:first-child{margin-top:0}#help h3{font-size:13px;margin:10px 0 2px;color:#fff}#help p{margin:3px 0 6px;color:#dde}#help .as{color:#aab;font-size:12px}#help kbd{background:#2a3038;border:1px solid #556;border-radius:3px;padding:0 4px;font-size:12px}
   #pmenu{position:fixed;z-index:20;max-width:min(320px,calc(100vw - 24px));padding:8px 10px;font-size:13px}
   .row.lg{flex-wrap:wrap;gap:4px 10px;padding-left:24px;font-size:12px;color:#ccd}
   .lg .tg{cursor:pointer}.lg .tg.off{opacity:.4;text-decoration:line-through}
@@ -77,7 +80,7 @@
      column collapsible"): the controls, the views list under them; ‹ tucks the whole column away, › brings it back -->
 <div id="side"><button id="sideX" title="Hide the panels">‹</button>
 <div id="info" class="panel">
-  <button class="minb" id="infoMin" title="Minimise / restore">−</button>
+  <button class="minb" id="infoMin" title="Minimise / restore">−</button><button class="minb" id="helpB" title="Help" style="right:40px">?</button>
   <!-- the coordinates in the title open the map to pick a place (owner, 2026-10-17: "executed when user clicks on coordinates in title") -->
   <h1 id="ttl">Terrain 3D — <span id="ttlName"></span><a id="ttlPos" href="#" title="Pick a place on the map">pick a place on the map</a></h1>
   <div class="body">
@@ -159,6 +162,7 @@
 </div>
 </div><button id="sideOpen" title="Show the panels" hidden>›</button>
 <div id="tip"></div>
+<div id="help" class="panel" hidden><button class="minb" id="helpX" title="Close">×</button><div id="helpT" style="padding-right:30px"></div></div>
 <div id="pmenu" class="panel" hidden><button class="minb" id="pmenuX" title="Close">×</button><div id="pmenuT" style="padding-right:30px"></div></div>
 <div id="attr" style="position:absolute;left:50%;transform:translateX(-50%);bottom:4px;font-size:10px;color:#ccc;background:rgba(0,0,0,.45);padding:1px 6px;border-radius:4px;pointer-events:none;white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis"></div>
 <div id="meas" class="panel" hidden><button class="minb" id="measX" title="Close the measurement">×</button><div id="measT" style="padding-right:30px"></div></div>
@@ -907,7 +911,7 @@ async function windOn() {
     const Gs = S.out ? [S, S.out] : [S], lo = Math.min(...Gs.map(G => pct(G.windAvg, 0.01))), hi = Math.max(...Gs.map(G => pct(G.windAvg, 0.99))), md = pct(Gs[Gs.length - 1].windAvg, 0.5);   // one colour range for both grids, pale at the median
     for (const G of Gs) { G.windLo = lo; G.windMed = md; G.windHi = hi; }
     const g = "linear-gradient(90deg," + [0, .5, 1].map(t => "rgb(" + ramp(WIND_RAMP, t).map(Math.round).join(",") + ")").join(",") + ")";
-    $("windLeg").innerHTML = "exposed " + Math.round(lo) + '° <span style="display:inline-block;width:110px;height:10px;vertical-align:middle;border-radius:2px;background:' + g + '"></span> +' + Math.round(hi) + "° sheltered (pale: the view's middle, " + (md > 0 ? "+" : "") + Math.round(md) + "°) — the steepest line to higher ground upwind within " + WIND_D + " m, " + esc(windLbl()) + (note ? "<br>" + esc(note) : "");
+    $("windLeg").innerHTML = "exposed " + Math.round(lo) + '° <span style="display:inline-block;width:110px;height:10px;vertical-align:middle;border-radius:2px;background:' + g + '"></span> +' + Math.round(hi) + "° sheltered (pale: the view's middle, " + (md > 0 ? "+" : "") + Math.round(md) + "°) — the angle up to the highest ground within " + WIND_D + " m upwind, below level when the ground falls away (the ? explains), " + esc(windLbl()) + (note ? "<br>" + esc(note) : "");
     if (!/did not answer/.test($("busyt").textContent)) busy(false);
   }
   repaint();
@@ -1656,7 +1660,7 @@ canvas.addEventListener("pointermove", ev => {
   const cc = $("lyClc").checked ? clcAt(G, x, y) : null; if (cc) html += "<br>CORINE 2018: " + esc(cc[1]) + " (" + cc[0] + ")";
   for (const sk of snowOn()) { const sc = snowAt(G, sk, x, y); if (sc) html += "<br>" + SNOWL[sk].title + " (" + esc($(SNOWL[sk].when).value) + "): " + sc; }
   const ft = featuresAt(G, x, y); if (ft.length) html += "<br>Features: " + esc(ft.join(", "));
-  if ($("lyWind").checked && G.windAvg) { const v = windAt(G, x, y); html += "<br>Wind exposure (" + esc(windLbl()) + "): <b>" + (v > 0 ? "+" : "") + v.toFixed(0) + "°</b> " + (v <= -5 ? "exposed" : v >= 5 ? "sheltered" : "neither"); }
+  if ($("lyWind").checked && G.windAvg) { const v = windAt(G, x, y); html += "<br>Wind exposure (" + esc(windLbl()) + "): upwind ground " + (v < -0.5 ? "falls away at " + (-v).toFixed(0) : v > 0.5 ? "rises at " + v.toFixed(0) : "level, 0") + "° — <b>" + (v <= -5 ? "exposed" : v >= 5 ? "sheltered" : "neither") + "</b>"; }
   if ($("lySun").checked && G.sunAvg) html += "<br>Sun, average " + $("mLbl").textContent.replace(/ \(.*\)/, "") + ": <b>" + sunAt(G, x, y).toFixed(2) + " kWh/m² per day</b> (clear sky, direct)";
   if (SUN && $("lmode").value === "sun") {
     const r = surfIrr(x, y, SUN.p.el, SUN.p.az, SUN.Ib);
@@ -2155,6 +2159,77 @@ let keepCam = false;
 $("basemap").onchange = () => repaint();
 $("wbSel").onchange = () => repaint();
 $("satSel").onchange = () => repaint();
+// ---- help (owner, 2026-10-19: "Make a descriptive help text for each of the Terrain features (question marks behind toggle
+// description) also the assumptions made. Also the windexposure seems to be written in degrees, this needs explanation. Other
+// general functions need explanation in a sectioned helptext"). One help panel, in sections; the ? behind a terrain feature opens it
+// at that feature's entry. The texts are the page's own.
+const FEAT_HELP = {   // row checkbox id → [title, what it shows, the assumptions]
+  lySlope: ["Slope (NVE steepness classes)",
+    "The steepness of the ground in each cell, in the classes of NVE's steepness map for avalanche terrain: 27–30°, 30–35°, 35–40°, 40–45° and 45° and steeper. Ground gentler than 27° is left uncoloured. A click on a class in the legend hides or shows that class alone.",
+    "Slope is the gradient of the model's cell (1 m or 10 m) after the smoothing set at the top, so a 10 m view reads gentler than a 1 m view of the same cliff. The classes are NVE's; from 27–30° dry-snow avalanches become possible."],
+  lyFacing: ["Facing",
+    "The compass direction each slope faces (downhill), in eight sectors, true directions. Only ground steeper than 15° is coloured. A click on a direction in the legend hides or shows it.",
+    "Ground flatter than 15° has no useful facing and stays uncoloured. Where Slope is on too, its classes paint over Facing; hide a slope class to see the facing under it."],
+  lyWind: ["Wind exposure",
+    "How open each point is to the wind, as Winstral's shelter index. From every point, lines are followed 300 m upwind in the chosen wind direction (and 11° to either side); the index is the <b>elevation angle of the steepest of those lines</b> — the angle you would look up (or down) at to see the highest ground within 300 m upwind. That is why it is written in degrees: <b>+30°</b> means the ground rises at 30° above the point within 300 m upwind, a wall that breaks the wind; <b>0°</b> means level ground upwind; <b>−20°</b> means the ground falls away at 20° — the point stands above everything upwind, a crest or an edge, fully exposed. " +
+    "The wind is chosen next to the toggle: <i>all directions</i> averages the index over 32 directions (general openness); <i>the winds here</i> fetches the view centre's wind rose from Open-Meteo's ERA5 archive (the last three years, each day's dominant direction weighted by its peak speed), averages the index over that rose and lists the three main directions with their shares; a compass point judges shelter from that one wind. Colours run from red (the most exposed in view) through pale (the view's median) to blue (the most sheltered); the legend carries the three angles, the pointer the point's own.",
+    "Winstral's Sx with a 300 m search and 34° sectors, on a coarse grid of at most 250 × 250 cells (12 m cells on a 1.5 km view, 120 m on a 15 km view), so fine detail is averaged out; on the fine grid of a mixed view the lines go on into the coarse surround. ERA5 cells are about 25 km: <i>the winds here</i> is the regional wind, not channelling along a fjord or valley. Shelter is from the terrain only — trees and buildings are not in the model."],
+  lyClc: ["CORINE land cover 2018 (NIBIO)",
+    "Norway's CORINE Land Cover 2018 classes from NIBIO's map service, blended over the base map, with a legend of the classes in view and their shares. The class is named under the pointer; a tap on the terrain asks the service for the exact class with its code.",
+    "CORINE maps units of 25 ha and more (100 m wide at least) from 2018 satellite imagery: small clearings, bogs, roads and single buildings are below its resolution. Needs the network."],
+  lySnow: ["Snow depth (seNorge, NVE)",
+    "Snow depth on the chosen day from NVE's seNorge model on 1 km cells — any day since 1957, and the next nine days as a forecast — in seNorge's own classes, from bare ground to over 4 m. The class under the pointer and in the tap popup.",
+    "seNorge is a model interpolated from weather stations: one value per 1 km cell, so drifts, wind-swept ridges and sheltered hollows all read the same. A day with no grid says so. Needs the network."],
+  lySnowD: ["Snow days > 5 cm (seNorge, NVE)",
+    "The number of days in the chosen year with more than 5 cm of snow on the ground, from the same seNorge model, in classes from none to over 350 days. The last complete year is chosen at first; the running year has no grid yet.",
+    "The same 1 km model as snow depth; the count is a season's length at the cell's scale, not of a particular slope."],
+  ft_ridge: ["Ridges and crests",
+    "Ground that stands more than 3 m above the mean height of its surroundings within 25 m. Cliff faces (45° and steeper) are left to the Slope layer.",
+    "A terrain position index with a fixed 25 m window and 3 m threshold. On a 10 m grid the window is five cells, so only broad ridges show; a 1 m grid also picks out boulders, road cuts and buildings."],
+  ft_gully: ["Gullies and ravines",
+    "Ground that lies more than 3 m below the mean height of its surroundings within 25 m. Cliff faces are left to the Slope layer.",
+    "The same index as ridges, the other way. Streams in shallow beds, under 3 m, are not found — flow accumulation is not computed yet."],
+  ft_ledge: ["Ledges on cliffs",
+    "Near-flat steps (gentler than 20°) with cliff (45° and steeper) within 3 m both above and below — the shelves a bird can nest on. 1 m grids only.",
+    "The DTM is a ground model: overhangs are not in it, so a ledge under an overhang reads as the face itself. 3 m is three cells; shelves narrower than about 1 m are not resolved."],
+  ft_scree: ["Scree and boulder fields",
+    "Rough ground — the height residue over a 5 m mean is 0.35 m or more — on slopes of 15–40°. 1 m grids only.",
+    "Roughness from the 1 m DTM also counts boulders in forest, fallen trees and rocky ground; the slope band keeps most of those out, not all."],
+  ft_water: ["Lakes and ponds",
+    "Level ground (gentler than 0.5°) above sea level in patches of at least 400 m². The terrain model is flat on water, so this is where it is flat.",
+    "Flat bog, a football pitch or a car park read the same way. Rivers (sloping) are not found. Ground at 0.6 m or lower is taken as sea and left out."],
+  ft_updraft: ["Updraft slopes",
+    "Slopes of 20° and steeper facing the prevailing wind, south-west to north-west: where wind off the sea is pushed upward — soaring ground.",
+    "The wind is assumed from the west half (225–315°) wherever the view is. For the local wind rose use Wind exposure with <i>the winds here</i>."],
+  ft_spring: ["Sun-warmed slopes in spring",
+    "The quarter of the view with the most direct sun in March–April, on slopes of 5° and steeper: the first ground bare of snow.",
+    "From the sun model: clear-sky direct radiation with the terrain's own horizons — no clouds, no vegetation. A quarter of the view by rank, so there is always one."],
+  ft_shade: ["Shade hollows (late snow)",
+    "The fifth of the view with the least direct sun over the year, where the ground also lies in a hollow (more than 0.5 m below its surroundings within 25 m): snow lies longest.",
+    "The sun model's coarse grid for the sun, the fine grid for the hollow. A fifth by rank, so there is always one."],
+  ft_shelter: ["Sheltered ground",
+    "The quarter of the view with the least open sky — the highest horizons all round: cirques, ravines, the foot of walls.",
+    "Sky view from the terrain's horizons in 32 directions on the coarse grid; the world beyond the view's edge is taken as open. Shelter from the terrain only."]
+};
+const HELP = [
+  ["Getting a terrain", "<p>Tap the coordinates in the title (or <i>pick a place on the map</i>) to open the map: tap a place, set the <b>view radius</b> and the <b>model</b>, then Render. <b>1 m</b> is Kartverket's 1 m terrain model (DTM) and reaches 5 km from the point; <b>10 m</b> reaches 15 km; <b>1 m centre + 10 m around</b> nests a 1 m square (up to 5 km) inside a 10 m view (up to 15 km). A 1 m radius dragged or typed past 5 km flips to the mixed model by itself; the frames on the map show both squares. A view can also come from a <b>link</b> (<code>?lat=&amp;lon=&amp;r=&amp;res=</code>), from BirdsWhere (its points come along as pins), from a <b>folder</b> of DTM GeoTIFF tiles with .geojson / .kml / .kmz overlays (Data → Load), from a saved one-file view, or from a Google Drive folder.</p><p>Tapping the terrain opens a popup with <b>Fetch more</b> (fetch the tiles round that point too and show everything fetched so far as one view) and <b>Fetch</b> (move the view there). Tiles already in hand are not fetched again.</p>"],
+  ["Moving around", "<p>Drag to move the map (✋ — tap it for ⟳, then drag rotates and tilts) · twist two fingers, right-drag or Shift+drag to rotate · pinch, wheel or <kbd>+</kbd> <kbd>−</kbd> to zoom · ⟲ ⟳ ▲ ▼ rotate and tilt in steps, <kbd>N</kbd> puts north up · arrow keys pan. <b>Reset view</b> returns to the start, <b>Top view</b> looks straight down. <b>Height ×</b> exaggerates heights (1–3; shadows are exact at ×1). <b>Smooth terrain</b> softens the model with a Gaussian of the given σ in metres (off: the raw cells). ‹ tucks the panels away, › the map controls.</p>"],
+  ["Map", "<p>The <b>base map</b> is draped onto the terrain for the view's box: plain (a light tint), Kartverket topo and greyscale, OpenTopoMap, CyclOSM (paths), Esri streets and aerial, Esri Wayback (every earlier aerial photo of the spot — a <i>Photo</i> list), and NASA's recent satellite imagery (the days of the last 30 with a Sentinel-2 or Landsat pass over the centre at 30 m, about a week behind, then the last three days of MODIS at 250 m — clouds are yours to judge). <b>Contours</b> every 5 m, labelled every 25 m. One layer per loaded <b>overlay file</b> (its polygons, lines and points), <b>centre, circles & steepest point</b> (the centre mark, a 500 m circle and the view's edge, the steepest cell within 500 m), and <b>bold markers</b> (bigger pins, seen through hills, areas outlined).</p>"],
+  ["Terrain features", null],
+  ["Sun", "<p><b>Sun at date and time</b> lights and shadows the terrain as the sun stands then (NOAA sun position; Norway time or UTC) — <b>Fixed light (NW)</b> is a plain studio light instead; <b>Now</b> sets the moment, <b>▶ Day</b> runs through the day. The line under the sliders gives the sun's height and azimuth, the clear-sky direct radiation on level ground, sunrise, solar noon and sunset. <b>Sun: average direct radiation</b> colours the terrain by the clear-sky direct sun on the ground in kWh/m² per day over a month range (the two-handle slider; From after To runs over the new year): hourly, two days per month, the beam times the cosine of its incidence on the cell's slope, nothing when the sun is below the cell's own terrain horizon (32 directions). The colours run from the view's lowest to its highest; the pointer gives the point's value.</p><p class=\"as\"><b>Assumptions:</b> clear sky always; direct beam only (no diffuse sky light, no reflection from snow); terrain horizons on a coarse grid of at most 250 × 250 cells; no trees.</p>"],
+  ["Pointing, tapping, measuring", "<p><b>Hovering</b> shows the height, slope, facing and distance from the centre under the pointer, and the value of every overlay that is on. <b>Tapping</b> the terrain opens a popup with the coordinates (a link to the map), height, the overlays' classes and the fetch buttons; tapping a pin shows its name and text. <b>📏 Measure</b>: tap two points for the distance, height difference, slope and bearing between them. <b>🛰</b> opens Norgeskart's aerial photo of the place, <b>🐦</b> opens BirdsWhere there.</p>"],
+  ["Data, saving, sharing", "<p>The terrain comes from Kartverket's height model service (NHM DTM, CC BY 4.0), 1 m or 10 m, resampled so that a view is at most 3000 cells across — a 1 m view wider than 3 km is shown on a 2, 3 … m grid, as the Data section states. Cells without data are filled smoothly and greyed. <b>Save as one offline file</b> writes a single HTML file with the terrain and layers inside, which opens anywhere without the network (with Kartverket topo already draped); <b>folder</b> writes the DTM tiles, the layers and a scene.json that Load opens again. <b>Share…</b> gives a link to a terrain picked on the map, a web folder or a Drive folder (the other person signs in to their own Drive; the folder must be shared with them). Overlays from the network (base maps, CORINE, snow, winds) need the network each time and are not saved into files.</p>"]
+];
+function helpUI() {
+  $("helpT").innerHTML = HELP.map(([t, h]) => "<h2>" + t + "</h2>" + (h || Object.keys(FEAT_HELP).map(k => { const f = FEAT_HELP[k]; return '<h3 id="h_' + k + '">' + f[0] + "</h3><p>" + f[1] + "</p>" + (f[2] ? '<p class="as"><b>Assumptions:</b> ' + f[2] + "</p>" : ""); }).join(""))).join("");
+  for (const k of Object.keys(FEAT_HELP)) {   // a ? behind each feature's toggle
+    const b = document.createElement("button"); b.className = "qb"; b.textContent = "?"; b.title = "What this shows, and the assumptions made";
+    b.onclick = e => { e.preventDefault(); helpOpen(k); }; $(k).closest("label").after(b);
+  }
+}
+function helpOpen(k) { $("help").hidden = false; const el = k && $("h_" + k); if (el) el.scrollIntoView({ block: "start" }); else $("help").scrollTop = 0; }
+$("helpB").onclick = () => helpOpen(); $("helpX").onclick = () => { $("help").hidden = true; };
+helpUI();
 $("lyContours").onchange = $("lySlope").onchange = $("lyFacing").onchange = () => { $("lgSlope").hidden = !$("lySlope").checked; $("lgFacing").hidden = !$("lyFacing").checked; repaint(); };
 $("lyMarkers").onchange = () => { repaint(); applyVis(); };
 // the average sun and the sun at a date and time exclude each other (owner, 2026-10-14: "when user toggles Sun:
