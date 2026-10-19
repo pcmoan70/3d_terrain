@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-19 · The steepest-point pin removed
+
+Owner: "remove red pin for steepest point." The red needle and ring are gone, with the search for the steepest cell within 500 m (and the edge-band helper it used); a `role` = `steepest` overlay point is no longer drawn. The compass is placed 250 m south of the centre instead. The Map toggle reads "Centre & circles".
+
 ## 2026-10-19 · Sun: Norway time only
 
 Owner: "make norway time the only time option, and remove dropdown." The time-zone selector (Norway time / UTC) is gone; the sliders, the readout, Now and the first-view noon are all Norway time (CET/CEST by the EU rule). Old view links carrying a `tz` value are ignored.
