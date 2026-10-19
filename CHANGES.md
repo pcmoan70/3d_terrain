@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-19 · NIBIO classes under the pointer
+
+Owner: "the NBIO legends need to be showing in hover text. need some ocr and color detection for this maybe?" No OCR: the vector layers (AR5, forestry plans, vegetation types) answer WMS GetStyles with each class's name and fill colour, fetched once per layer; the SR16 rasters have no style sheet, so their eleven class tables were transcribed from NIBIO's legend images (`SR16_CL`, colours read by script, labels by eye; heights dm → m, LAI ÷ 100). The pointer samples the overlay's own pixel and names the nearest class (`nbAt`); the MIS layers, being symbols, are named by which of them have a pixel under the pointer. The legends are now built from the same tables (swatch + label), so legend and pointer always agree; a layer without a table (MIS) keeps the service's legend image.
+
 ## 2026-10-19 · The MIT licence named in the viewer
 
 Owner: "Make sure all apps exposed on pages make it clear that they carry a mit licence." The attribution line under the view ends with "Viewer: MIT licence, github.com/pcmoan70/3d_terrain", and the help's last section says the same with the link.
