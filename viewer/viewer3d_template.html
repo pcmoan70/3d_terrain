@@ -19,6 +19,7 @@
   .sec{border-top:1px solid #333;margin-top:8px;padding-top:6px}
   .sec h2{font-size:13px;margin:0 0 4px;color:#cfd8dc}
   details.sec>summary{font-size:13px;font-weight:bold;margin:0 0 4px;color:#cfd8dc;cursor:pointer}
+  details.nb{margin:2px 0}details.nb>summary{font-size:13px;cursor:pointer;padding:2px 0;color:#cfd8dc}details.nb .row{padding-left:16px}details.nb .lg img{background:#fff;border-radius:3px;padding:2px}
   .min .body{display:none}
   #side{position:absolute;top:10px;left:10px;max-height:calc(100% - 20px);width:min(380px,calc(100% - 64px));display:flex;flex-direction:column;gap:8px;pointer-events:none;z-index:5}
   #side>.panel{position:relative;top:auto;left:auto;bottom:auto;width:auto;max-width:none;pointer-events:auto}
@@ -117,6 +118,8 @@
       <!-- owner, 2026-10-18: "Move the corrine option to 'Terrain features' subpane" -->
       <div class="row"><label class="ly"><input type="checkbox" id="lyClc"> CORINE land cover 2018 (NIBIO)</label></div>
       <div class="row lg" id="lgClc" hidden></div>
+      <!-- owner, 2026-10-19: "add nibo sr16 overlays, where user is allowed to toggle each type on and off" + "Any other nibio overlays that might be of interest, relevant to breeding and forage behaviours should be added as overlay options too" -->
+      <div id="nibio"></div>
       <!-- owner, 2026-10-18: "go for snow depth and recent satelite imagery" + "make sure to include the daygt50sdyr" -->
       <div class="row w"><label class="ly"><input type="checkbox" id="lySnow"> Snow depth (seNorge, NVE)</label><input id="snowDay" type="date" style="width:auto" title="Any day since 1957, and the next nine days (forecast)"></div>
       <div class="row lg" id="lgSnow" hidden></div>
@@ -563,6 +566,9 @@ function placeCompass(best, areas, pts, R, gam) {
 }
 // The terrain's picture: the base (slope tint, or a map draped onto the grid), then — with the overlay
 // on — contours, habitat areas and contour labels; the markers (centre, circles, compass) always.
+function blendImg(d, q, bad, n, k) {   // an overlay's pixels over the base, by their alpha times k
+  for (let i = 0; i < n * n; i++) { const o = 4 * i, a = q[o + 3] * k / 255; if (!a || bad[i]) continue; d[o] += (q[o] - d[o]) * a; d[o + 1] += (q[o + 1] - d[o + 1]) * a; d[o + 2] += (q[o + 2] - d[o + 2]) * a; }
+}
 function paintBase(G, base) {   // G: the fine grid S or the coarse surround S.out
   const { hs, slope, bad, n, R, c, gx, gyN } = G, { areas, gam } = S, comp = G === S ? S.comp : null, B = S.out || S;
   const ovl = $("lyContours").checked, lyS = $("lySlope").checked, lyF = $("lyFacing").checked;
@@ -595,14 +601,9 @@ function paintBase(G, base) {   // G: the fine grid S or the coarse surround S.o
       d[o] = d[o] * (1 - al) + col[0] * al; d[o + 1] = d[o + 1] * (1 - al) + col[1] * al; d[o + 2] = d[o + 2] * (1 - al) + col[2] * al;
     }
   }
-  if ($("lyClc").checked && G.clc) {   // CORINE land cover at 55 % over the map
-    const q = G.clc.data;
-    for (let k = 0; k < n * n; k++) { const o = 4 * k; if (q[o + 3] < 128 || bad[k]) continue; d[o] = d[o] * .45 + q[o] * .55; d[o + 1] = d[o + 1] * .45 + q[o + 1] * .55; d[o + 2] = d[o + 2] * .45 + q[o + 2] * .55; }
-  }
-  for (const sk of snowOn()) if (G[sk] && G[sk].img) {   // seNorge snow at 55 % over the map
-    const q = G[sk].img.data;
-    for (let k = 0; k < n * n; k++) { const o = 4 * k; if (q[o + 3] < 128 || bad[k]) continue; d[o] = d[o] * .45 + q[o] * .55; d[o + 1] = d[o + 1] * .45 + q[o + 1] * .55; d[o + 2] = d[o + 2] * .45 + q[o + 2] * .55; }
-  }
+  if ($("lyClc").checked && G.clc) blendImg(d, G.clc.data, bad, n, .55);   // CORINE land cover at 55 % over the map
+  for (const sk of snowOn()) if (G[sk] && G[sk].img) blendImg(d, G[sk].img.data, bad, n, .55);   // seNorge snow at 55 % over the map
+  for (const [g, L, k] of nbOn()) if (G.nb && G.nb[g.id + ":" + L]) blendImg(d, G.nb[g.id + ":" + L].data, bad, n, k);   // NIBIO: the filling layer at 55 %, MIS features as drawn
   if (lyS || lyF) {
     const SC = SLOPE_CL.map(x => hexRgb(x[1])), FC = FACE_CL.map(x => hexRgb(x[1]));
     for (let k = 0; k < n * n; k++) {
@@ -1036,6 +1037,69 @@ $("lyClc").onchange = async () => {
   if (on && S) { busy("Loading CORINE land cover…"); await tick(); for (const G of S.out ? [S, S.out] : [S]) await clcImage(G); busy(false); clcLegend(); }
   setAttr($("basemap").value); repaint();
 };
+// ---- NIBIO's other map services (owner, 2026-10-19: "add nibo sr16 overlays, where user is allowed to toggle each type on
+// and off" + "Any other nibio overlays that might be of interest, relevant to breeding and forage behaviours should be added
+// as overlay options too"): the same WMS shape as CORINE — EPSG:25833, CORS open, one GetMap per grid. The map-filling
+// layers (SR16, AR5, forestry plans, vegetation types) paint the whole ground, so one of them is on at a time; the MIS
+// habitat registrations are sparse features and stack on whatever else is on. Legends are the services' own images
+// (Norwegian labels — the ? translates); a tap asks each service for its values at the point.
+const NB_WMS = "https://wms.nibio.no/cgi-bin/";
+const NB_GROUPS = [
+  { id: "sr16", svc: "sr16", title: "SR16 forest resources (NIBIO)", fill: true, layers: [["SRRTRESLAG", "Tree species"], ["SRRHOYDEM", "Mean height"], ["SRRHOYDEO", "Dominant height"], ["SRRKRONEDEK", "Crown cover"], ["SRRLAI", "Leaf area index"], ["SRRVOLMB", "Timber volume"], ["SRRBMO", "Above-ground biomass"], ["SRRBONITET", "Site index"], ["SRRDIAMMIDDEL", "Mean stem diameter"], ["SRRGRFLATE", "Basal area"], ["SRRTREANTALL", "Trees per hectare"]] },
+  { id: "ar5", svc: "ar5", title: "AR5 land resources (NIBIO)", fill: true, layers: [["Arealtype", "Land type"], ["Treslag", "Tree species"], ["Skogbonitet", "Forest productivity"], ["Grunnforhold", "Ground conditions"]] },
+  { id: "plan", svc: "skogbruksplan", title: "Forestry plans (NIBIO)", fill: true, layers: [["hogstklasser", "Development class (hogstklasse 1–5)"], ["aldersklasser_eldste_skogen", "Age of the oldest forest"]] },
+  { id: "veg", svc: "vegetasjon", title: "Vegetation types (NIBIO)", fill: true, layers: [["Vegetasjonstypar", "Vegetation types"], ["Hovudtypar", "Main vegetation types"]] },
+  { id: "mis", svc: "mis", title: "MIS forest habitats (NIBIO)", fill: false, layers: [["Nokkelbiotop", "Key biotopes"], ["Hule_lauvtrar_punkt", "Hollow broadleaf trees"], ["Gamle_trar", "Old trees"], ["Staende_dod_ved", "Standing dead wood"], ["Liggende_dod_ved", "Lying dead wood"], ["Eldre_lauvsuksesjon", "Older broadleaf succession"], ["Bergvegger_alle", "Cliff walls"], ["Bekkeklofter", "Stream gorges"], ["Leirraviner", "Clay ravines"], ["Rik_bakkevegetasjon", "Rich ground vegetation"], ["Trar_m_hengelav_alle", "Trees with hanging lichen"], ["Rikbarkstrar_alle", "Rich-bark trees"], ["Brannflater", "Burnt areas"], ["Kartleggingsomr", "Surveyed area"]] }];
+const nbId = (g, L) => "nb_" + g.id + "_" + L, nbUrl = g => NB_WMS + g.svc + "?service=WMS&version=1.3.0&styles=&crs=EPSG:25833", nbName = g => g.title.replace(" (NIBIO)", "");
+$("nibio").innerHTML = NB_GROUPS.map(g => '<details class="nb"><summary id="nbh_' + g.id + '">' + g.title + "</summary>" + g.layers.map(([L, t]) => '<div class="row"><label class="ly"><input type="checkbox" id="' + nbId(g, L) + '"> ' + t + "</label></div>").join("") + '<div class="row lg" id="lg_' + g.id + '" hidden></div></details>').join("");
+function nbOn() {   // the layers on as [group, layer, blend strength], the map-filling one first
+  const out = [];
+  for (const g of NB_GROUPS) for (const [L] of g.layers) if ($(nbId(g, L)).checked) out[g.fill ? "unshift" : "push"]([g, L, g.fill ? 0.55 : 1]);
+  return out;
+}
+async function nbImage(G, g, L) {   // one layer for one grid as ImageData at the grid's size (undefined → not asked yet, null → failed)
+  const key = g.id + ":" + L; G.nb = G.nb || {};
+  if (G.nb[key] !== undefined) return G.nb[key];
+  const px = Math.min(G.n, 3000), bb = [S.X - G.R, S.Y - G.R, S.X + G.R, S.Y + G.R].map(v => v.toFixed(1)).join(",");   // AR5 draws nothing coarser than 1:50 000, so a wide view asks for more pixels
+  try {
+    const r = await fetch(nbUrl(g) + "&request=GetMap&layers=" + L + "&bbox=" + bb + "&width=" + px + "&height=" + px + "&format=image/png&transparent=true"); if (!r.ok) throw new Error("HTTP " + r.status);
+    const bm = await createImageBitmap(await r.blob()), cv = document.createElement("canvas"); cv.width = cv.height = G.n; const cx = cv.getContext("2d"); cx.imageSmoothingEnabled = false; cx.drawImage(bm, 0, 0, G.n, G.n);
+    G.nb[key] = cx.getImageData(0, 0, G.n, G.n);
+  } catch (e) { G.nb[key] = null; $("dsrc").textContent = nbName(g) + ": NIBIO's map service did not answer (" + e.message + ")."; }
+  return G.nb[key];
+}
+function nbLegend() {   // each group's row: the service's own legend image for every layer of it that is on
+  for (const g of NB_GROUPS) {
+    const on = g.layers.filter(([L]) => $(nbId(g, L)).checked); $("lg_" + g.id).hidden = !on.length;
+    $("lg_" + g.id).innerHTML = on.map(([L, t]) => '<span style="display:inline-flex;align-items:flex-start;gap:6px"><img src="' + NB_WMS + g.svc + "?service=WMS&version=1.3.0&request=GetLegendGraphic&sld_version=1.1.0&format=image/png&style=default&layer=" + L + '" alt=""> ' + esc(t) + "</span>").join("");
+  }
+}
+async function nbRefresh() {   // fetch what is on for both grids, then legend, attribution, paint
+  const on = nbOn();
+  if (on.length && S) { busy("Loading NIBIO layers…"); await tick(); for (const G of S.out ? [S, S.out] : [S]) for (const [g, L] of on) await nbImage(G, g, L); busy(false); }
+  nbLegend(); setAttr($("basemap").value); repaint();
+}
+for (const g of NB_GROUPS) for (const [L] of g.layers) $(nbId(g, L)).onchange = () => {
+  if (g.fill && $(nbId(g, L)).checked) for (const h of NB_GROUPS) if (h.fill) for (const [M] of h.layers) if (h !== g || M !== L) $(nbId(h, M)).checked = false;   // one map-filling layer at a time
+  nbRefresh();
+};
+// a tap: the SR16 answer is HTML with each layer's cell value as `if (<value> == 9999)` (9999 = no data; a layer without
+// data is left out altogether); the others answer GML, read for the group's descriptive fields
+const SR16_VAL = [["SRRTRESLAG", v => ["spruce", "pine", "broadleaf"][v - 1] || "species " + v], ["SRRHOYDEM", v => "mean height " + (v / 10).toFixed(1) + " m"], ["SRRHOYDEO", v => "dominant height " + (v / 10).toFixed(1) + " m"], ["SRRKRONEDEK", v => "crown cover " + v + " %"], ["SRRLAI", v => "LAI " + (v / 100).toFixed(1)], ["SRRVOLMB", v => v + " m³/ha"], ["SRRBMO", v => v + " t/ha biomass"], ["SRRBONITET", v => "site index " + v], ["SRRDIAMMIDDEL", v => "diameter " + v + " cm"], ["SRRGRFLATE", v => "basal area " + v + " m²/ha"], ["SRRTREANTALL", v => v + " trees/ha"]];
+const NB_FIELDS = { ar5: [["artype_beskrivelse", ""], ["artreslag_beskrivelse", ""], ["arskogbon_beskrivelse", "productivity"], ["argrunnf_beskrivelse", "ground"]], plan: [["hogstkl_verdi", "development class"], ["alder", "age"], ["bonitet_beskrivelse", ""], ["bontre_beskrivelse", ""]], mis: [["forv_besk", ""], ["ko_status", ""], ["beh_kode", "treatment"], ["opph_merk", ""]] };
+async function nbInfo(g, x, y) {   // MIS: everything within 10 px = 20 m (MapServer's radius), the features being drawn wider than they are
+  const X = S.X + x, Y = S.Y + y, h = g.id === "mis" ? 100 : 50, q = (g.id === "sr16" ? SR16_VAL.map(e => e[0]) : g.layers.filter(([L]) => $(nbId(g, L)).checked).map(e => e[0])).join(",");
+  const r = await fetch(nbUrl(g) + "&request=GetFeatureInfo&layers=" + q + "&query_layers=" + q + "&bbox=" + [X - h, Y - h, X + h, Y + h].map(v => v.toFixed(1)).join(",") + "&width=100&height=100&i=50&j=50" + (g.id === "mis" ? "&feature_count=5&radius=10" : "") + "&info_format=" + (g.id === "sr16" ? "text/html" : "application/vnd.ogc.gml")), t = await r.text();
+  if (g.id === "sr16") {   // one <th> section per layer that has anything, named "(SRRxxx raster)" (one is misspelt SSR…), so match by name
+    const out = []; for (const sec of t.split("<th").slice(1)) { const nm = /\((S+R+\w+) raster\)/.exec(sec), v = /if \((-?[\d.]+) == 9999\)/.exec(sec), e = nm && SR16_VAL.find(e => e[0].slice(3) === nm[1].replace(/^S+R+/, "")); if (e && v && +v[1] !== 9999) out.push(e[1](+v[1])); }
+    return out.length ? out.join(" · ") : "no forest data here";
+  }
+  const lines = [...t.matchAll(/<(\w+)_feature>([\s\S]*?)<\/\1_feature>/g)].map(m => {   // one line per feature
+    const f = m[2], want = NB_FIELDS[g.id] || [...f.matchAll(/<(\w*(?:beskriv|namn|navn|type)\w*)>/g)].map(e => [e[1], ""]), lay = g.id === "mis" && g.layers.find(e => e[0] === m[1]);
+    return (lay ? lay[1] + ": " : "") + want.map(([k, lbl]) => { const v = new RegExp("<" + k + ">([^<]+)<").exec(f); return v ? (lbl ? lbl + " " : "") + v[1] : ""; }).filter(Boolean).join(", ");
+  }).filter(Boolean);
+  return lines.length ? [...new Set(lines)].join("<br>") : "nothing here";
+}
 // ---- seNorge snow (owner, 2026-10-18: "go for snow depth and recent satelite imagery" + "make sure to include the
 // daygt50sdyr"): NVE's 1 km grids from gridwms.nve.no (CORS open) — snow depth on a day (1957 … nine days ahead) and
 // the days with more than 5 cm of snow in a year — one GetMap per grid, blended at 55 % like CORINE. The legend is
@@ -1211,7 +1275,7 @@ async function satUI(S) {
   BASEMAPS[id] = { url: satUrl(k, day), max: SAT[k][2], attr: "Imagery: NASA GIBS — " + SAT[k][4] + ", " + day + (k === "MOD" ? "" : " (HLS v2.0, NASA / USGS)") };
   return id;
 }
-function setAttr(id) { $("attr").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0)" + ($("lyClc").checked ? " · CORINE Land Cover 2018 © NIBIO / Copernicus" : "") + (snowOn().length ? " · Snow: seNorge © NVE" : "") + ($("lyWind").checked && $("windDir").value === "rose" && S && S.rose ? " · Winds: Open-Meteo (ERA5)" : "") + (BASEMAPS[id] ? " · " + BASEMAPS[id].attr : ""); }
+function setAttr(id) { $("attr").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0)" + ($("lyClc").checked ? " · CORINE Land Cover 2018 © NIBIO / Copernicus" : "") + (nbOn().length ? " · " + [...new Set(nbOn().map(e => nbName(e[0])))].join(", ") + " © NIBIO" : "") + (snowOn().length ? " · Snow: seNorge © NVE" : "") + ($("lyWind").checked && $("windDir").value === "rose" && S && S.rose ? " · Winds: Open-Meteo (ERA5)" : "") + (BASEMAPS[id] ? " · " + BASEMAPS[id].attr : ""); }
 async function getBase(G, id) {   // the map for one grid (a packaged map covers the fine grid: radius_1m, else radius)
   setAttr(id);
   if (!BASEMAPS[id]) return null;
@@ -1505,6 +1569,7 @@ function build(s) {
   if ($("lySun").checked) setTimeout(() => $("lySun").onchange(), 0);
   if ($("lyWind").checked) setTimeout(windOn, 0);
   if ($("lyClc").checked) setTimeout(() => $("lyClc").onchange(), 0);
+  if (nbOn().length) setTimeout(nbRefresh, 0);
   for (const sk of snowOn()) setTimeout(() => $(SNOWL[sk].ly).onchange(), 0);
   if (FEATURES.some(f => $("ft_" + f.id).checked)) setTimeout(async () => { await featuresOn(); repaint(); }, 0);
   applyBold(); applyVis();
@@ -1722,6 +1787,10 @@ function pointMenu(x, y, cx, cy, v) {   // v: a file's point → its name and te
   if ($("lyClc").checked) {   // the exact CORINE class, from the WMS, when it answers
     const el = document.createElement("div"); el.textContent = "CORINE 2018: …"; $("pmenuT").appendChild(el);
     clcInfo(x, y).then(c => { el.textContent = "CORINE 2018: " + (c ? c.en + " (" + c.code + (c.no ? ", " + c.no : "") + ")" : "no data here"); }, () => { el.textContent = "CORINE 2018: no answer from NIBIO"; });
+  }
+  for (const g of NB_GROUPS) if (g.layers.some(([L]) => $(nbId(g, L)).checked)) {   // what NIBIO's services say about the point
+    const el = document.createElement("div"); el.textContent = nbName(g) + ": …"; $("pmenuT").appendChild(el);
+    nbInfo(g, x, y).then(s => { el.innerHTML = esc(nbName(g)) + ": " + s; }, () => { el.textContent = nbName(g) + ": no answer from NIBIO"; });
   }
 }
 $("pmenuX").onclick = () => { $("pmenu").hidden = true; };
@@ -2197,6 +2266,21 @@ const FEAT_HELP = {   // row checkbox id → [title, what it shows, the assumpti
   lyClc: ["CORINE land cover 2018 (NIBIO)",
     "Norway's CORINE Land Cover 2018 classes from NIBIO's map service, blended over the base map, with a legend of the classes in view and their shares. The class is named under the pointer; a tap on the terrain asks the service for the exact class with its code.",
     "CORINE maps units of 25 ha and more (100 m wide at least) from 2018 satellite imagery: small clearings, bogs, roads and single buildings are below its resolution. Needs the network."],
+  nbh_sr16: ["SR16 forest resources (NIBIO)",
+    "NIBIO's forest resource map SR16 in 16 m cells: tree species (gran = spruce, furu = pine, lauv = broadleaf), mean and dominant height, crown cover, leaf area index, timber volume, above-ground biomass, site index (bonitet H40), mean stem diameter, basal area and trees per hectare. One of these at a time, blended over the base map, with the service's own legend (heights in dm and LAI × 100, as served). A tap on the terrain asks for the cell's values of all of them. Tall, dense, old forest is nesting cover; open young forest and its edges are hunting ground.",
+    "SR16 is modelled from airborne laser scanning and the National Forest Inventory, not measured stand by stand: each value is an estimate with a wide confidence interval (the tap gives the point estimate). Only forest cells carry values. Needs the network."],
+  nbh_ar5: ["AR5 land resources (NIBIO)",
+    "Norway's detailed land resource map AR5 (1:5000): land type (fulldyrka jord = fully cultivated, overflatedyrka = surface-cultivated, innmarksbeite = pasture, skog = forest, myr = bog, åpen fastmark = open firm ground, ferskvann = fresh water, hav = sea, bre = glacier, bebygd = built-up, samferdsel = roads and rail), tree species (barskog = coniferous, lauvskog = broadleaf, blandingsskog = mixed), forest productivity (høy / middels / lav = high / medium / low, impediment = unproductive) and ground conditions (jorddekt = soil-covered, grunnlendt = shallow soil, fjell i dagen = bare rock, organisk = peat). Bogs, pastures and forest edges are where many birds forage. A tap names the parcel's classes.",
+    "AR5 covers the lowland and the forest in detail; the high mountains are mapped coarsely. The service draws nothing on views coarser than 1:50 000, so a very wide view can stay blank. Needs the network."],
+  nbh_plan: ["Forestry plans (NIBIO)",
+    "Stand data from forestry plans whose owners have shared them: the development class (hogstklasse 1 = bare ground after felling, 2 = young regeneration, 3 = young thinning forest, 4 = older thinning forest, 5 = mature forest) and the age of the oldest forest. Mature stands are where capercaillie, owls and hole-nesters breed; fresh clearings feed voles and the birds that hunt them. A tap gives the stand's class, age, site index and main species.",
+    "Only where a plan has been shared with NIBIO — large areas have none and stay blank. Stand data age with the plan. Needs the network."],
+  nbh_veg: ["Vegetation types (NIBIO)",
+    "NIBIO's vegetation maps (1:50 000) of mountain and outfield areas: the vegetation type (lavhei = lichen heath, rishei = dwarf-shrub heath, blåbærbjørkeskog = bilberry birch forest, rik sumpskog = rich swamp forest, myr = bog, snøleie = snow-bed, engbjørkeskog = meadow birch forest …) or the main types only. Rich meadows, bogs and willow scrub are forage; birch forest and heath are nesting ground for the mountain birds. A tap gives the type where the map has one.",
+    "Mapped only in parts of the country, mostly mountain and outfield areas; elsewhere the layer is blank. Needs the network."],
+  nbh_mis: ["MIS forest habitats (NIBIO)",
+    "The environmental registrations in forest (MiS) made for forestry plans: key biotopes (nøkkelbiotop) set aside from logging, and the habitat elements found — hollow broadleaf trees, old trees, standing and lying dead wood, older broadleaf succession, cliff walls, stream gorges, clay ravines, rich ground vegetation, trees with hanging lichen, rich-bark trees and burnt areas. <i>Surveyed area</i> shows where the registration has been done at all (undersøkt) and where not. Hollow and old trees, dead wood and cliff walls are nest sites; the rich, damp habitats are feeding grounds. Each of these stacks on whatever else is on. A tap lists the features at the point with their notes.",
+    "Registered only where a forestry plan was made, by the plan's surveyors; an area without features may simply be unsurveyed (see Surveyed area). The service draws every feature several pixels wide, so on a 10 m grid a registered tree or patch looks far bigger than it is; the tap finds the features within 20 m of the point. Needs the network."],
   lySnow: ["Snow depth (seNorge, NVE)",
     "Snow depth on the chosen day from NVE's seNorge model on 1 km cells — any day since 1957, and the next nine days as a forecast — in seNorge's own classes, from bare ground to over 4 m. The class under the pointer and in the tap popup.",
     "seNorge is a model interpolated from weather stations: one value per 1 km cell, so drifts, wind-swept ridges and sheltered hollows all read the same. A day with no grid says so. Needs the network."],
@@ -2238,13 +2322,13 @@ const HELP = [
   ["Terrain features", null],
   ["Sun", "<p><b>Sun at date and time</b> lights and shadows the terrain as the sun stands then (NOAA sun position; Norway time or UTC) — <b>Fixed light (NW)</b> is a plain studio light instead; <b>Now</b> sets the moment, <b>▶ Day</b> runs through the day. The line under the sliders gives the sun's height and azimuth, the clear-sky direct radiation on level ground, sunrise, solar noon and sunset. <b>Sun: average direct radiation</b> colours the terrain by the clear-sky direct sun on the ground in kWh/m² per day over a month range (the two-handle slider, Jan – Apr to begin with; From after To runs over the new year; the range you set is remembered on this device): hourly, two days per month, the beam times the cosine of its incidence on the cell's slope, nothing when the sun is below the cell's own terrain horizon (32 directions). The colours run from the view's lowest to its highest; the pointer gives the point's value.</p><p class=\"as\"><b>Assumptions:</b> clear sky always; direct beam only (no diffuse sky light, no reflection from snow); terrain horizons on a coarse grid of at most 250 × 250 cells; no trees.</p>"],
   ["Pointing, tapping, measuring", "<p><b>Hovering</b> shows the height, slope, facing and distance from the centre under the pointer, and the value of every overlay that is on. <b>Tapping</b> the terrain opens a popup with the coordinates (a link to the map), height, the overlays' classes, then a row of buttons: <i>Fetch+</i> (fetch the tiles round the point too and show everything fetched so far as one view), <i>Fetch</i> (move the view there) and <i>Ground view</i> (stand there); tapping a pin shows its name and text. <b>📏 Measure</b>: tap two points for the distance, height difference, slope and bearing between them. <b>🛰</b> opens Norgeskart's aerial photo of the place, <b>🐦</b> opens BirdsWhere there.</p>"],
-  ["Data, saving, sharing", "<p>The terrain comes from Kartverket's height model service (NHM DTM, CC BY 4.0), 1 m or 10 m, resampled so that a view is at most 3000 cells across — a 1 m view wider than 3 km is shown on a 2, 3 … m grid, as the Data section states. Cells without data are filled smoothly and greyed. <b>Save as one offline file</b> writes a single HTML file with the terrain and layers inside, which opens anywhere without the network (with Kartverket topo already draped); <b>folder</b> writes the DTM tiles, the layers and a scene.json that Load opens again. <b>Share…</b> gives a link to a terrain picked on the map, a web folder or a Drive folder (the other person signs in to their own Drive; the folder must be shared with them). Overlays from the network (base maps, CORINE, snow, winds) need the network each time and are not saved into files.</p>"]
+  ["Data, saving, sharing", "<p>The terrain comes from Kartverket's height model service (NHM DTM, CC BY 4.0), 1 m or 10 m, resampled so that a view is at most 3000 cells across — a 1 m view wider than 3 km is shown on a 2, 3 … m grid, as the Data section states. Cells without data are filled smoothly and greyed. <b>Save as one offline file</b> writes a single HTML file with the terrain and layers inside, which opens anywhere without the network (with Kartverket topo already draped); <b>folder</b> writes the DTM tiles, the layers and a scene.json that Load opens again. <b>Share…</b> gives a link to a terrain picked on the map, a web folder or a Drive folder (the other person signs in to their own Drive; the folder must be shared with them). Overlays from the network (base maps, CORINE, NIBIO's forest, land, plan, vegetation and MIS layers, snow, winds) need the network each time and are not saved into files.</p>"]
 ];
 function helpUI() {
   $("helpT").innerHTML = HELP.map(([t, h]) => "<h2>" + t + "</h2>" + (h || Object.keys(FEAT_HELP).map(k => { const f = FEAT_HELP[k]; return '<h3 id="h_' + k + '">' + f[0] + "</h3><p>" + f[1] + "</p>" + (f[2] ? '<p class="as"><b>Assumptions:</b> ' + f[2] + "</p>" : ""); }).join(""))).join("");
   for (const k of Object.keys(FEAT_HELP)) {   // a ? behind each feature's toggle
     const b = document.createElement("button"); b.className = "qb"; b.textContent = "?"; b.title = "What this shows, and the assumptions made";
-    b.onclick = e => { e.preventDefault(); helpOpen(k); }; $(k).closest("label").after(b);
+    b.onclick = e => { e.preventDefault(); e.stopPropagation(); helpOpen(k); }; const l = $(k).closest("label"); if (l) l.after(b); else $(k).appendChild(b);   // a row's label, or a group's heading
   }
 }
 function helpOpen(k) { $("help").hidden = false; const el = k && $("h_" + k); if (el) el.scrollIntoView({ block: "start" }); else $("help").scrollTop = 0; }
