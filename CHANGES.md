@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-19 · Cliff drops painted solid
+
+Owner: "the coloring of cliff faces should not be transparent." The five cliff classes now replace the base colour outright and are painted after the contour lines, which on a vertical face fall in nearly every cell and were darkening the colour; the other masks keep their 70 % blend under the contours.
+
 ## 2026-10-19 · Cliff drops: coloured on the face, the brink and the foot
 
 Owner: "the vertical coloring should be on the side of the face and the first non-cliff 1m tile on top of cliff and bottom of cliff." The 2 m band around marked cells is gone: a passing face colours its own cells and, for each run, the highest neighbour of its top cell and the lowest neighbour of its bottom cell — one tile each. The bigger class wins where runs meet.

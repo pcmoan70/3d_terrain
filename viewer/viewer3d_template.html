@@ -108,7 +108,7 @@
       <div class="row"><label class="ly"><input type="checkbox" id="lyBold"> Bold markers: bigger, seen through hills; areas outlined</label></div>
     </details>
     <!-- terrain features: slope and facing, then the masks worked out from the model and the sun (owner, 2026-10-17: "add the
-         various features listed as possible selections in the menu"), each painted at 70 % in its colour -->
+         various features listed as possible selections in the menu"), each painted at 70 % in its colour, the cliff drops solid -->
     <details class="sec" id="featSec"><summary>Terrain features</summary>
       <!-- owner, 2026-10-19: "the DTM derived features should be under a collapsible subpan \"DTM derived\"" -->
       <details class="nb" id="dtmSec" open><summary id="dtmh">DTM derived</summary>
@@ -624,11 +624,12 @@ function paintBase(G, base) {   // G: the fine grid S or the coarse surround S.o
       const o = 4 * k; d[o] = d[o] * (1 - al) + col[0] * al; d[o + 1] = d[o + 1] * (1 - al) + col[1] * al; d[o + 2] = d[o + 2] * (1 - al) + col[2] * al;
     }
   }
-  for (const f of FEATURES) {   // terrain features, 70 % in their colour
-    if (!$("ft_" + f.id).checked || !G.feat || !G.feat[f.id]) continue;
-    const mk = G.feat[f.id], col = hexRgb(f.col);
-    for (let k = 0; k < n * n; k++) { if (!mk[k] || bad[k]) continue; const o = 4 * k; d[o] = d[o] * .3 + col[0] * .7; d[o + 1] = d[o + 1] * .3 + col[1] * .7; d[o + 2] = d[o + 2] * .3 + col[2] * .7; }
-  }
+  const paintFeat = (f, a) => {   // a terrain feature's mask at opacity a in its colour
+    if (!$("ft_" + f.id).checked || !G.feat || !G.feat[f.id]) return;
+    const mk = G.feat[f.id], col = hexRgb(f.col), b = 1 - a;
+    for (let k = 0; k < n * n; k++) { if (!mk[k] || bad[k]) continue; const o = 4 * k; d[o] = d[o] * b + col[0] * a; d[o + 1] = d[o + 1] * b + col[1] * a; d[o + 2] = d[o + 2] * b + col[2] * a; }
+  };
+  for (const f of FEATURES) if (!f.cliff) paintFeat(f, .7);   // terrain features, 70 % in their colour (the cliff drops come after the contours)
   // contours: 5 m thin, 25 m bold on a 1–4 m grid; 20 m / 100 m on a coarser one (a 10 m view would drown in them)
   const CI = c >= 5 ? 20 : 5, CB = CI * 5;
   $("lyContours").parentNode.lastChild.textContent = " Contours (" + CI + " m, labelled every " + CB + " m)";
@@ -641,6 +642,8 @@ function paintBase(G, base) {   // G: the fine grid S or the coarse surround S.o
       for (const z of kk) { if (big) { d[4 * z] = d[4 * z] * .3 + 42; d[4 * z + 1] = d[4 * z + 1] * .3 + 21; d[4 * z + 2] = d[4 * z + 2] * .3 + 7; } else { d[4 * z] *= .55; d[4 * z + 1] *= .55; d[4 * z + 2] *= .55; } }
     }
   }
+  // the cliff drops solid and over the contours, which crowd every cell of a vertical face (owner, 2026-10-19: "should not be transparent")
+  for (const f of FEATURES) if (f.cliff) paintFeat(f, 1);
   cx.putImageData(im, 0, 0);
   const px = (x, y) => [(x + R) / c, (R - y) / c], H2 = n / 2, L = Math.max(180 / c, 48);
   for (const a of areas) {
@@ -2545,7 +2548,7 @@ function helpOpen(k) { $("help").hidden = false; const el = k && $("h_" + k); if
 $("helpB").onclick = () => helpOpen(); $("helpX").onclick = () => { $("help").hidden = true; };
 for (const f of FEATURES) if (f.cliff) FEAT_HELP["ft_" + f.id] = [f.name,
   "The cells of near-vertical rock faces whose drop is " + f.name.replace("Cliff drops ", "") + ". From every cell whose steepest step to a neighbour is 60° or more, the face is followed up and down its steepest line while the steps stay that steep; the drop from the top to the foot and the horizontal run of the face give its angle, and only faces of 85–90° count — nest ledges, roosts and the owl's cliffs are on faces like these. The five classes are separate toggles, one colour each, named under the pointer.",
-  "The DTM's gridding smears a vertical wall over two to three cells of a 1 m grid, so two cells (one on coarser grids) are taken off the run before the angle is judged, and a face within that smear always counts as vertical; the unsmoothed heights are used. Even so the rule is strict: at Preikestolen about one face in eight that drops 5 m or more passes it. The colour goes on the face itself and on the first tile beyond its top and its bottom. On a 10 m grid a drop under 10 m cannot be told at all and the classes are coarse — use a 1 m view. Overhangs are not in a DTM."];
+  "The DTM's gridding smears a vertical wall over two to three cells of a 1 m grid, so two cells (one on coarser grids) are taken off the run before the angle is judged, and a face within that smear always counts as vertical; the unsmoothed heights are used. Even so the rule is strict: at Preikestolen about one face in eight that drops 5 m or more passes it. The colour is solid, over the contours, and goes on the face itself and on the first tile beyond its top and its bottom. On a 10 m grid a drop under 10 m cannot be told at all and the classes are coarse — use a 1 m view. Overhangs are not in a DTM."];
 helpUI();
 $("lyContours").onchange = $("lySlope").onchange = $("lyFacing").onchange = () => { $("lgSlope").hidden = !$("lySlope").checked; $("lgFacing").hidden = !$("lyFacing").checked; repaint(); };
 $("lyMarkers").onchange = () => { repaint(); applyVis(); };
