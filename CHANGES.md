@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-20 · A 2-D map view carrying the terrain's layers
+
+Owner: "a feature switching between 2d and 3d views. The main point being transferring the overlay computed and visualised in 3d using dtm tiles to the 2d map. Also the user should be allowed to choose between various background maps including plain (but not any requiring api keys)." A *2D* button in the control column opens a full-screen Leaflet map (the library already loaded for the picker) centred and zoomed like the 3-D view. The picture is the terrain's own `paintBase` output: `overlayRGBA()` paints a grid on a white and a black base and recovers alpha per pixel (every blend is affine in the base), `hillshade()` makes the *Plain* base from the gradients and the light in use, `warpMerc()` projects the UTM square onto Web Mercator (a lattice every 8 px through `UTM.fwd`, bilinear between, nearest cell; the fine square cut out of the surround) into a canvas-fed `L.ImageOverlay`. The *Map* dropdown serves both views — all key-free: Plain, Kartverket topo/greyscale, OpenTopoMap, CyclOSM, Esri streets/aerial, Wayback, NASA GIBS — as `L.tileLayer` under the layers. Hover (`tipXY`, split out of `hoverAt`), the pinned tap, the long press / right-click popup (`pointMenu` with x, y from `UTM.fwd`), areas and points as Leaflet vectors; *Ground view* from the map switches back first; *3D* moves the orbit centre to the map's centre. `repaint()`, `build()`, `applyVis()` and `updateSun()` (Plain, debounced) refresh the map; view links carry `v2:zoom/lat/lon`. Help section "2-D map", README.
+
 ## 2026-10-20 · Viewshed from 1 m above the ground
 
 Owner: "The viewshed should be calculated from 1m above ground at the given point." `VS_H = 1` replaces the 1.75 m eye height in `viewshed()` (Ground view keeps its 1.75 m). The feature note, the popup button's tooltip, the help and the README say 1 m.

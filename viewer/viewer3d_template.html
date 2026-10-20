@@ -42,6 +42,8 @@
   #rot{display:flex;flex-direction:column;gap:6px}
   #rot button{width:40px;height:40px;font-size:18px;padding:0;background:#3d5a80}
   #rot button.on{background:#c77d12}
+  #rot #v2d{font-size:14px;font-weight:bold}
+  #map2d{position:absolute;inset:0;z-index:1;background:#1d2228}#map2d[hidden]{display:none}   /* the flat map (2-D): under the panels, over the canvas */
   #meas{position:absolute;top:10px;right:10px;max-width:min(300px,calc(100% - 44px));font-size:13px;line-height:1.5}
   #meas[hidden]{display:none}
   #meas b{color:#ffd54f}
@@ -82,6 +84,7 @@
   @media (pointer:coarse){#pickBar input,#pickBar select,#pickBar button{min-height:38px;font-size:16px}#pickBar{font-size:14px}.pk-c{width:22px;height:22px}.pk-h{width:34px;height:34px}}
 </style></head><body>
 <canvas id="c"></canvas>
+<div id="map2d" hidden></div>
 <!-- one column on the left (owner, 2026-10-15: "Let the controls on the left side … be one column, not two. Also make
      column collapsible"): the controls, the views list under them; ‹ tucks the whole column away, › brings it back -->
 <div id="side"><button id="sideX" title="Hide the panels">‹</button>
@@ -180,7 +183,7 @@
 <!-- the map controls in one column on the right (owner, 2026-10-15: "the controls on the right hand side should be one
      column and collapsible"): › tucks them away, ‹ brings them back -->
 <div id="rside"><button id="rsideX" title="Hide the map controls">›</button>
-<div id="rot"><button id="measure" title="Measure: tap two points on the terrain">📏</button><button id="dragmode" title="One-finger / left drag: move the map (tap for rotate)">✋</button><button id="rotl" title="Rotate left 15°">⟲</button><button id="rotr" title="Rotate right 15°">⟳</button><button id="tiltu" title="Tilt up (look more from above)">▲</button><button id="tiltd" title="Tilt down (look more from the side)">▼</button><button id="north" title="North up">N</button><button id="aerial" title="Aerial photo of the place in view, in Norgeskart (Norge i bilder)">🛰</button><button id="birdswhere" title="Open BirdsWhere (thebirding.site) at this locality">🐦</button></div>
+<div id="rot"><button id="v2d" title="Flat map with the same layers (2-D)">2D</button><button id="measure" title="Measure: tap two points on the terrain">📏</button><button id="dragmode" title="One-finger / left drag: move the map (tap for rotate)">✋</button><button id="rotl" title="Rotate left 15°">⟲</button><button id="rotr" title="Rotate right 15°">⟳</button><button id="tiltu" title="Tilt up (look more from above)">▲</button><button id="tiltd" title="Tilt down (look more from the side)">▼</button><button id="north" title="North up">N</button><button id="aerial" title="Aerial photo of the place in view, in Norgeskart (Norge i bilder)">🛰</button><button id="birdswhere" title="Open BirdsWhere (thebirding.site) at this locality">🐦</button></div>
 <div id="zoom"><button id="zin" title="Zoom in">+</button><button id="zout" title="Zoom out">−</button></div>
 </div><button id="rsideOpen" title="Show the map controls" hidden>‹</button>
 <div id="gate" hidden style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,12,16,.6)"><div class="panel" style="position:static;max-width:340px;text-align:center"><div style="margin-bottom:10px">A terrain shared on Google Drive. Sign in with the Google account it is shared with to open it.</div><button id="gateGo" style="font-size:16px;padding:8px 14px">Sign in with Google to open</button><div style="margin-top:8px"><button id="gateX" style="background:#555">Not now</button></div></div></div>
@@ -1616,7 +1619,7 @@ async function repaint() {
     const mesh = G === S ? terrain : S.out.mesh, old = mesh.material.map; mesh.material.map = new THREE.CanvasTexture(G.tex); mesh.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
     mesh.material.needsUpdate = true; if (old) old.dispose();
   }
-  draw();
+  S.baseId = id; draw(); if (v2d) paint2d();
 }
 function paintNormals(gx, gyN, n) {
   // object-space normals (x east, y up, z south): (−dh/dE, 1, dh/dN), so the 1 m relief shades under any light
@@ -1798,6 +1801,8 @@ function build(s) {
   if (pendingVs) { S.vs = pendingVs; pendingVs = null; }
   if (FEATURES.some(f => $("ft_" + f.id).checked) || GRADED.some(g => $("ft_" + g.id).checked)) setTimeout(async () => { await featuresOn(); repaint(); }, 0);
   applyBold(); applyVis();
+  if (pending2d) { const p = pending2d; pending2d = null; setTimeout(async () => { await show2d(true); map2d.setView([p[1], p[2]], p[0]); }, 0); }   // a link made on the flat map
+  else if (v2d) { map2d.setView([S.lat, S.lon]); paint2d(); }
   shadowFrame(); setEx(); if (!keepCam) home(); keepCam = false; updateSun(); daylightIfNight(); resize();
 }
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -1829,10 +1834,10 @@ function groundView(x, y) {
   if (dir.length() < 1) dir.set(0, 0, -1); dir.normalize();
   camera.position.set(x, cy, -y); controls.target.set(x + dir.x * 60, cy - 1, -y + dir.z * 60); controls.update(); draw();
 }
-$("ground").onclick = () => groundView(controls.target.x, -controls.target.z);
+$("ground").onclick = async () => { if (v2d) await show2d(false); groundView(controls.target.x, -controls.target.z); };   // from the flat map: at its centre
 $("top").onclick = () => { if (!S) return; const cz = (sample(0, 0) - S.h0) * world.scale.y; camera.position.set(0, cz + S.RB * 2.6, 0.01); controls.target.set(0, cz, 0); controls.update(); draw(); };
 function zoomBy(f) { const v = camera.position.clone().sub(controls.target).multiplyScalar(f); if (v.length() < controls.minDistance || v.length() > controls.maxDistance) return; camera.position.copy(controls.target).add(v); controls.update(); draw(); }
-$("zin").onclick = () => zoomBy(0.7); $("zout").onclick = () => zoomBy(1 / 0.7);
+$("zin").onclick = () => v2d ? map2d.zoomIn() : zoomBy(0.7); $("zout").onclick = () => v2d ? map2d.zoomOut() : zoomBy(1 / 0.7);
 
 // ---- minimise: the info panel
 $("rsideX").onclick = () => { $("rside").hidden = true; $("rsideOpen").hidden = false; };
@@ -1855,7 +1860,7 @@ minToggle($("info"), $("infoMin"));
 function applyVis() {
   needles.forEach(o => o.visible = layerOn(o.userData.src));
   markers.forEach(o => o.visible = $("lyMarkers").checked);
-  draw();
+  draw(); if (v2d) vec2d();
 }
 // bold markers: pins, balls and rings bigger and drawn over the terrain (never hidden
 // behind a ridge) — each halo just under its ball; the areas' outlines are painted on in repaint()
@@ -1912,6 +1917,7 @@ function updateSun() {
     "Sun " + p.el.toFixed(1) + "° high, azimuth " + p.az.toFixed(0) + "° (true) · direct " + Math.round(Ib) + " W/m² (clear sky)<br>" +
     (p.polar ? (p.polar === "day" ? "Midnight sun — no sunset." : "Polar night — no sunrise.") : "Sunrise " + fmtHM(p.rise, off) + " · solar noon " + fmtHM(p.noon, off) + " · sunset " + fmtHM(p.set, off) + " " + zn);
   draw();
+  if (v2d && S && !BASEMAPS[S.baseId || ""]) paint2dSoon();   // the flat map's Plain relief follows the light
 }
 ["day", "tod"].forEach(id => $(id).oninput = updateSun); $("lmode").onchange = updateSun; $("now").onclick = setNow;
 let playT = null;
@@ -1957,7 +1963,10 @@ function hoverAt(cx, cy) {   // the hover text for a screen point: a pin's name 
     tip.style.display = "block"; tip.style.left = Math.min(innerWidth - 330, cx + 14) + "px"; tip.style.top = (cy + 14) + "px"; return;
   }
   const hit = ray.intersectObjects(terrains)[0]; if (!hit) { tip.style.display = "none"; return; }
-  const x = hit.point.x, y = -hit.point.z, G = gridAt(x, y), e = G.c;
+  tipXY(hit.point.x, -hit.point.z, cx, cy);
+}
+function tipXY(x, y, cx, cy) {   // the hover text for a terrain point (x, y), shown at the screen point (cx, cy) — the 3-D ray and the 2-D map both end here
+  const G = gridAt(x, y), e = G.c;
   const sl = Math.atan(Math.hypot(sample(x + e, y) - sample(x - e, y), sample(x, y + e) - sample(x, y - e)) / (2 * e)) / RAD;
   const ci = Math.floor((x + G.R) / G.c), cj = Math.floor((G.R - y) / G.c), miss = ci >= 0 && cj >= 0 && ci < G.n && cj < G.n && G.bad[cj * G.n + ci];
   const fx = (sample(x + e, y) - sample(x - e, y)) / (2 * e), fy = (sample(x, y + e) - sample(x, y - e)) / (2 * e);
@@ -2028,7 +2037,7 @@ function pointMenu(x, y, cx, cy, v) {   // v: a file's point → its name and te
   }
   const btns = document.createElement("div"); btns.className = "row"; btns.style.marginTop = "6px";
   const gb = document.createElement("button"); gb.textContent = "Ground view"; gb.title = "Stand 1.75 m above the ground here and look at the horizon";
-  gb.onclick = () => { $("pmenu").hidden = true; groundView(x, y); }; btns.appendChild(gb);
+  gb.onclick = async () => { $("pmenu").hidden = true; if (v2d) await show2d(false); groundView(x, y); }; btns.appendChild(gb);
   const vb = document.createElement("button"); vb.textContent = "Viewshed"; vb.title = "Show the ground in sight from 1 m above this point (the Viewshed feature, with the share of the view seen)";   // owner, 2026-10-19
   vb.onclick = async () => { $("pmenu").hidden = true; S.vs = { x, y }; for (const G of S.out ? [S, S.out] : [S]) if (G.feat) delete G.feat.viewshed; $("ft_viewshed").checked = true; await featuresOn(); repaint(); }; btns.appendChild(vb);
   $("pmenuT").appendChild(btns);
@@ -2050,6 +2059,111 @@ function pointMenu(x, y, cx, cy, v) {   // v: a file's point → its name and te
   }
 }
 $("pmenuX").onclick = () => { $("pmenu").hidden = true; };
+// ---- the flat map (owner, 2026-10-20: "a feature switching between 2d and 3d views. The main point being transferring the
+// overlay computed and visualised in 3d using dtm tiles to the 2d map … choose between various background maps including
+// plain (but not any requiring api keys)"). A full-screen Leaflet map under the panels, the 2D button in the control column.
+// The picture is the terrain's own paint (paintBase) warped from the UTM square onto Web Mercator, one image per grid; over
+// a tile map the layers go on with transparency, in Plain on a hillshade from the DTM. Hover, the pinned tap, the long press
+// or right-click popup, pins and areas: the same code as in 3-D, the point found through UTM.fwd instead of a ray. The Map
+// dropdown serves both views (every map in it is key-free); view links carry the flat state (v2:zoom/lat/lon).
+let map2d = null, v2d = false; const m2 = { tiles: null, ovl: [], vec: [], seq: 0, t: 0 };
+const MERC = { x: lon => lon / 360 + 0.5, y: lat => 0.5 - Math.log(Math.tan(Math.PI / 4 + lat * RAD / 2)) / (2 * Math.PI),   // unit Web Mercator (spherical, as the tiles)
+  lat: y => (2 * Math.atan(Math.exp((0.5 - y) * 2 * Math.PI)) - Math.PI / 2) / RAD, lon: x => (x - 0.5) * 360 };
+const llOf = (x, y) => UTM.inv(S.X + x, S.Y + y, S.zone), xyOf = ll => { const [X, Y] = UTM.fwd(ll.lat, ll.lng, S.zone); return [X - S.X, Y - S.Y]; };
+function hillshade(G) {   // grey relief from the gradients and the light in use (the sun at the chosen time, or the fixed NW light): the Plain map's base
+  const { n, gx, gyN, bad } = G, cv = document.createElement("canvas"); cv.width = cv.height = n; const c2 = cv.getContext("2d"), im = c2.createImageData(n, n), d = im.data;
+  let el = 40, az = 315; if ($("lmode").value !== "fixed" && SUN) { el = Math.max(10, SUN.p.el); az = SUN.p.az; }   // a low or set sun still shows the relief
+  const ga = (az + S.gam) * RAD, ce = Math.cos(el * RAD), lx = Math.sin(ga) * ce, ly = Math.cos(ga) * ce, lz = Math.sin(el * RAD);   // true azimuth → the grid's east and north
+  for (let k = 0; k < n * n; k++) {
+    const sh = Math.max(0, (lz - gx[k] * lx - gyN[k] * ly) / Math.sqrt(1 + gx[k] * gx[k] + gyN[k] * gyN[k])), v = bad[k] ? 150 : Math.round(70 + 165 * sh), o = 4 * k;
+    d[o] = v; d[o + 1] = v; d[o + 2] = bad[k] ? v : Math.round(v * 0.93); d[o + 3] = 255;
+  }
+  c2.putImageData(im, 0, 0); return cv;
+}
+function overlayRGBA(G) {   // the painted layers with transparency, without touching paintBase: painted on white and on black, and every blend it does is
+  const n = G.n, flat = col => { const cv = document.createElement("canvas"); cv.width = cv.height = n; const c2 = cv.getContext("2d"); c2.fillStyle = col; c2.fillRect(0, 0, n, n); return cv; };   // affine in the base, so a = 1 − (white − black) / 255
+  const w = paintBase(G, flat("#fff")).getContext("2d").getImageData(0, 0, n, n).data, b = paintBase(G, flat("#000")).getContext("2d").getImageData(0, 0, n, n);
+  const d = b.data;
+  for (let o = 0; o < d.length; o += 4) {
+    const a = 1 - (w[o] - d[o]) / 255;
+    if (a < 0.004) { d[o + 3] = 0; continue; }
+    d[o] = Math.min(255, d[o] / a); d[o + 1] = Math.min(255, d[o + 1] / a); d[o + 2] = Math.min(255, d[o + 2] / a); d[o + 3] = Math.round(255 * a);
+  }
+  return b;
+}
+function warpMerc(G, im, cut) {   // the grid (a square in UTM, 2–3° askew on the map) → a Web-Mercator canvas and its bounds; UTM.fwd on a lattice every 8 px,
+  const n = G.n, c = G.c, R = G.R, x0 = S.X - R, y1 = S.Y + R, z = S.zone;   // bilinear between, the nearest cell copied; cut: the fine square left clear in the surround
+  const cs = [[x0, y1], [x0 + 2 * R, y1], [x0, y1 - 2 * R], [x0 + 2 * R, y1 - 2 * R]].map(q => UTM.inv(q[0], q[1], z));
+  const la0 = Math.min(...cs.map(q => q[0])), la1 = Math.max(...cs.map(q => q[0])), lo0 = Math.min(...cs.map(q => q[1])), lo1 = Math.max(...cs.map(q => q[1]));
+  const u0 = MERC.x(lo0), u1 = MERC.x(lo1), v0 = MERC.y(la1), v1 = MERC.y(la0), du = c / (2 * Math.PI * 6378137 * Math.cos(S.lat * RAD));   // a cell in map units
+  let W = Math.ceil((u1 - u0) / du), H = Math.ceil((v1 - v0) / du); const cap = 3000 / Math.max(W, H); if (cap < 1) { W = Math.round(W * cap); H = Math.round(H * cap); }
+  const su = (u1 - u0) / W, sv = (v1 - v0) / H, ST = 8, LW = Math.ceil(W / ST) + 1, LH = Math.ceil(H / ST) + 1, FX = new Float32Array(LW * LH), FY = new Float32Array(LW * LH);
+  for (let q = 0; q < LH; q++) for (let p = 0; p < LW; p++) { const [X, Y] = UTM.fwd(MERC.lat(v0 + q * ST * sv), MERC.lon(u0 + p * ST * su), z); FX[q * LW + p] = (X - x0) / c; FY[q * LW + p] = (y1 - Y) / c; }
+  const out = new Uint8ClampedArray(W * H * 4), src = im.data, cutC = cut ? cut / c : 0, mid = n / 2;
+  for (let j = 0; j < H; j++) {
+    const q = Math.floor(j / ST), fq = j / ST - q, q1 = Math.min(q + 1, LH - 1);
+    for (let i = 0; i < W; i++) {
+      const p = Math.floor(i / ST), fp = i / ST - p, p1 = Math.min(p + 1, LW - 1), a = q * LW + p, b = q * LW + p1, e = q1 * LW + p, f = q1 * LW + p1;
+      const fx = (FX[a] * (1 - fp) + FX[b] * fp) * (1 - fq) + (FX[e] * (1 - fp) + FX[f] * fp) * fq, fy = (FY[a] * (1 - fp) + FY[b] * fp) * (1 - fq) + (FY[e] * (1 - fp) + FY[f] * fp) * fq;
+      const ci = Math.floor(fx), cj = Math.floor(fy); if (ci < 0 || cj < 0 || ci >= n || cj >= n || (cutC && Math.max(Math.abs(fx - mid), Math.abs(fy - mid)) <= cutC)) continue;
+      const k = 4 * (cj * n + ci), o = 4 * (j * W + i); out[o] = src[k]; out[o + 1] = src[k + 1]; out[o + 2] = src[k + 2]; out[o + 3] = src[k + 3];
+    }
+  }
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H; cv.getContext("2d").putImageData(new ImageData(out, W, H), 0, 0);
+  return { cv, bounds: [[la0, lo0], [la1, lo1]] };
+}
+async function paint2d() {   // the layers onto the map: one image per grid, the surround under the fine grid; the tile layer for the Map choice
+  if (!v2d || !S || !map2d) return;
+  const seq = ++m2.seq, was = !$("busy").hidden; if (!was) busy("Painting the map…"); await tick();
+  const plain = !BASEMAPS[S.baseId || ""], made = [];
+  for (const G of S.out ? [S.out, S] : [S]) {
+    const im = plain ? paintBase(G, hillshade(G)).getContext("2d").getImageData(0, 0, G.n, G.n) : overlayRGBA(G);
+    const w = warpMerc(G, im, G === S.out ? S.R : 0); made.push(new m2.CL(w.cv, w.bounds, { zIndex: G === S ? 2 : 1, interactive: false }));
+    await tick();
+  }
+  if (seq !== m2.seq) return;   // a newer paint is on its way
+  m2.ovl.forEach(l => l.remove()); m2.ovl = made; made.forEach(l => l.addTo(map2d));
+  const id = S.baseId || "", B = BASEMAPS[id];
+  if (m2.tileId !== id) { if (m2.tiles) m2.tiles.remove(); m2.tiles = B ? L.tileLayer(B.url, { subdomains: B.sub || "abc", maxZoom: 20, maxNativeZoom: B.max }).addTo(map2d) : null; m2.tileId = id; }
+  if (!was) busy(null);
+}
+function paint2dSoon() { clearTimeout(m2.t); m2.t = setTimeout(paint2d, 250); }   // the sliders fire by the dozen
+function vec2d() {   // the centre, the file's areas and points as map marks, under the pins' own visibility rules; a tap opens the point's popup
+  if (!v2d || !map2d || !S) return;
+  m2.vec.forEach(l => l.remove()); m2.vec = [];
+  const add = l => { l.addTo(map2d); m2.vec.push(l); return l; }, menu = (v, e) => { L.DomEvent.stop(e); pointMenu(v.x, v.y, e.containerPoint.x, e.containerPoint.y, v); };
+  if ($("lyMarkers").checked) add(L.circleMarker(llOf(0, 0), { radius: 5, color: "#fff", weight: 1, fillColor: "#fff", fillOpacity: 1 }));
+  S.areas.forEach(a => { if (!layerOn(a.src || "__markers")) return; add(L.polygon(a.ring.map(q => llOf(q[0], q[1])), { color: a.col, weight: 2, fill: false })).bindTooltip(esc(a.name || "area")).on("click", e => menu(a, e)); });
+  S.pts.forEach(q => { if (!layerOn(q.src || "__markers")) return; const c = new THREE.Color(q.col), dark = c.r + c.g + c.b < 0.6;
+    add(L.circleMarker(llOf(q.x, q.y), { radius: 7, color: dark ? "#fff" : "#111", weight: 2, fillColor: q.col, fillOpacity: 1 })).bindTooltip(esc(q.name || "point")).on("click", e => menu(q, e)); });
+}
+async function show2d(on) {   // the switch: the map takes the 3-D view's centre and about its zoom; back, the orbit centre moves to the map's centre
+  if (on === v2d || (on && !S)) return;
+  if (on) {
+    try { await leafletLoad(); } catch (e) { $("dsrc").textContent = e.message; return; }
+    if (!map2d) {
+      m2.CL = L.ImageOverlay.extend({ _initImage() { const cv = this._image = this._url; cv.className = "leaflet-image-layer" + (this._zoomAnimated ? " leaflet-zoom-animated" : ""); cv.onselectstart = cv.onmousemove = L.Util.falseFn; if (this.options.zIndex) this._updateZIndex(); } });   // an image overlay fed a canvas
+      map2d = L.map("map2d", { zoomControl: false, attributionControl: false, worldCopyJump: false });
+      const inside = (x, y) => Math.max(Math.abs(x), Math.abs(y)) <= (S.out || S).R, unpin = () => { tipPinned = false; tip.style.display = "none"; tip.classList.remove("pin"); };
+      map2d.on("mousemove", e => { if (tipPinned) return; const now = performance.now(); if (now - lastTip < 60) return; lastTip = now; const [x, y] = xyOf(e.latlng); if (inside(x, y)) tipXY(x, y, e.containerPoint.x, e.containerPoint.y); else tip.style.display = "none"; });
+      map2d.on("mouseout movestart zoomstart", () => { if (!tipPinned) tip.style.display = "none"; });
+      map2d.on("click", e => { unpin(); $("pmenu").hidden = true; const [x, y] = xyOf(e.latlng); if (!inside(x, y)) return; tipXY(x, y, e.containerPoint.x, e.containerPoint.y); if (tip.style.display === "block") { tipPinned = true; tip.classList.add("pin"); } });   // a short tap: the hover text, kept
+      map2d.on("contextmenu", e => { unpin(); const [x, y] = xyOf(e.latlng); if (inside(x, y)) pointMenu(x, y, e.containerPoint.x, e.containerPoint.y); else $("pmenu").hidden = true; });   // a long press on touch, a right-click with a mouse
+    }
+  }
+  v2d = on; $("map2d").hidden = !on; $("c").style.visibility = on ? "hidden" : ""; $("v2d").textContent = on ? "3D" : "2D"; $("v2d").classList.toggle("on", on); $("v2d").title = on ? "Back to the terrain (3-D)" : "Flat map with the same layers (2-D)";
+  for (const id of ["measure", "dragmode", "rotl", "rotr", "tiltu", "tiltd", "north"]) $(id).hidden = on;
+  tipPinned = false; tip.style.display = "none"; tip.classList.remove("pin"); $("pmenu").hidden = true;
+  if (on) {
+    const [la, lo] = llOf(controls.target.x, -controls.target.z), w = 2 * camera.position.distanceTo(controls.target), z = Math.max(6, Math.min(19, Math.round(Math.log2(156543 * Math.cos(la * RAD) * innerWidth / w))));
+    map2d.invalidateSize(); map2d.setView([la, lo], z); vec2d(); await paint2d();
+  } else {
+    const [x, y] = xyOf(map2d.getCenter());
+    if (Math.max(Math.abs(x), Math.abs(y)) <= (S.out || S).R) { const d = camera.position.clone().sub(controls.target); controls.target.set(x, (sample(x, y) - S.h0) * world.scale.y, -y); camera.position.copy(controls.target).add(d); controls.update(); }
+    draw();
+  }
+}
+$("v2d").onclick = () => show2d(!v2d);
 // 🛰: norgeskart.no's aerial photo (Kartverket's Norge i bilder — it cannot be draped here: its tile service needs a
 // Norge digitalt token) centred where the view looks, zoomed to about what is on screen. Norgeskart takes the centre
 // as UTM 33 (EUREF89) northing (lat) / easting (lon).
@@ -2321,6 +2435,7 @@ function viewState() {
   if ($("lySnowD").checked) sv.push("snowYear:" + $("snowYear").value);
   if ($("lySun").checked) sv.push("mFrom:" + $("mFrom").value, "mTo:" + $("mTo").value);
   if ($("ft_viewshed").checked && S.vs) sv.push("vs:" + Math.round(S.vs.x) + "/" + Math.round(S.vs.y));   // the viewshed's point, metres from the centre
+  if (v2d) { const c = map2d.getCenter(); sv.push("v2:" + map2d.getZoom() + "/" + c.lat.toFixed(5) + "/" + c.lng.toFixed(5)); }   // the flat map: its zoom and centre
   if ($("lySlope").checked && clsOff.slope.size) hid.push("slope~" + [...clsOff.slope].join("."));
   if ($("lyFacing").checked && clsOff.face.size) hid.push("face~" + [...clsOff.face].join("."));
   for (const k in nbOff) if (nbOff[k].size && $("nb_" + k.replace(":", "_")).checked) hid.push(k + "~" + [...nbOff[k]].join("."));
@@ -2339,7 +2454,7 @@ function parseView(str) {   // the short form (or the first day's JSON) → {c1,
   }
   return st;
 }
-let pendingCam = null, pendingVs = null;
+let pendingCam = null, pendingVs = null, pending2d = null;
 function applyViewState(st) {   // before the terrain is built: the panel's choices; the camera waits for build()
   try {
     for (const id of st.c1 || []) if ($(id)) $(id).checked = true;
@@ -2353,6 +2468,7 @@ function applyViewState(st) {   // before the terrain is built: the panel's choi
     $("lgSlope").hidden = !$("lySlope").checked; $("lgFacing").hidden = !$("lyFacing").checked; $("sunBox").hidden = !$("lySun").checked; $("exv").textContent = (+$("ex").value).toFixed(1); monthUI(); updateSun();
     if (st.cam && st.cam.length === 6) pendingCam = st.cam;
     if (st.v && st.v.vs) { const p = st.v.vs.split("/").map(Number); if (p.length === 2 && p.every(isFinite)) pendingVs = { x: p[0], y: p[1] }; }
+    if (st.v && st.v.v2) { const p = st.v.v2.split("/").map(Number); if (p.length === 3 && p.every(isFinite)) pending2d = p; }
   } catch (e) {}
 }
 $("linkB").onclick = async () => {
@@ -2692,6 +2808,7 @@ const FEAT_HELP = {   // row checkbox id → [title, what it shows, the assumpti
 const HELP = [
   ["Getting a terrain", "<p>The search box above the map finds a place by name — Norwegian names from Kartverket's place-name register (a spelling close enough will do; each hit says what kind of place it is and its municipality), anything else from OpenStreetMap; a hit moves the map there and places the point, Enter takes the first. </p><p>Tap the coordinates in the title (or <i>pick a place on the map</i>) to open the map: tap a place, set the <b>view radius</b> and the <b>model</b>, then Render. <b>1 m</b> is Kartverket's 1 m terrain model (DTM) and reaches 5 km from the point; <b>10 m</b> reaches 15 km; <b>1 m centre + 10 m around</b> nests a 1 m square (up to 5 km) inside a 10 m view (up to 15 km). A 1 m radius dragged or typed past 5 km flips to the mixed model by itself; the frames on the map show both squares. A view can also come from a <b>link</b> (<code>?lat=&amp;lon=&amp;r=&amp;res=</code>), from BirdsWhere (its points come along as pins), from a <b>folder</b> of DTM GeoTIFF tiles with .geojson / .kml / .kmz overlays (Data → Load), from a saved one-file view, or from a Google Drive folder.</p><p>Tapping the terrain opens a popup with the model to fetch at and a row of buttons: <b>Fetch+</b> (fetch the tiles round that point too and show everything fetched so far as one view), <b>Fetch</b> (move the view there) and <b>Ground view</b>. Tiles already in hand are not fetched again.</p>"],
   ["Moving around", "<p>Drag to move the map (✋ — tap it for ⟳, then drag rotates and tilts) · twist two fingers, right-drag or Shift+drag to rotate · pinch, wheel or <kbd>+</kbd> <kbd>−</kbd> to zoom · ⟲ ⟳ ▲ ▼ rotate and tilt in steps, <kbd>N</kbd> puts north up · arrow keys pan. <b>Reset view</b> returns to the start, <b>Top view</b> looks straight down, <b>Ground view</b> stands 1.75 m above the ground at the point the view turns about (the centre at first; the tap popup's <i>Ground view</i> stands at the tapped point) and looks level at the horizon in the current heading — rotate to look round, tilt to look down, drag to walk; every overlay is painted on the terrain, so all of them show. <b>Height ×</b> exaggerates heights (1–3; shadows are exact at ×1). <b>Smooth terrain</b> softens the model with a Gaussian of the given σ in metres (off: the raw cells). ‹ tucks the panels away, › the map controls.</p>"],
+  ["2-D map", "<p>The <b>2D</b> button in the control column shows the same place as a flat map, with everything the terrain carries: the base map, every layer, mask and graded layer, the contours and labels, the pins and areas — the terrain's own picture laid onto the map, so what you see in 3-D is what you see flat. The <b>Map</b> dropdown is shared: <i>Plain</i> gives a relief shaded by the light in use (the sun at the set time, or the fixed light) with nothing outside the fetched square; every other choice is a tile map with the layers drawn over it with transparency. Hover, a short tap (pinned values), a long press or right-click (the point popup), pins and areas work as in 3-D; <i>Ground view</i> from the map goes back to the terrain at that point. <b>3D</b> returns to the terrain, centred where the map was. A view link made on the map opens flat.</p><p class=\"as\"><b>Assumptions:</b> the square is drawn in Web Mercator by projecting a lattice every 8 px exactly and interpolating between — far below a cell of error; the surround (1+10m) lies under the 1 m square.</p>"],
   ["Map", "<p>The <b>base map</b> is draped onto the terrain for the view's box: plain (a light tint), Kartverket topo and greyscale, OpenTopoMap, CyclOSM (paths), Esri streets and aerial, Esri Wayback (every earlier aerial photo of the spot — a <i>Photo</i> list), and NASA's recent satellite imagery (the days of the last 30 with a Sentinel-2 or Landsat pass over the centre at 30 m, about a week behind, then the last three days of MODIS at 250 m — clouds are yours to judge). <b>Contours</b> every 5 m, labelled every 25 m. One layer per loaded <b>overlay file</b> (its polygons, lines and points), <b>centre & circles</b> (the centre mark, a 500 m circle and the view's edge), and <b>bold markers</b> (bigger pins, seen through hills, areas outlined).</p>"],
   ["Terrain features", null],
   ["Sun", "<p><b>Sun at date and time</b> lights and shadows the terrain as the sun stands then (NOAA sun position; times are Norway time, CET/CEST) — <b>Fixed light (NW)</b> is a plain studio light instead; <b>Now</b> sets the moment, <b>▶ Day</b> runs through the day. The line under the sliders gives the sun's height and azimuth, the clear-sky direct radiation on level ground, sunrise, solar noon and sunset. <b>Sun: average direct radiation</b> colours the terrain by the clear-sky direct sun on the ground in kWh/m² per day over a month range (the two-handle slider, Jan – Apr to begin with; From after To runs over the new year; the range you set is remembered on this device): hourly, two days per month, the beam times the cosine of its incidence on the cell's slope, nothing when the sun is below the cell's own terrain horizon (32 directions). The colours run from the view's lowest to its highest; the pointer gives the point's value.</p><p class=\"as\"><b>Assumptions:</b> clear sky always; direct beam only (no diffuse sky light, no reflection from snow); terrain horizons on a coarse grid of at most 250 × 250 cells; no trees.</p>"],
