@@ -939,7 +939,7 @@ const FEATURES = [
   { id: "stream", name: "Streams", col: "#2962ff", note: "channels draining at least 1 ha: D8 flow accumulation over the smoothed model with its pits filled — catchments are cut at the view's edge" },
   { id: "mire", name: "Mires (wet flat ground)", col: "#9e9d24", note: "nearly level ground (< 3°) with a high topographic wetness index (≥ 9), lakes left out" },
   { id: "plateau", name: "Alpine plateaus", col: "#c6ff00", note: "gently rolling ground (mean slope over 50 m < 8°) above the tree line, estimated from the latitude alone" },
-  { id: "viewshed", name: "Viewshed", col: "#00e676", note: "the ground in sight from 1.75 m over the view's centre — or over a tapped point (its popup's Viewshed button); the share of the view seen is written here" },
+  { id: "viewshed", name: "Viewshed", col: "#00e676", note: "the ground in sight from 1 m over the view's centre — or over a tapped point (its popup's Viewshed button); the share of the view seen is written here" },
   { id: "spring", name: "Sun-warmed slopes in spring", col: "#ffd54f", note: "the quarter of the view with most direct sun in March–April, on slopes ≥ 5°: first bare of snow", sun: true },
   { id: "shade", name: "Shade hollows (late snow)", col: "#90caf9", note: "the fifth of the view with least sun over the year, in hollows: snow lies longest", sun: true },
   { id: "shelter", name: "Sheltered ground", col: "#7e57c2", note: "the quarter of the view with the least open sky (high horizons all round)", sun: true }];
@@ -1026,10 +1026,10 @@ function flowAcc(G) {   // D8 flow accumulation, in cells: the smoothed heights 
   }
   return G.acc = acc;
 }
-function viewshed(G, px, py, m) {   // the cells in sight from GROUND_H over the point: a ray to every edge cell, a cell is seen when its angle tops every angle before it on the ray; curvature less refraction
+function viewshed(G, px, py, m) {   // the cells in sight from VS_H over the point: a ray to every edge cell, a cell is seen when its angle tops every angle before it on the ray; curvature less refraction
   const n = G.n, c = G.c, hs = G.hs, bad = G.bad, R = G.R;
   const oi = Math.max(0, Math.min(n - 1, Math.floor((px + R) / c))), oj = Math.max(0, Math.min(n - 1, Math.floor((R - py) / c))), ok = oj * n + oi;
-  if (bad[ok]) return; const oz = hs[ok] + GROUND_H; m[ok] = 1;
+  if (bad[ok]) return; const oz = hs[ok] + VS_H; m[ok] = 1;
   const ray = (ti, tj) => {
     const di = ti - oi, dj = tj - oj, steps = Math.max(Math.abs(di), Math.abs(dj)); if (!steps) return; const len = Math.hypot(di, dj) * c; let mx = -Infinity;
     for (let s = 1; s <= steps; s++) { const k = Math.round(oj + dj * s / steps) * n + Math.round(oi + di * s / steps); if (bad[k]) continue; const d = len * s / steps, a = (hs[k] - EARTH_DROP(d) - oz) / d; if (a >= mx) { m[k] = 1; mx = a; } }
@@ -1821,6 +1821,7 @@ $("reset").onclick = () => S && home();
 // etc. 'Ground view'"): the camera 1.75 m (in the model's vertical scale) over the ground at a point, looking level in the current
 // heading; the orbit target sits 60 m ahead, so rotating turns the head and dragging walks. The overlays are the terrain's own paint.
 const GROUND_H = 1.75;   // eye height (owner, 2026-10-19: "I ment 1.75m")
+const VS_H = 1;   // the viewshed's eye: 1 m over the ground at its point (owner, 2026-10-20: "The viewshed should be calculated from 1m above ground")
 function groundView(x, y) {
   if (!S) return;
   const R = S.RB, ey = world.scale.y; x = Math.max(-R, Math.min(R, x)); y = Math.max(-R, Math.min(R, y));
@@ -2028,7 +2029,7 @@ function pointMenu(x, y, cx, cy, v) {   // v: a file's point → its name and te
   const btns = document.createElement("div"); btns.className = "row"; btns.style.marginTop = "6px";
   const gb = document.createElement("button"); gb.textContent = "Ground view"; gb.title = "Stand 1.75 m above the ground here and look at the horizon";
   gb.onclick = () => { $("pmenu").hidden = true; groundView(x, y); }; btns.appendChild(gb);
-  const vb = document.createElement("button"); vb.textContent = "Viewshed"; vb.title = "Show the ground in sight from 1.75 m above this point (the Viewshed feature, with the share of the view seen)";   // owner, 2026-10-19
+  const vb = document.createElement("button"); vb.textContent = "Viewshed"; vb.title = "Show the ground in sight from 1 m above this point (the Viewshed feature, with the share of the view seen)";   // owner, 2026-10-19
   vb.onclick = async () => { $("pmenu").hidden = true; S.vs = { x, y }; for (const G of S.out ? [S, S.out] : [S]) if (G.feat) delete G.feat.viewshed; $("ft_viewshed").checked = true; await featuresOn(); repaint(); }; btns.appendChild(vb);
   $("pmenuT").appendChild(btns);
   if (WCSV && !v) {
@@ -2664,7 +2665,7 @@ const FEAT_HELP = {   // row checkbox id → [title, what it shows, the assumpti
     "Gently rolling ground (the mean slope over 50 m under 8°) above the tree line. The tree line is estimated from the latitude alone — 1150 m at 60° N, 95 m lower per degree north, held between 200 and 1200 m — and the estimate used is written in the row.",
     "The real forest line lies lower towards the coast and higher inland, by a couple of hundred metres either way; it is not read from any vegetation data. Flat valley floors above the line count too."],
   ft_viewshed: ["Viewshed",
-    "The ground in sight from 1.75 m above a point — the view's centre, or a tapped point after its popup's Viewshed button. The row says what share of the view's area is seen (and the km²). A ray is traced to every cell on the view's edge; a cell is seen when its angle tops every cell before it on the ray, the Earth's curvature less refraction allowed for.",
+    "The ground in sight from 1 m above a point — the view's centre, or a tapped point after its popup's Viewshed button. The row says what share of the view's area is seen (and the km²). A ray is traced to every cell on the view's edge; a cell is seen when its angle tops every cell before it on the ray, the Earth's curvature less refraction allowed for.",
     "Bare ground only: trees and buildings are not in the model, so the forest floor is 'seen' through a forest. The smoothed heights are used. Only the view's own square is judged."],
   ft_open: ["Topographic openness",
     "Yokoyama's positive openness: in eight directions the highest angle to the ground within 500 m is found; openness is 90° less their mean. Level ground gives 90°, a crest or a knoll more (the ground falls away all round), a hollow, a gorge or the foot of a wall less. Worked out on a grid of up to 400 × 400 points (the ground sampled every cell out to 50 m, then every 10 m) and interpolated.",

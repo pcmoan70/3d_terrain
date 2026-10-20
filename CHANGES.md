@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-20 · Viewshed from 1 m above the ground
+
+Owner: "The viewshed should be calculated from 1m above ground at the given point." `VS_H = 1` replaces the 1.75 m eye height in `viewshed()` (Ground view keeps its 1.75 m). The feature note, the popup button's tooltip, the help and the README say 1 m.
+
 ## 2026-10-20 · Point popup: long press or right-click; coordinates copy on a tap; Ground view beside Viewshed
 
 Owner: "In the 3d viewer point popup let user copy lon/lat by clicking text. Move ground view on same line as viewshed." The lat, lon text is a tap target (dotted underline) that writes "lat, lon" to the clipboard and reads "copied ✓" for a second. The buttons are rearranged into two lines: the model dropdown (narrowed) with *Fetch+* and *Fetch*, then *Ground view* and *Viewshed* (the latter used to wrap alone in a narrow popup).
