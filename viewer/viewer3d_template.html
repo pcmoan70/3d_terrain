@@ -57,7 +57,7 @@
   .qb{width:18px;height:18px;border-radius:50%;border:1px solid #889;background:#2a3038;color:#cde;font-size:12px;line-height:16px;padding:0;cursor:pointer;flex:none}
   #help{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:25;width:min(600px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;box-sizing:border-box;font-size:13px;line-height:1.45}
   #help h2{font-size:14px;margin:14px 0 4px;color:#ffd54f}#help h2:first-child{margin-top:0}#help h3{font-size:13px;margin:10px 0 2px;color:#fff}#help p{margin:3px 0 6px;color:#dde}#help .as{color:#aab;font-size:12px}#help kbd{background:#2a3038;border:1px solid #556;border-radius:3px;padding:0 4px;font-size:12px}
-  #pmenu{position:fixed;z-index:20;max-width:min(320px,calc(100vw - 24px));padding:8px 10px;font-size:13px}
+  #pmenu{position:fixed;z-index:20;max-width:min(250px,calc(100vw - 24px));padding:8px 10px;font-size:13px}
   .row.lg{flex-wrap:wrap;gap:4px 10px;padding-left:24px;font-size:12px;color:#ccd}
   .lg .tg{cursor:pointer}.lg .tg.off{opacity:.4;text-decoration:line-through}
   .row.lg[hidden]{display:none}
@@ -2020,7 +2020,7 @@ function pointMenu(x, y, cx, cy, v) {   // v: a file's point → its name and te
   // the model and Fetch+, Fetch on one line, then Ground view and Viewshed on one (owner, 2026-10-20: "move ground view on same line as viewshed")
   if (WCSV && !v) {   // a map-built view grows from here: Fetch+ (the union) or Fetch (this square alone)
     const row = document.createElement("div"); row.className = "row w"; row.style.marginTop = "8px";
-    row.innerHTML = '<select id="pmRes" style="width:auto;max-width:120px"><option value="1">1 m</option><option value="10">10 m</option><option value="n">1 m centre + 10 m around</option></select>' +
+    row.innerHTML = '<select id="pmRes" style="width:auto" title="The model: 1 m, 10 m, or a 1 m centre with 10 m around"><option value="1">1m</option><option value="10">10m</option><option value="n">1+10m</option></select>' +
       '<button id="pmMore" title="Fetch the tiles round this point too (those in hand are not fetched again) and show everything fetched so far as one view">Fetch+</button>' +
       '<button id="pmHere" title="Move the view here: the same radius, this model; tiles in hand are reused">Fetch</button>';
     $("pmenuT").appendChild(row);

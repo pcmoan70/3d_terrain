@@ -8,6 +8,8 @@ Owner: "The point popup menu should show when long click on touch screen or righ
 
 Owner: "Short clicks should show point overlay values (hover), with the hover window sticky." The pointermove handler's body is `hoverAt(cx, cy)`; a short tap on the terrain calls it and pins the tip (`tipPinned`, a thin border): pointermove and pointerleave leave it alone until the next tap, long press or right-click. A tap on the sky unpins it.
 
+Owner: "let the drop down menu for tile size be 1m, 10m, 1+10m and make dropdown more narrow, as well as the popup window." The model options read `1m`, `10m`, `1+10m` (the long form in the dropdown's tooltip); the dropdown is 70 px (was 120), the popup at most 250 px (was 320) — measured 245 px with the two button lines intact.
+
 ## 2026-10-20 · Cliff drops under one toggle
 
 Owner: "The various cliff drop intervals should be hidden toggled with one "cliff drops" and when toggled on show each of the ranges 5-10, 10-15,15-25,25-50, 50+ toggleable individually. When "cliff drops" is toggled off the options ranges should hide." A *Cliff drops* row (`ft_cliffs`, a five-colour swatch) now stands where the five rows were; switching it on shows the five class rows indented under it, all ticked, each still its own toggle; switching it off unticks and hides them. View links carry the group like any checkbox; an older link naming only the classes still opens them. The five help entries are folded into one. Then "do not repeat cliff drops inside the ranges": the class rows read 5–10 m, 10–15 m … 50 m and more; the pointer and the tap popup keep the full names.
