@@ -120,7 +120,7 @@
          various features listed as possible selections in the menu"), each painted at 70 % in its colour, the cliff drops solid -->
     <details class="sec" id="featSec"><summary>Terrain features</summary>
       <!-- owner, 2026-10-19: "the DTM derived features should be under a collapsible subpan \"DTM derived\"" -->
-      <details class="nb" id="dtmSec" open><summary id="dtmh">DTM derived</summary>
+      <details class="nb" id="dtmSec" open><summary id="dtmh">DTM derived <button type="button" class="qb" id="dtmQ" title="About these layers">?</button></summary>
       <div class="row"><label class="ly"><input type="checkbox" id="lySlope"> Slope (NVE steepness classes)</label></div>
       <div class="row lg" id="lgSlope" hidden></div>
       <div class="row"><label class="ly"><input type="checkbox" id="lyFacing"> Facing (the way slopes ≥ 15° face)</label></div>
@@ -130,7 +130,6 @@
         <option value="all">all directions</option><option value="rose">the winds here (Open-Meteo)</option><option value="0">from N</option><option value="45">from NE</option><option value="90">from E</option><option value="135">from SE</option><option value="180">from S</option><option value="225">from SW</option><option value="270">from W</option><option value="315">from NW</option></select></div>
       <div class="row lg" id="lgWind" hidden><span id="windLeg"></span></div>
       <div id="featRows"></div>
-      <div class="sub">Worked out from the terrain model (and the sun model for the sun-warmed, shade and sheltered ones — computed when first switched on); the last four are graded, coloured over the view's own range. Not yet: coastal wave exposure.</div>
       </details>
       <!-- owner, 2026-10-18: "Move the corrine option to 'Terrain features' subpane" -->
       <div class="row"><label class="ly"><input type="checkbox" id="lyClc"> CORINE land cover 2018 (NIBIO)</label></div>
@@ -1662,7 +1661,7 @@ function paintBase(G, base, noCont) {   // G: the fine grid S or the coarse surr
   for (const g of GRADED) {   // the graded layers at 68 % over the map, the view's one colour range
     if (!$("ft_" + g.id).checked || !G.grad || !G.grad[g.id] || !S.gradRng || !S.gradRng[g.id]) continue;
     const A = G.grad[g.id], [lo, hi] = S.gradRng[g.id], al = 0.68;
-    for (let k = 0; k < n * n; k++) { if (bad[k]) continue; const t = (A[k] - lo) / ((hi - lo) || 1), col = ramp(g.ramp, g.rev ? 1 - t : t), o = 4 * k; d[o] = d[o] * (1 - al) + col[0] * al; d[o + 1] = d[o + 1] * (1 - al) + col[1] * al; d[o + 2] = d[o + 2] * (1 - al) + col[2] * al; }
+    for (let k = 0; k < n * n; k++) { if (bad[k] || A[k] !== A[k]) continue; const t = (A[k] - lo) / ((hi - lo) || 1), col = ramp(g.ramp, g.rev ? 1 - t : t), o = 4 * k; d[o] = d[o] * (1 - al) + col[0] * al; d[o + 1] = d[o + 1] * (1 - al) + col[1] * al; d[o + 2] = d[o + 2] * (1 - al) + col[2] * al; }
   }
   if ($("lyClc").checked && G.clc) blendImg(d, G.clc.data, bad, n, .55);   // CORINE land cover at 55 % over the map
   for (const sk of snowOn()) if (G[sk] && G[sk].img) blendImg(d, G[sk].img.data, bad, n, .55);   // seNorge snow at 55 % over the map
@@ -2013,12 +2012,14 @@ const FEATURES = [
   { id: "shelter", name: "Sheltered ground", col: "#7e57c2", note: "the quarter of the view with the least open sky (high horizons all round)", sun: true }];
 // Graded layers (owner, 2026-10-19: "Topographic Openness", "Distance to Ridge / Cliff Edges", "Ruggedness (TRI/VRM)"): a value per
 // cell, coloured over the view's 1st–99th percentiles (or a fixed range), a legend with the numbers, the value under the pointer
-const EDGE_RAMP = [[0, [255, 150, 0]], [0.5, [235, 232, 220]], [1, [30, 70, 200]]], RUG_RAMP = [[0, [235, 232, 220]], [0.5, [255, 140, 0]], [1, [110, 0, 120]]];
+const EDGE_RAMP = [[0, [255, 150, 0]], [0.5, [235, 232, 220]], [1, [30, 70, 200]]], RUG_RAMP = [[0, [235, 232, 220]], [0.5, [255, 140, 0]], [1, [110, 0, 120]]], WAVE_RAMP = [[0, [70, 150, 240]], [0.5, [235, 232, 220]], [1, [190, 30, 80]]];
 const GRADED = [
   { id: "open", name: "Topographic openness", note: "positive openness (Yokoyama): 90° less the mean, over eight directions, of the highest angle to the ground within 500 m — above 90° convex and open, below it enclosed", ramp: WIND_RAMP, rev: true, fmt: v => v.toFixed(0) + "°", read: v => v >= 95 ? "convex, open" : v <= 85 ? "enclosed" : "about level", calc: G => openness(G) },
   { id: "edge", name: "Distance to ridge or cliff edge", note: "metres to the nearest ridge crest or cliff brink (a cell under 30° with a lower neighbour of 45° or more)", rng: [0, 250], ramp: EDGE_RAMP, fmt: v => v > 999 ? "> 1 km" : Math.round(v) + " m", calc: G => edgeDist(G) },
   { id: "tri", name: "Ruggedness, TRI", note: "terrain ruggedness index (Riley): the mean height difference to the eight neighbouring cells, in metres", ramp: RUG_RAMP, fmt: v => v.toFixed(2) + " m", calc: G => triOf(G) },
-  { id: "vrm", name: "Ruggedness, VRM", note: "vector ruggedness measure (Sappington): how much the surface normals within 5 m (one cell on coarse grids) disagree, 0 smooth … 1 chaotic", ramp: RUG_RAMP, fmt: v => v.toFixed(3), calc: G => vrmOf(G) }];
+  { id: "vrm", name: "Ruggedness, VRM", note: "vector ruggedness measure (Sappington): how much the surface normals within 5 m (one cell on coarse grids) disagree, 0 smooth … 1 chaotic", ramp: RUG_RAMP, fmt: v => v.toFixed(3), calc: G => vrmOf(G) },
+  // owner, 2026-10-20: "implement coastal wave exposure" — open-water fetch; water and shore cells only, the rest unpainted (NaN)
+  { id: "wave", name: "Coastal wave exposure", note: "open-water fetch: the mean distance of open sea in 16 directions, up to 3 km, from the water and the shore beside it — low in a sheltered bay, high on an open coast", rng: [0, 3000], ramp: WAVE_RAMP, none: "no sea in this view", fmt: v => v !== v ? "—" : v >= 2990 ? "≥ 3 km" : Math.round(v) + " m", read: v => v >= 2000 ? "exposed" : v >= 700 ? "moderately exposed" : "sheltered", calc: G => waveFetch(G) }];
 const ftRow = f => '<div class="row"><label class="ly" title="' + f.note + '"><input type="checkbox" id="ft_' + f.id + '"> <span class="sw" style="background:' + f.col + '"></span> ' + (f.row || f.name) + '<span class="ftx" id="ftx_' + f.id + '"></span></label></div>';   // the texts are the page's own
 // the five cliff-drop classes sit under one "Cliff drops" toggle, shown (all ticked) when it is on, hidden when off; their rows
 // give the range alone (owner, 2026-10-20: "do not repeat cliff drops inside the ranges") — the pointer and popup keep the full name
@@ -2136,6 +2137,29 @@ function edgeDist(G) {   // metres to the nearest ridge crest (the ridge mask's 
   for (let i = 0; i < n; i++) { for (let j = 0; j < n; j++) f[j] = D[j * n + i]; dt(); for (let j = 0; j < n; j++) D[j * n + i] = o[j]; }
   const out = new Float32Array(N); for (let k = 0; k < N; k++) out[k] = Math.min(1e4, Math.sqrt(D[k]) * c); return out;
 }
+function waveFetch(G) {   // coastal wave exposure as open-water fetch (owner, 2026-10-20): on cells of ≤ 250 × 250, the mean distance of open water in 16 directions, up to 3 km, from every water cell and the shore beside it; NaN elsewhere
+  const n = G.n, c = G.c, h = G.h, bad = G.bad, N = n * n, L = 3000;
+  const cs = Math.max(c, Math.ceil(2 * G.R / 250)), m = Math.max(2, Math.floor(2 * G.R / cs)), st = cs / c;   // the coarse cell (m) and the fine cells across it
+  const W = new Uint8Array(m * m);   // 1 = water: the sea (0 m in the model) or no data over at least half the cell
+  for (let J = 0; J < m; J++) for (let I = 0; I < m; I++) {
+    let w = 0, t = 0;
+    for (let j = Math.floor(J * st); j < Math.min(n, Math.ceil((J + 1) * st)); j++) for (let i = Math.floor(I * st); i < Math.min(n, Math.ceil((I + 1) * st)); i++) { const k = j * n + i; t++; if (bad[k] || h[k] <= 0.15) w++; }
+    W[J * m + I] = t && w * 2 >= t ? 1 : 0;
+  }
+  const E = new Float32Array(m * m).fill(NaN), steps = Math.ceil(L / cs), ND = 16, dirs = [];
+  for (let q = 0; q < ND; q++) dirs.push([Math.cos(q * 2 * Math.PI / ND), Math.sin(q * 2 * Math.PI / ND)]);
+  const fetchAt = (I, J) => { let sum = 0; for (const [dx, dy] of dirs) { let d = L; for (let sN = 1; sN <= steps; sN++) { const ii = Math.round(I + dx * sN), jj = Math.round(J + dy * sN); if (ii < 0 || jj < 0 || ii >= m || jj >= m) break; if (!W[jj * m + ii]) { d = sN * cs; break; } } sum += Math.min(L, d); } return sum / ND; };   // a ray leaving the view counts as open water
+  for (let J = 0; J < m; J++) for (let I = 0; I < m; I++) if (W[J * m + I]) E[J * m + I] = fetchAt(I, J);
+  const Es = new Float32Array(E);   // the shore: a land cell beside water takes the most exposed water beside it
+  for (let J = 0; J < m; J++) for (let I = 0; I < m; I++) if (!W[J * m + I]) { let mx = NaN; for (const [di, dj] of NB8) { const ii = I + di, jj = J + dj; if (ii < 0 || jj < 0 || ii >= m || jj >= m) continue; const v = E[jj * m + ii]; if (v === v && !(v <= mx)) mx = v; } Es[J * m + I] = mx; }
+  const out = new Float32Array(N);   // back onto the cells: bilinear where the four corners have a value, else the nearest coarse cell's (NaN inland)
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const u = Math.max(0, Math.min(m - 1, (i + 0.5) / st - 0.5)), v = Math.max(0, Math.min(m - 1, (j + 0.5) / st - 0.5)), I = Math.min(m - 2, Math.floor(u)), J = Math.min(m - 2, Math.floor(v)), fx = Math.min(1, u - I), fy = Math.min(1, v - J), q = J * m + I;
+    const a = Es[q], b = Es[q + 1], cc = Es[q + m], dd = Es[q + m + 1];
+    out[j * n + i] = (a === a && b === b && cc === cc && dd === dd) ? (a * (1 - fx) + b * fx) * (1 - fy) + (cc * (1 - fx) + dd * fx) * fy : Es[Math.round(v) * m + Math.round(u)];
+  }
+  return out;
+}
 function triOf(G) {   // terrain ruggedness index (Riley 1999): the mean |Δh| to the eight neighbours
   const n = G.n, hs = G.hs, bad = G.bad, N = n * n, out = new Float32Array(N);
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const k = j * n + i; if (bad[k]) continue; let sum = 0, cnt = 0; for (const [di, dj] of NB8) { const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue; const q = jj * n + ii; if (bad[q]) continue; sum += Math.abs(hs[q] - hs[k]); cnt++; } out[k] = cnt ? sum / cnt : 0; }
@@ -2154,7 +2178,7 @@ async function gradedOn(g) {   // the field on every grid, one colour range (the
   const lo = g.rng ? g.rng[0] : pct(A, 0.01, sel), hi = g.rng ? g.rng[1] : pct(A, 0.99, sel);
   S.gradRng = S.gradRng || {}; S.gradRng[g.id] = [lo, hi];
   const bar = "linear-gradient(90deg," + [0, .5, 1].map(t => "rgb(" + ramp(g.ramp, g.rev ? 1 - t : t).map(Math.round).join(",") + ")").join(",") + ")";
-  $("lg_" + g.id).hidden = false; $("lg_" + g.id).innerHTML = esc(g.fmt(lo)) + ' <span style="display:inline-block;width:110px;height:10px;vertical-align:middle;border-radius:2px;background:' + bar + '"></span> ' + esc(g.fmt(hi)) + (g.rng ? "" : " (the view's 1st to 99th percentile)");
+  $("lg_" + g.id).hidden = false; $("lg_" + g.id).innerHTML = esc(g.fmt(lo)) + ' <span style="display:inline-block;width:110px;height:10px;vertical-align:middle;border-radius:2px;background:' + bar + '"></span> ' + esc(g.fmt(hi)) + (g.rng ? "" : " (the view's 1st to 99th percentile)") + (g.none && !A.some(v => v === v) ? " · " + esc(g.none) : "");
 }
 async function featureMask(G, f) {
   G.feat = G.feat || {}; if (G.feat[f.id] !== undefined) return G.feat[f.id];
@@ -3048,7 +3072,7 @@ function tipXY(x, y, cx, cy) {   // the hover text for a terrain point (x, y), s
     if (mis.length) html += "<br>MIS forest habitats here: <b>" + esc(mis.join(", ")) + "</b>"; }
   for (const sk of snowOn()) { const sc = snowAt(G, sk, x, y); if (sc) html += "<br>" + SNOWL[sk].title + " (" + esc($(SNOWL[sk].when).value) + "): " + sc; }
   const ft = featuresAt(G, x, y); if (ft.length) html += "<br>Features: " + esc(ft.join(", "));
-  for (const g of GRADED) if ($("ft_" + g.id).checked && G.grad && G.grad[g.id]) { const v = G.grad[g.id][cellOf(G, x, y)]; html += "<br>" + esc(g.name) + ": <b>" + esc(g.fmt(v)) + "</b>" + (g.read ? " — " + g.read(v) : ""); }
+  for (const g of GRADED) if ($("ft_" + g.id).checked && G.grad && G.grad[g.id]) { const v = G.grad[g.id][cellOf(G, x, y)]; if (v !== v) continue; html += "<br>" + esc(g.name) + ": <b>" + esc(g.fmt(v)) + "</b>" + (g.read ? " — " + g.read(v) : ""); }
   if ($("lyWind").checked && G.windAvg) { const v = windAt(G, x, y); html += "<br>Wind exposure (" + esc(windLbl()) + "): upwind ground " + (v < -0.5 ? "falls away at " + (-v).toFixed(0) : v > 0.5 ? "rises at " + v.toFixed(0) : "level, 0") + "° — <b>" + (v <= -5 ? "exposed" : v >= 5 ? "sheltered" : "neither") + "</b>"; }
   if ($("lySun").checked && G.sunAvg) html += "<br>Sun, average " + $("mLbl").textContent.replace(/ \(.*\)/, "") + ": <b>" + sunAt(G, x, y).toFixed(2) + " kWh/m² per day</b>";
   if (SUN && $("lmode").value === "sun") {
@@ -3855,6 +3879,9 @@ const FEAT_HELP = {   // row checkbox id → [title, what it shows, the assumpti
   ft_vrm: ["Ruggedness, VRM",
     "Sappington's vector ruggedness measure: the surface normals within 5 m (one cell either way on coarse grids) are averaged; VRM is one less the length of that mean — 0 where they agree (smooth, however steep), towards 1 where they point every way.",
     "Less tied to slope than TRI, but on a 1 m grid it also counts boulders, fallen trees and the model's noise. Colours over the view's 1st to 99th percentile."],
+  ft_wave: ["Coastal wave exposure",
+    "Open-water fetch. From every water cell — the sea, which the model holds at 0 m — the distance of open water is measured in 16 directions, up to 3 km, and the exposure is the mean of the 16: a few hundred metres in a sheltered bay or a narrow sound, towards 3 km on an open coast. The shore takes the value of the most exposed water beside it; cells away from the water are left unpainted. Coloured from 0 (blue, sheltered) to 3 km (red, exposed); the value and its reading under the pointer.",
+    "Fetch alone: every direction counts alike — the winds, the swell and the depth are not in it. A ray that leaves the view counts as open water, so the sea at the view's edge reads as exposed. The sea is the model's 0 m; cells without data count as water. Worked out on a coarse grid of at most 250 × 250 cells (6 m on a 1.5 km view, 120 m on a 15 km view), so a sound narrower than a cell is missed, and lakes at 0 m would count as sea."],
   ft_spring: ["Sun-warmed slopes in spring",
     "The quarter of the view with the most direct sun in March–April, on slopes of 5° and steeper: the first ground bare of snow.",
     "From the sun model: clear-sky direct radiation with the terrain's own horizons — no clouds, no vegetation. A quarter of the view by rank, so there is always one."],
@@ -3882,6 +3909,15 @@ function helpUI() {
     b.onclick = e => { e.preventDefault(); e.stopPropagation(); helpOpen(k); }; const l = $(k).closest("label"); if (l) l.after(b); else $(k).appendChild(b);   // a row's label, or a group's heading
   }
 }
+// The note behind the "DTM derived" heading's ? (owner, 2026-10-20: "move the explanatory text to a ? showing on hovering/clicking the ?")
+const DTM_NOTE = "Worked out from the terrain model (and the sun model for the sun-warmed, shade and sheltered ones — computed when first switched on). The graded layers at the end are coloured over the view's own range, or a fixed one, with a legend bar; every layer's ? opens its help.";
+(() => { const b = $("dtmQ"); let kept = false;
+  const show = () => { const r = b.getBoundingClientRect(); tip.innerHTML = esc(DTM_NOTE); tip.classList.remove("pin"); tip.style.display = "block"; tip.style.left = Math.min(innerWidth - 330, r.right + 8) + "px"; tip.style.top = (r.top - 4) + "px"; };
+  const hide = () => { if (!kept) tip.style.display = "none"; };
+  b.onmouseenter = show; b.onmouseleave = hide;
+  b.onclick = e => { e.preventDefault(); e.stopPropagation(); kept = !kept; if (kept) show(); else tip.style.display = "none"; };   // not the heading's own fold
+  canvas.addEventListener("pointermove", () => { kept = false; }, { passive: true });
+})();
 function helpOpen(k) { $("help").hidden = false; const el = k && $("h_" + k); if (el) el.scrollIntoView({ block: "start" }); else $("help").scrollTop = 0; }
 $("helpB").onclick = () => helpOpen(); $("helpX").onclick = () => { $("help").hidden = true; };
 FEAT_HELP.ft_cliffs = ["Cliff drops",
