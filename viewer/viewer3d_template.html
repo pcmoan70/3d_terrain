@@ -34,7 +34,7 @@
   #rsideX,#rsideOpen{width:40px;height:28px;border:1px solid #667;border-radius:6px;background:rgba(20,24,28,.88);color:#eee;font-size:18px;padding:0;cursor:pointer}
   #rsideOpen{position:absolute;right:10px;bottom:10px;z-index:5}
   .minb{position:absolute;top:6px;right:6px;width:28px;height:28px;border:1px solid #667;border-radius:6px;background:#2a3038;color:#eee;font-size:18px;line-height:24px;padding:0;cursor:pointer}
-  #tip{position:absolute;pointer-events:none;background:rgba(0,0,0,.85);padding:6px 8px;border-radius:6px;font-size:12px;max-width:320px;display:none;line-height:1.4}
+  #tip{position:absolute;pointer-events:none;background:rgba(0,0,0,.85);padding:6px 8px;border-radius:6px;font-size:12px;max-width:320px;display:none;line-height:1.4}#tip.pin{border:1px solid #9fb3bf}
   button{background:#2e8b74;color:#fff;border:0;border-radius:5px;padding:4px 9px;cursor:pointer;font:inherit}
   #rside{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:6px;align-items:center;z-index:5}
   #zoom{display:flex;flex-direction:column;gap:6px}
@@ -1942,14 +1942,18 @@ function dayTotal(x, y) {   // clear-sky direct energy on the surface over the c
 }
 const tip = $("tip");
 let lastTip = 0;
+let tipPinned = false;   // a short tap pins the hover text at the point until the next tap (owner, 2026-10-20: "Short clicks should show point overlay values (hover), with the hover window sticky")
 canvas.addEventListener("pointermove", ev => {
-  if (!S) return; const now = performance.now(); if (now - lastTip < 60) return; lastTip = now;
-  mv.x = ev.clientX / innerWidth * 2 - 1; mv.y = -ev.clientY / innerHeight * 2 + 1; ray.setFromCamera(mv, camera);
+  if (!S || tipPinned) return; const now = performance.now(); if (now - lastTip < 60) return; lastTip = now;
+  hoverAt(ev.clientX, ev.clientY);
+});
+function hoverAt(cx, cy) {   // the hover text for a screen point: a pin's name and text, or the terrain's values and every overlay's
+  mv.x = cx / innerWidth * 2 - 1; mv.y = -cy / innerHeight * 2 + 1; ray.setFromCamera(mv, camera);
   const ph = ray.intersectObjects(flags.filter(o => o.visible))[0];
   if (ph) {   // over a pin's ball (a point or an area): its name and text
     const v = ph.object.userData.v;
     tip.innerHTML = "<b>" + esc(v.name || "point") + "</b>" + (v.desc ? "<br>" + esc(v.desc) : "");
-    tip.style.display = "block"; tip.style.left = Math.min(innerWidth - 330, ev.clientX + 14) + "px"; tip.style.top = (ev.clientY + 14) + "px"; return;
+    tip.style.display = "block"; tip.style.left = Math.min(innerWidth - 330, cx + 14) + "px"; tip.style.top = (cy + 14) + "px"; return;
   }
   const hit = ray.intersectObjects(terrains)[0]; if (!hit) { tip.style.display = "none"; return; }
   const x = hit.point.x, y = -hit.point.z, G = gridAt(x, y), e = G.c;
@@ -1971,19 +1975,21 @@ canvas.addEventListener("pointermove", ev => {
     const r = surfIrr(x, y, SUN.p.el, SUN.p.az, SUN.Ib);
     html += "<br>Sun now: " + (SUN.p.el <= 0 ? "below the horizon" : r.sh ? "in terrain shadow" : r.self ? "face turned away" : Math.round(r.w) + " W/m² direct") + " · day total " + dayTotal(x, y).toFixed(1) + " kWh/m² (clear sky, direct)";
   }
-  tip.innerHTML = html; tip.style.display = "block"; tip.style.left = Math.min(innerWidth - 330, ev.clientX + 14) + "px"; tip.style.top = (ev.clientY + 14) + "px";
-});
-canvas.addEventListener("pointerleave", () => tip.style.display = "none");
+  tip.innerHTML = html; tip.style.display = "block"; tip.style.left = Math.min(innerWidth - 330, cx + 14) + "px"; tip.style.top = (cy + 14) + "px";
+}
+canvas.addEventListener("pointerleave", () => { if (!tipPinned) tip.style.display = "none"; });
 // The point popup opens on a long press (touch) or a right-click (mouse) on the terrain (owner, 2026-10-20: "The point popup
 // menu should show when long click on touch screen or right-click on mouse"); a plain tap opens a pin's popup, adds a
-// measuring point, or closes the popup.
+// measuring point, or pins the hover text at the point (the overlays' values, which a touch screen cannot hover for).
 let down = null, lpTimer = null, lpAt = 0;
 function tapAt(cx, cy, menu) {   // menu: the terrain's popup wanted (a long press or right-click)
   mv.x = cx / innerWidth * 2 - 1; mv.y = -cy / innerHeight * 2 + 1; ray.setFromCamera(mv, camera);
   if (measOn) { if (!menu) { const hit = ray.intersectObjects(terrains)[0]; if (hit) measAdd(hit.point.x, -hit.point.z); } return; }
+  tipPinned = false; tip.style.display = "none"; tip.classList.remove("pin");
   const f = ray.intersectObjects(flags.filter(o => o.visible))[0];
   if (f) { pointMenu(f.object.userData.v.x, f.object.userData.v.y, cx, cy, f.object.userData.v); return; }
-  const hit = menu && ray.intersectObjects(terrains)[0]; if (hit) pointMenu(hit.point.x, -hit.point.z, cx, cy); else $("pmenu").hidden = true;
+  if (menu) { const hit = ray.intersectObjects(terrains)[0]; if (hit) pointMenu(hit.point.x, -hit.point.z, cx, cy); else $("pmenu").hidden = true; return; }
+  $("pmenu").hidden = true; hoverAt(cx, cy); if (tip.style.display === "block") { tipPinned = true; tip.classList.add("pin"); }   // a short tap: the hover text, kept until the next tap
 }
 canvas.addEventListener("pointerdown", ev => {
   down = [ev.clientX, ev.clientY]; clearTimeout(lpTimer);   // a second finger (pinch, twist) cancels the press
@@ -2688,7 +2694,7 @@ const HELP = [
   ["Map", "<p>The <b>base map</b> is draped onto the terrain for the view's box: plain (a light tint), Kartverket topo and greyscale, OpenTopoMap, CyclOSM (paths), Esri streets and aerial, Esri Wayback (every earlier aerial photo of the spot — a <i>Photo</i> list), and NASA's recent satellite imagery (the days of the last 30 with a Sentinel-2 or Landsat pass over the centre at 30 m, about a week behind, then the last three days of MODIS at 250 m — clouds are yours to judge). <b>Contours</b> every 5 m, labelled every 25 m. One layer per loaded <b>overlay file</b> (its polygons, lines and points), <b>centre & circles</b> (the centre mark, a 500 m circle and the view's edge), and <b>bold markers</b> (bigger pins, seen through hills, areas outlined).</p>"],
   ["Terrain features", null],
   ["Sun", "<p><b>Sun at date and time</b> lights and shadows the terrain as the sun stands then (NOAA sun position; times are Norway time, CET/CEST) — <b>Fixed light (NW)</b> is a plain studio light instead; <b>Now</b> sets the moment, <b>▶ Day</b> runs through the day. The line under the sliders gives the sun's height and azimuth, the clear-sky direct radiation on level ground, sunrise, solar noon and sunset. <b>Sun: average direct radiation</b> colours the terrain by the clear-sky direct sun on the ground in kWh/m² per day over a month range (the two-handle slider, Jan – Apr to begin with; From after To runs over the new year; the range you set is remembered on this device): hourly, two days per month, the beam times the cosine of its incidence on the cell's slope, nothing when the sun is below the cell's own terrain horizon (32 directions). The colours run from the view's lowest to its highest; the pointer gives the point's value.</p><p class=\"as\"><b>Assumptions:</b> clear sky always; direct beam only (no diffuse sky light, no reflection from snow); terrain horizons on a coarse grid of at most 250 × 250 cells; no trees.</p>"],
-  ["Pointing, tapping, measuring", "<p><b>Hovering</b> shows the height, slope, facing and distance from the centre under the pointer, and the value of every overlay that is on. A <b>long press</b> (touch) or <b>right-click</b> (mouse) on the terrain opens a popup with the coordinates (tap them to copy), height, the overlays' classes, then the model and <i>Fetch+</i> (fetch the tiles round the point too and show everything fetched so far as one view) and <i>Fetch</i> (move the view there), and under them <i>Ground view</i> (stand there) and <i>Viewshed</i>; a plain tap closes it, and on a pin shows its name and text. <b>📏 Measure</b>: tap two points for the distance, height difference, slope and bearing between them. <b>🛰</b> opens Norgeskart's aerial photo of the place, <b>🐦</b> opens BirdsWhere there.</p>"],
+  ["Pointing, tapping, measuring", "<p><b>Hovering</b> shows the height, slope, facing and distance from the centre under the pointer, and the value of every overlay that is on. A <b>long press</b> (touch) or <b>right-click</b> (mouse) on the terrain opens a popup with the coordinates (tap them to copy), height, the overlays' classes, then the model and <i>Fetch+</i> (fetch the tiles round the point too and show everything fetched so far as one view) and <i>Fetch</i> (move the view there), and under them <i>Ground view</i> (stand there) and <i>Viewshed</i>; a <b>short tap</b> shows the hover text at the point — the height, slope, facing and every overlay's value — and keeps it until the next tap (the way to read the overlays on a touch screen); on a pin it shows the pin's name and text. <b>📏 Measure</b>: tap two points for the distance, height difference, slope and bearing between them. <b>🛰</b> opens Norgeskart's aerial photo of the place, <b>🐦</b> opens BirdsWhere there.</p>"],
   ["Data, saving, sharing", "<p>The terrain comes from Kartverket's height model service (NHM DTM, CC BY 4.0), 1 m or 10 m, resampled so that a view is at most 3000 cells across — a 1 m view wider than 3 km is shown on a 2, 3 … m grid, as the Data section states. Cells without data are filled smoothly and greyed. <b>Save as one offline file</b> writes a single HTML file with the terrain and layers inside, which opens anywhere without the network (with Kartverket topo already draped); <b>folder</b> writes the DTM tiles, the layers and a scene.json that Load opens again. <b>Share…</b> gives a link to a terrain picked on the map, a web folder or a Drive folder (the other person signs in to their own Drive; the folder must be shared with them); the <b>⧉</b> button in the title copies a link to this <i>exact</i> view — the place, every layer and legend choice, the sun, the map and the camera — which opens just so for the other person. Overlays from the network (base maps, CORINE, NIBIO's forest, land, vegetation and MIS layers, snow, winds) need the network each time and are not saved into files.</p><p>The viewer and its tools are open source under the <b>MIT licence</b> — <a href=\"https://github.com/pcmoan70/3d_terrain\" target=\"_blank\" rel=\"noopener\">github.com/pcmoan70/3d_terrain</a> (the data keep their own licences, named in the line under the view).</p>"]
 ];
 function helpUI() {
