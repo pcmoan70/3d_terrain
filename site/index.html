@@ -23,6 +23,8 @@
   .sec{border-top:1px solid #333;margin-top:8px;padding-top:6px}
   .sec h2{font-size:13px;margin:0 0 4px;color:#cfd8dc}
   details.sec>summary{font-size:13px;font-weight:bold;margin:0 0 4px;color:#cfd8dc;cursor:pointer}
+  /* a closed section with a toggle set inside (a checkbox away from its default): a blue triangle (owner, 2026-10-20, as in BirdsWhere) */
+  details:not([open])>summary.set::marker{color:#64b5f6}details:not([open])>summary.set::-webkit-details-marker{color:#64b5f6}
   details.nb{margin:2px 0}details.nb>summary{font-size:13px;cursor:pointer;padding:2px 0;color:#cfd8dc}details.nb .row{padding-left:16px}details.nb .lg img{background:#fff;border-radius:3px;padding:2px}
   .min .body{display:none}
   #side{position:absolute;top:10px;left:10px;max-height:calc(100% - 20px);width:min(380px,calc(100% - 64px));display:flex;flex-direction:column;gap:8px;pointer-events:none;z-index:5}
@@ -1443,6 +1445,7 @@ async function loadFolder(items) {
   if (scene.radius_1m) $("crad1").value = scene.radius_1m;
   if (scene.sigma != null) { $("csig").value = scene.sigma || 1.5; $("csmooth").checked = scene.sigma > 0; }
   else if (scene.smoothed_sigma != null) { $("csmooth").checked = scene.smoothed_sigma > 0; if (scene.smoothed_sigma > 0) $("csig").value = scene.smoothed_sigma; }   // older folders: 0 = the DTM is already smoothed
+  $("csmooth").defaultChecked = $("csmooth").checked;   // the scene's own smoothing is this view's default, not a toggle set by the user (markSecs)
   if (typeof CK_DEF !== "undefined") { CK_DEF[$("csmooth").checked ? "add" : "delete"]("csmooth"); VW_DEF.csig = $("csig").value; }   // the scene's own smoothing is the default a view link measures from
   $("dsrc").textContent = tiles.length + " DTM tile(s), UTM zone " + SRC.zone + ", " + overlays.length + " overlay feature(s)" + (scene.source ? " · " + scene.source : "");
   await render();
@@ -2674,6 +2677,7 @@ function buildWalls(pos, m, B) {   // B: the outermost grid — the block
 }
 // repaint the terrain's picture in place (map / overlay changed)
 async function repaint() {
+  markSecs();
   if (!S || !terrain) return;
   const wb = (await wbUI(S)) || (await satUI(S)), id = wb || $("basemap").value;
   for (const G of S.out ? [S, S.out] : [S]) {
@@ -2919,7 +2923,12 @@ $("sideOpen").onclick = () => { $("side").hidden = false; $("sideOpen").hidden =
 function minToggle(panel, btn, after) { btn.onclick = () => { panel.classList.toggle("min"); btn.textContent = panel.classList.contains("min") ? "+" : "−"; if (after) after(); }; }
 minToggle($("info"), $("infoMin"));
 // needles: hidden by their layer; markers and compass by theirs
+// The panel's closed sections tell what is set inside: a summary gets .set when a checkbox under it is away from
+// its default (a layer switched on, contours off …), and the CSS paints its triangle blue while the section is closed.
+function markSecs() { for (const d of $("info").querySelectorAll("details")) d.querySelector(":scope>summary").classList.toggle("set", [...d.querySelectorAll('input[type="checkbox"]')].some(c => c.checked !== c.defaultChecked)); }
+$("info").addEventListener("change", markSecs);
 function applyVis() {
+  markSecs();   // also after choices applied from a link or a file (no change event)
   needles.forEach(o => o.visible = layerOn(o.userData.src));
   markers.forEach(o => o.visible = $("lyMarkers").checked);
   draw(); if (v2d) vec2d();
@@ -3858,7 +3867,7 @@ const FEAT_HELP = {   // row checkbox id → [title, what it shows, the assumpti
 };
 const HELP = [
   ["Getting a terrain", "<p>The search box above the map finds a place by name — Norwegian names from Kartverket's place-name register (a spelling close enough will do; each hit says what kind of place it is and its municipality), anything else from OpenStreetMap; a hit moves the map there and places the point, Enter takes the first. </p><p>Tap the coordinates or the 📍 in the title to open the map: tap a place, set the <b>view radius</b> and the <b>model</b>, then Render. <b>1 m</b> is Kartverket's 1 m terrain model (DTM) and reaches 5 km from the point; <b>10 m</b> reaches 15 km; <b>1 m centre + 10 m around</b> nests a 1 m square (up to 5 km) inside a 10 m view (up to 15 km). A 1 m radius dragged or typed past 5 km flips to the mixed model by itself; the frames on the map show both squares. A view can also come from a <b>link</b> (<code>?lat=&amp;lon=&amp;r=&amp;res=</code>), from BirdsWhere (its points come along as pins), from a <b>folder</b> of DTM GeoTIFF tiles with .geojson / .kml / .kmz overlays (Data → Load), from a saved one-file view, or from a Google Drive folder.</p><p>Tapping the terrain opens a popup with the model to fetch at and a row of buttons: <b>Fetch+</b> (fetch the tiles round that point too and show everything fetched so far as one view), <b>Fetch</b> (move the view there) and <b>Ground view</b>. Tiles already in hand are not fetched again.</p>"],
-  ["Moving around", "<p>Drag to move the map (✋ — tap it for ⟳, then drag rotates and tilts) · twist two fingers, right-drag or Shift+drag to rotate · pinch, wheel or <kbd>+</kbd> <kbd>−</kbd> to zoom · ⟲ ⟳ ▲ ▼ rotate and tilt in steps, <kbd>N</kbd> puts north up · arrow keys pan. <b>Reset view</b> returns to the start, <b>Top view</b> looks straight down, <b>Ground view</b> stands 1.75 m above the ground at the point the view turns about (the centre at first; the tap popup's <i>Ground view</i> stands at the tapped point) and looks level at the horizon in the current heading — rotate to look round, tilt to look down, drag to walk; every overlay is painted on the terrain, so all of them show. <b>Height ×</b> (Map section) exaggerates heights (1–3; shadows are exact at ×1). <b>Smooth terrain</b> (Map section) softens the model with a Gaussian of the given σ in metres (off: the raw cells). ‹ tucks the panels away, › the map controls.</p>"],
+  ["Moving around", "<p>Drag to move the map (✋ — tap it for ⟳, then drag rotates and tilts) · twist two fingers, right-drag or Shift+drag to rotate · pinch, wheel or <kbd>+</kbd> <kbd>−</kbd> to zoom · ⟲ ⟳ ▲ ▼ rotate and tilt in steps, <kbd>N</kbd> puts north up · arrow keys pan. <b>Reset view</b> returns to the start, <b>Top view</b> looks straight down, <b>Ground view</b> stands 1.75 m above the ground at the point the view turns about (the centre at first; the tap popup's <i>Ground view</i> stands at the tapped point) and looks level at the horizon in the current heading — rotate to look round, tilt to look down, drag to walk; every overlay is painted on the terrain, so all of them show. <b>Height ×</b> (Map section) exaggerates heights (1–3; shadows are exact at ×1). <b>Smooth terrain</b> (Map section) softens the model with a Gaussian of the given σ in metres (off: the raw cells). ‹ tucks the panels away, › the map controls. A closed section whose triangle is <b>blue</b> has a toggle set inside it (a layer on, contours off …).</p>"],
   ["2-D map", "<p>The <b>2D</b> button in the control column shows the same place as a flat map carrying the terrain's layers: every layer, mask and graded layer, the pins and areas — drawn with transparency over the map, which supplies its own base and contours (the 3-D base map and the painted contours are not transferred). The <b>Map</b> dropdown is shared: <i>Plain</i> is a bare light background with the layers alone on it; every other choice is a tile map. Hover, a short tap (pinned values), a long press or right-click (the point popup), pins and areas work as in 3-D; <i>Ground view</i> from the map goes back to the terrain at that point. <b>3D</b> returns to the terrain, centred where the map was. A view link made on the map opens flat.</p><p class=\"as\"><b>Assumptions:</b> the square is drawn in Web Mercator by projecting a lattice every 8 px exactly and interpolating between — far below a cell of error; the surround (1+10m) lies under the 1 m square.</p>"],
   ["Map", "<p>The <b>base map</b> is draped onto the terrain for the view's box: plain (a light tint), Kartverket topo and greyscale, OpenTopoMap, CyclOSM (paths), Esri streets and aerial, Esri Wayback (every earlier aerial photo of the spot — a <i>Photo</i> list), and NASA's recent satellite imagery (the days of the last 30 with a Sentinel-2 or Landsat pass over the centre at 30 m, about a week behind, then the last three days of MODIS at 250 m — clouds are yours to judge). <b>Contours</b> every 5 m, labelled every 25 m. One layer per loaded <b>overlay file</b> (its polygons, lines and points), <b>centre & circles</b> (the centre mark, a 500 m circle and the view's edge), and <b>bold markers</b> (bigger pins, seen through hills, areas outlined).</p>"],
   ["Terrain features", null],

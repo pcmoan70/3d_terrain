@@ -1,5 +1,8 @@
 # Changes
 
+## 2026-10-20 · a closed section's triangle turns blue when a toggle is set inside
+
+Owner: "the blue triangles should be implemented in the 3d viewer as well" (after BirdsWhere v2141). `markSecs()` gives a section's summary `.set` when any checkbox under it is away from its default (`defaultChecked`) — a layer switched on, contours or markers off, a NIBIO layer in a nested group — on every change in the panel and in `repaint` / `applyVis` (choices applied from a link or a file); the CSS paints the `::marker` of a closed `.set` summary blue (#64b5f6). The nested NIBIO / DTM-derived groups get it too. The scene's own smoothing (`csmooth` from the scene's sigma) sets `defaultChecked` as well, so a 10 m view does not start with a blue Map section. Help (Moving around) and README updated.
 ## 2026-10-20 · the title line without the "Terrain 3D — pick a place on the map" text
 
 Owner: "Remove the text 'Terrain 3D — pick a place on the map...' from the top of the left pane". The panel's title now carries only the scene name and coordinates once a terrain is loaded, and the 📍 (which opens the map picker); before a view it is just the 📍. The page title and the share title still say Terrain 3D.
