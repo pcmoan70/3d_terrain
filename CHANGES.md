@@ -3,6 +3,7 @@
 ## 2026-10-20 · the title line without the "Terrain 3D — pick a place on the map" text
 
 Owner: "Remove the text 'Terrain 3D — pick a place on the map...' from the top of the left pane". The panel's title now carries only the scene name and coordinates once a terrain is loaded, and the 📍 (which opens the map picker); before a view it is just the 📍. The page title and the share title still say Terrain 3D.
+
 ## 2026-10-20 · Height × and Smooth terrain in the Map section
 
 Owner: "move Height x and smooth terrain into the collapsible Map sub pane". The two rows moved from the panel head to the Map section, under the base-map rows; the head keeps the view buttons. Help ("Moving around") and README name the section.
