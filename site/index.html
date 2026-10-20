@@ -4,7 +4,7 @@
 <meta name="robots" content="noindex">
 <style>
   html,body{margin:0;height:100%;overflow:hidden;background:#1d2228;font:14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#eee}
-  #c{display:block;width:100%;height:100%}
+  #c{display:block;width:100%;height:100%;-webkit-touch-callout:none;user-select:none}   /* a long press opens the point popup, not the browser’s menu */
   [hidden]{display:none!important}   /* a row hidden in the page stays hidden whatever its display (the Photo row showed) */
   .panel{position:absolute;background:rgba(20,24,28,.88);border-radius:8px;padding:10px 12px;box-shadow:0 2px 10px rgba(0,0,0,.4)}
   #info{top:10px;left:10px;width:min(360px,calc(100% - 44px));max-height:calc(100% - 30vh - 110px);overflow:auto;box-sizing:border-box}
@@ -3029,15 +3029,31 @@ canvas.addEventListener("pointermove", ev => {
   tip.innerHTML = html; tip.style.display = "block"; tip.style.left = Math.min(innerWidth - 330, ev.clientX + 14) + "px"; tip.style.top = (ev.clientY + 14) + "px";
 });
 canvas.addEventListener("pointerleave", () => tip.style.display = "none");
-let down = null;
-canvas.addEventListener("pointerdown", ev => { down = [ev.clientX, ev.clientY]; });
-canvas.addEventListener("pointerup", ev => {
-  if (!down || Math.hypot(ev.clientX - down[0], ev.clientY - down[1]) > 6) return;
-  mv.x = ev.clientX / innerWidth * 2 - 1; mv.y = -ev.clientY / innerHeight * 2 + 1; ray.setFromCamera(mv, camera);
-  if (measOn) { const hit = ray.intersectObjects(terrains)[0]; if (hit) measAdd(hit.point.x, -hit.point.z); return; }
+// The point popup opens on a long press (touch) or a right-click (mouse) on the terrain (owner, 2026-10-20: "The point popup
+// menu should show when long click on touch screen or right-click on mouse"); a plain tap opens a pin's popup, adds a
+// measuring point, or closes the popup.
+let down = null, lpTimer = null, lpAt = 0;
+function tapAt(cx, cy, menu) {   // menu: the terrain's popup wanted (a long press or right-click)
+  mv.x = cx / innerWidth * 2 - 1; mv.y = -cy / innerHeight * 2 + 1; ray.setFromCamera(mv, camera);
+  if (measOn) { if (!menu) { const hit = ray.intersectObjects(terrains)[0]; if (hit) measAdd(hit.point.x, -hit.point.z); } return; }
   const f = ray.intersectObjects(flags.filter(o => o.visible))[0];
-  if (f) { pointMenu(f.object.userData.v.x, f.object.userData.v.y, ev.clientX, ev.clientY, f.object.userData.v); return; }
-  const hit = ray.intersectObjects(terrains)[0]; if (hit) pointMenu(hit.point.x, -hit.point.z, ev.clientX, ev.clientY); else $("pmenu").hidden = true;
+  if (f) { pointMenu(f.object.userData.v.x, f.object.userData.v.y, cx, cy, f.object.userData.v); return; }
+  const hit = menu && ray.intersectObjects(terrains)[0]; if (hit) pointMenu(hit.point.x, -hit.point.z, cx, cy); else $("pmenu").hidden = true;
+}
+canvas.addEventListener("pointerdown", ev => {
+  down = [ev.clientX, ev.clientY]; clearTimeout(lpTimer);   // a second finger (pinch, twist) cancels the press
+  if (ev.pointerType === "touch" && ev.isPrimary) lpTimer = setTimeout(() => { lpAt = Date.now(); down = null; tapAt(ev.clientX, ev.clientY, true); }, 500);
+});
+canvas.addEventListener("pointermove", ev => { if (down && Math.hypot(ev.clientX - down[0], ev.clientY - down[1]) > 6) clearTimeout(lpTimer); });
+canvas.addEventListener("pointercancel", () => clearTimeout(lpTimer));
+canvas.addEventListener("pointerup", ev => {
+  clearTimeout(lpTimer);
+  if (!down || Math.hypot(ev.clientX - down[0], ev.clientY - down[1]) > 6) return;
+  if (ev.button === 0) tapAt(ev.clientX, ev.clientY, false);
+});
+canvas.addEventListener("contextmenu", ev => {
+  ev.preventDefault(); if (Date.now() - lpAt < 1000) return;   // Android raises this after the long press too
+  if (down && Math.hypot(ev.clientX - down[0], ev.clientY - down[1]) <= 6) tapAt(ev.clientX, ev.clientY, true);   // a right-click, not the end of a right-drag pan
 });
 // A tap on the terrain or a pin: the point (a pin's name and text first), its coordinates and height. The aerial
 // photo is the 🛰 map control (owner, 2026-10-15: "remove the norgeskart click at map point popup. Instead add an
@@ -3045,17 +3061,20 @@ canvas.addEventListener("pointerup", ev => {
 function pointMenu(x, y, cx, cy, v) {   // v: a file's point → its name and text first
   const [la, lo] = UTM.inv(S.X + x, S.Y + y, S.zone);
   $("pmenuT").innerHTML = (v ? "<b>" + esc(v.name || "point") + "</b>" + (v.desc ? '<div style="margin:4px 0 6px;white-space:normal">' + esc(v.desc) + "</div>" : "<br>") : "") +
-    (v ? "" : "<b>") + la.toFixed(5) + ", " + lo.toFixed(5) + (v ? "" : "</b>") + " · " + Math.round(sample(x, y)) + " m a.s.l.";
-  // the model on one line, then one row of buttons: Fetch+, Fetch, Ground view (owner, 2026-10-19: "the buttons in the
-  // point popup should be Fetch+,Fetch,Ground view on one line under the 1m,10m ... dropdown")
-  const btns = document.createElement("div"); btns.className = "row w"; btns.style.marginTop = "6px";
+    (v ? "" : "<b>") + '<span id="pmLL" title="Tap to copy" style="cursor:pointer;text-decoration:underline dotted">' + la.toFixed(5) + ", " + lo.toFixed(5) + "</span>" + (v ? "" : "</b>") + " · " + Math.round(sample(x, y)) + " m a.s.l.";
+  $("pmLL").onclick = async () => {   // owner, 2026-10-20: "let user copy lon/lat by clicking text"
+    const el = $("pmLL"), txt = la.toFixed(5) + ", " + lo.toFixed(5);
+    try { await navigator.clipboard.writeText(txt); el.textContent = "copied ✓"; setTimeout(() => { el.textContent = txt; }, 1200); } catch (e) {}
+  };
+  // the model and Fetch+, Fetch on one line, then Ground view and Viewshed on one (owner, 2026-10-20: "move ground view on same line as viewshed")
   if (WCSV && !v) {   // a map-built view grows from here: Fetch+ (the union) or Fetch (this square alone)
     const row = document.createElement("div"); row.className = "row w"; row.style.marginTop = "8px";
-    row.innerHTML = '<select id="pmRes" style="width:auto"><option value="1">1 m</option><option value="10">10 m</option><option value="n">1 m centre + 10 m around</option></select>';
-    $("pmenuT").appendChild(row);
-    btns.innerHTML = '<button id="pmMore" title="Fetch the tiles round this point too (those in hand are not fetched again) and show everything fetched so far as one view">Fetch+</button>' +
+    row.innerHTML = '<select id="pmRes" style="width:auto;max-width:120px"><option value="1">1 m</option><option value="10">10 m</option><option value="n">1 m centre + 10 m around</option></select>' +
+      '<button id="pmMore" title="Fetch the tiles round this point too (those in hand are not fetched again) and show everything fetched so far as one view">Fetch+</button>' +
       '<button id="pmHere" title="Move the view here: the same radius, this model; tiles in hand are reused">Fetch</button>';
+    $("pmenuT").appendChild(row);
   }
+  const btns = document.createElement("div"); btns.className = "row"; btns.style.marginTop = "6px";
   const gb = document.createElement("button"); gb.textContent = "Ground view"; gb.title = "Stand 1.75 m above the ground here and look at the horizon";
   gb.onclick = () => { $("pmenu").hidden = true; groundView(x, y); }; btns.appendChild(gb);
   const vb = document.createElement("button"); vb.textContent = "Viewshed"; vb.title = "Show the ground in sight from 1.75 m above this point (the Viewshed feature, with the share of the view seen)";   // owner, 2026-10-19
@@ -3724,7 +3743,7 @@ const HELP = [
   ["Map", "<p>The <b>base map</b> is draped onto the terrain for the view's box: plain (a light tint), Kartverket topo and greyscale, OpenTopoMap, CyclOSM (paths), Esri streets and aerial, Esri Wayback (every earlier aerial photo of the spot — a <i>Photo</i> list), and NASA's recent satellite imagery (the days of the last 30 with a Sentinel-2 or Landsat pass over the centre at 30 m, about a week behind, then the last three days of MODIS at 250 m — clouds are yours to judge). <b>Contours</b> every 5 m, labelled every 25 m. One layer per loaded <b>overlay file</b> (its polygons, lines and points), <b>centre & circles</b> (the centre mark, a 500 m circle and the view's edge), and <b>bold markers</b> (bigger pins, seen through hills, areas outlined).</p>"],
   ["Terrain features", null],
   ["Sun", "<p><b>Sun at date and time</b> lights and shadows the terrain as the sun stands then (NOAA sun position; times are Norway time, CET/CEST) — <b>Fixed light (NW)</b> is a plain studio light instead; <b>Now</b> sets the moment, <b>▶ Day</b> runs through the day. The line under the sliders gives the sun's height and azimuth, the clear-sky direct radiation on level ground, sunrise, solar noon and sunset. <b>Sun: average direct radiation</b> colours the terrain by the clear-sky direct sun on the ground in kWh/m² per day over a month range (the two-handle slider, Jan – Apr to begin with; From after To runs over the new year; the range you set is remembered on this device): hourly, two days per month, the beam times the cosine of its incidence on the cell's slope, nothing when the sun is below the cell's own terrain horizon (32 directions). The colours run from the view's lowest to its highest; the pointer gives the point's value.</p><p class=\"as\"><b>Assumptions:</b> clear sky always; direct beam only (no diffuse sky light, no reflection from snow); terrain horizons on a coarse grid of at most 250 × 250 cells; no trees.</p>"],
-  ["Pointing, tapping, measuring", "<p><b>Hovering</b> shows the height, slope, facing and distance from the centre under the pointer, and the value of every overlay that is on. <b>Tapping</b> the terrain opens a popup with the coordinates (a link to the map), height, the overlays' classes, then a row of buttons: <i>Fetch+</i> (fetch the tiles round the point too and show everything fetched so far as one view), <i>Fetch</i> (move the view there) and <i>Ground view</i> (stand there); tapping a pin shows its name and text. <b>📏 Measure</b>: tap two points for the distance, height difference, slope and bearing between them. <b>🛰</b> opens Norgeskart's aerial photo of the place, <b>🐦</b> opens BirdsWhere there.</p>"],
+  ["Pointing, tapping, measuring", "<p><b>Hovering</b> shows the height, slope, facing and distance from the centre under the pointer, and the value of every overlay that is on. A <b>long press</b> (touch) or <b>right-click</b> (mouse) on the terrain opens a popup with the coordinates (tap them to copy), height, the overlays' classes, then the model and <i>Fetch+</i> (fetch the tiles round the point too and show everything fetched so far as one view) and <i>Fetch</i> (move the view there), and under them <i>Ground view</i> (stand there) and <i>Viewshed</i>; a plain tap closes it, and on a pin shows its name and text. <b>📏 Measure</b>: tap two points for the distance, height difference, slope and bearing between them. <b>🛰</b> opens Norgeskart's aerial photo of the place, <b>🐦</b> opens BirdsWhere there.</p>"],
   ["Data, saving, sharing", "<p>The terrain comes from Kartverket's height model service (NHM DTM, CC BY 4.0), 1 m or 10 m, resampled so that a view is at most 3000 cells across — a 1 m view wider than 3 km is shown on a 2, 3 … m grid, as the Data section states. Cells without data are filled smoothly and greyed. <b>Save as one offline file</b> writes a single HTML file with the terrain and layers inside, which opens anywhere without the network (with Kartverket topo already draped); <b>folder</b> writes the DTM tiles, the layers and a scene.json that Load opens again. <b>Share…</b> gives a link to a terrain picked on the map, a web folder or a Drive folder (the other person signs in to their own Drive; the folder must be shared with them); the <b>⧉</b> button in the title copies a link to this <i>exact</i> view — the place, every layer and legend choice, the sun, the map and the camera — which opens just so for the other person. Overlays from the network (base maps, CORINE, NIBIO's forest, land, vegetation and MIS layers, snow, winds) need the network each time and are not saved into files.</p><p>The viewer and its tools are open source under the <b>MIT licence</b> — <a href=\"https://github.com/pcmoan70/3d_terrain\" target=\"_blank\" rel=\"noopener\">github.com/pcmoan70/3d_terrain</a> (the data keep their own licences, named in the line under the view).</p>"]
 ];
 function helpUI() {

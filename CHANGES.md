@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-10-20 · Point popup: long press or right-click; coordinates copy on a tap; Ground view beside Viewshed
+
+Owner: "In the 3d viewer point popup let user copy lon/lat by clicking text. Move ground view on same line as viewshed." The lat, lon text is a tap target (dotted underline) that writes "lat, lon" to the clipboard and reads "copied ✓" for a second. The buttons are rearranged into two lines: the model dropdown (narrowed) with *Fetch+* and *Fetch*, then *Ground view* and *Viewshed* (the latter used to wrap alone in a narrow popup).
+
+Owner: "The point popup menu should show when long click on touch screen or right-click on mouse." The terrain's popup now opens on a 500 ms press with one finger (cancelled by movement over 6 px or a second finger) or a right-click without a drag (`contextmenu`, which OrbitControls' right-drag pan also ends with); a plain tap closes the popup, still opens a pin's and still places measuring points. Android's own long-press `contextmenu` is ignored for a second after the press fires. Help and README updated.
+
 ## 2026-10-20 · Cliff drops under one toggle
 
 Owner: "The various cliff drop intervals should be hidden toggled with one "cliff drops" and when toggled on show each of the ranges 5-10, 10-15,15-25,25-50, 50+ toggleable individually. When "cliff drops" is toggled off the options ranges should hide." A *Cliff drops* row (`ft_cliffs`, a five-colour swatch) now stands where the five rows were; switching it on shows the five class rows indented under it, all ticked, each still its own toggle; switching it off unticks and hides them. View links carry the group like any checkbox; an older link naming only the classes still opens them. The five help entries are folded into one. Then "do not repeat cliff drops inside the ranges": the class rows read 5–10 m, 10–15 m … 50 m and more; the pointer and the tap popup keep the full names.
