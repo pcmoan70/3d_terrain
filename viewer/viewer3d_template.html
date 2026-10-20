@@ -17,6 +17,7 @@
   .row.w{flex-wrap:wrap}
   .sw{width:14px;height:14px;border-radius:3px;border:1px solid #111;flex:none;display:inline-block;vertical-align:middle}
   .ftx{color:#9fb3bf;font-size:12px}
+  #cliffRows .row{padding-left:32px}
   input[type=range]{flex:1;min-width:110px}
   input[type=number],input[type=text],select{background:#2a3038;color:#eee;border:1px solid #445;border-radius:4px;padding:2px 4px;font:inherit;width:96px}
   .sec{border-top:1px solid #333;margin-top:8px;padding-top:6px}
@@ -950,7 +951,12 @@ const GRADED = [
   { id: "edge", name: "Distance to ridge or cliff edge", note: "metres to the nearest ridge crest or cliff brink (a cell under 30° with a lower neighbour of 45° or more)", rng: [0, 250], ramp: EDGE_RAMP, fmt: v => v > 999 ? "> 1 km" : Math.round(v) + " m", calc: G => edgeDist(G) },
   { id: "tri", name: "Ruggedness, TRI", note: "terrain ruggedness index (Riley): the mean height difference to the eight neighbouring cells, in metres", ramp: RUG_RAMP, fmt: v => v.toFixed(2) + " m", calc: G => triOf(G) },
   { id: "vrm", name: "Ruggedness, VRM", note: "vector ruggedness measure (Sappington): how much the surface normals within 5 m (one cell on coarse grids) disagree, 0 smooth … 1 chaotic", ramp: RUG_RAMP, fmt: v => v.toFixed(3), calc: G => vrmOf(G) }];
-$("featRows").innerHTML = FEATURES.map(f => '<div class="row"><label class="ly" title="' + f.note + '"><input type="checkbox" id="ft_' + f.id + '"> <span class="sw" style="background:' + f.col + '"></span> ' + f.name + '<span class="ftx" id="ftx_' + f.id + '"></span></label></div>').join("") +   // the texts are the page's own
+const ftRow = f => '<div class="row"><label class="ly" title="' + f.note + '"><input type="checkbox" id="ft_' + f.id + '"> <span class="sw" style="background:' + f.col + '"></span> ' + f.name + '<span class="ftx" id="ftx_' + f.id + '"></span></label></div>';   // the texts are the page's own
+// the five cliff-drop classes sit under one "Cliff drops" toggle, shown (all ticked) when it is on, hidden when off (owner, 2026-10-20)
+const CLIFFS = FEATURES.filter(f => f.cliff), iCliff = FEATURES.indexOf(CLIFFS[0]);
+$("featRows").innerHTML = FEATURES.slice(0, iCliff).map(ftRow).join("") +
+  '<div class="row"><label class="ly" title="near-vertical faces (85–90°) by their drop — five classes, each with its own tick"><input type="checkbox" id="ft_cliffs"> <span class="sw" style="background:linear-gradient(90deg,' + CLIFFS.map(f => f.col).join(",") + ')"></span> Cliff drops</label></div><div id="cliffRows" hidden>' + CLIFFS.map(ftRow).join("") + "</div>" +
+  FEATURES.slice(iCliff + CLIFFS.length).map(ftRow).join("") +
   GRADED.map(g => '<div class="row"><label class="ly" title="' + g.note + '"><input type="checkbox" id="ft_' + g.id + '"> <span class="sw" style="background:linear-gradient(90deg,' + [0, .5, 1].map(t => "rgb(" + ramp(g.ramp, g.rev ? 1 - t : t).map(Math.round).join(",") + ")").join(",") + ')"></span> ' + g.name + '</label></div><div class="row lg" id="lg_' + g.id + '" hidden></div>').join("");
 function boxMean(a, n, r) {   // the mean over a (2r+1)² box, running sums (edges: the box clipped)
   const t = new Float32Array(n * n), out = new Float32Array(n * n);
@@ -1151,6 +1157,7 @@ async function featuresOn() {   // the masks of every ticked feature, for every 
   busy(false);
 }
 FEATURES.forEach(f => { $("ft_" + f.id).onchange = async () => { if (!$("ft_" + f.id).checked) $("ftx_" + f.id).textContent = ""; await featuresOn(); repaint(); }; });
+$("ft_cliffs").onchange = async () => { const on = $("ft_cliffs").checked; $("cliffRows").hidden = !on; for (const f of CLIFFS) $("ft_" + f.id).checked = on; await featuresOn(); repaint(); };
 GRADED.forEach(g => { $("ft_" + g.id).onchange = async () => { $("lg_" + g.id).hidden = !$("ft_" + g.id).checked; await featuresOn(); repaint(); }; });
 const cellOf = (G, x, y) => { const n = G.n, i = Math.max(0, Math.min(n - 1, Math.floor((x + G.R) / G.c))), j = Math.max(0, Math.min(n - 1, Math.floor((G.R - y) / G.c))); return j * n + i; };
 function featuresAt(G, x, y) {   // the ticked features under a point
@@ -2314,6 +2321,7 @@ function applyViewState(st) {   // before the terrain is built: the panel's choi
       clsOff.slope = new Set(st.off.slope || []); clsOff.face = new Set(st.off.face || []); for (const k in st.off.nb || {}) nbOff[k] = new Set(st.off.nb[k]);
       for (const el of document.querySelectorAll("#lgSlope .tg, #lgFacing .tg")) el.classList.toggle("off", clsOff[el.dataset.k].has(+el.dataset.i));
     }
+    if (CLIFFS.some(f => $("ft_" + f.id).checked)) $("ft_cliffs").checked = true; $("cliffRows").hidden = !$("ft_cliffs").checked;
     $("lgSlope").hidden = !$("lySlope").checked; $("lgFacing").hidden = !$("lyFacing").checked; $("sunBox").hidden = !$("lySun").checked; $("exv").textContent = (+$("ex").value).toFixed(1); monthUI(); updateSun();
     if (st.cam && st.cam.length === 6) pendingCam = st.cam;
     if (st.v && st.v.vs) { const p = st.v.vs.split("/").map(Number); if (p.length === 2 && p.every(isFinite)) pendingVs = { x: p[0], y: p[1] }; }
@@ -2671,8 +2679,8 @@ function helpUI() {
 }
 function helpOpen(k) { $("help").hidden = false; const el = k && $("h_" + k); if (el) el.scrollIntoView({ block: "start" }); else $("help").scrollTop = 0; }
 $("helpB").onclick = () => helpOpen(); $("helpX").onclick = () => { $("help").hidden = true; };
-for (const f of FEATURES) if (f.cliff) FEAT_HELP["ft_" + f.id] = [f.name,
-  "The cells of near-vertical rock faces whose drop is " + f.name.replace("Cliff drops ", "") + ". From every cell whose steepest step to a neighbour is 60° or more, the face is followed up and down its steepest line while the steps stay that steep; the drop from the top to the foot and the horizontal run of the face give its angle, and only faces of 85–90° count — nest ledges, roosts and the owl's cliffs are on faces like these. The five classes are separate toggles, one colour each, named under the pointer.",
+FEAT_HELP.ft_cliffs = ["Cliff drops",
+  "The cells of near-vertical rock faces, in five classes by their drop: 5–10, 10–15, 15–25, 25–50 and 50 m and more. The toggle shows the five classes, all on, each with its own tick and colour; off, it hides them. From every cell whose steepest step to a neighbour is 60° or more, the face is followed up and down its steepest line while the steps stay that steep; the drop from the top to the foot and the horizontal run of the face give its angle, and only faces of 85–90° count — nest ledges, roosts and the owl's cliffs are on faces like these. The class is named under the pointer.",
   "The DTM's gridding smears a vertical wall over two to three cells of a 1 m grid, so two cells (one on coarser grids) are taken off the run before the angle is judged, and a face within that smear always counts as vertical; the unsmoothed heights are used. Even so the rule is strict: at Preikestolen about one face in eight that drops 5 m or more passes it. The colour is solid, over the contours, and goes on the face itself and on the first tile beyond its top and its bottom. On a 10 m grid a drop under 10 m cannot be told at all and the classes are coarse — use a 1 m view. Overhangs are not in a DTM."];
 helpUI();
 $("lyContours").onchange = $("lySlope").onchange = $("lyFacing").onchange = () => { $("lgSlope").hidden = !$("lySlope").checked; $("lgFacing").hidden = !$("lyFacing").checked; repaint(); };

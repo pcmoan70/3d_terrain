@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-20 · Cliff drops under one toggle
+
+Owner: "The various cliff drop intervals should be hidden toggled with one "cliff drops" and when toggled on show each of the ranges 5-10, 10-15,15-25,25-50, 50+ toggleable individually. When "cliff drops" is toggled off the options ranges should hide." A *Cliff drops* row (`ft_cliffs`, a five-colour swatch) now stands where the five rows were; switching it on shows the five class rows indented under it, all ticked, each still its own toggle; switching it off unticks and hides them. View links carry the group like any checkbox; an older link naming only the classes still opens them. The five help entries are folded into one.
+
 ## 2026-10-19 · Openness within 500 m, edge distance coloured to 250 m
 
 Owner: "Topographic openness: let that be 500m, Distance to ridge : 250m." The openness rays run to 500 m (sampled every cell out to 50 m, then every 10 m, so a near wall still counts without a five-fold cost) and the edge-distance colours run 0–250 m.
