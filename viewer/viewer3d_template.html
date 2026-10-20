@@ -951,9 +951,11 @@ const GRADED = [
   { id: "edge", name: "Distance to ridge or cliff edge", note: "metres to the nearest ridge crest or cliff brink (a cell under 30° with a lower neighbour of 45° or more)", rng: [0, 250], ramp: EDGE_RAMP, fmt: v => v > 999 ? "> 1 km" : Math.round(v) + " m", calc: G => edgeDist(G) },
   { id: "tri", name: "Ruggedness, TRI", note: "terrain ruggedness index (Riley): the mean height difference to the eight neighbouring cells, in metres", ramp: RUG_RAMP, fmt: v => v.toFixed(2) + " m", calc: G => triOf(G) },
   { id: "vrm", name: "Ruggedness, VRM", note: "vector ruggedness measure (Sappington): how much the surface normals within 5 m (one cell on coarse grids) disagree, 0 smooth … 1 chaotic", ramp: RUG_RAMP, fmt: v => v.toFixed(3), calc: G => vrmOf(G) }];
-const ftRow = f => '<div class="row"><label class="ly" title="' + f.note + '"><input type="checkbox" id="ft_' + f.id + '"> <span class="sw" style="background:' + f.col + '"></span> ' + f.name + '<span class="ftx" id="ftx_' + f.id + '"></span></label></div>';   // the texts are the page's own
-// the five cliff-drop classes sit under one "Cliff drops" toggle, shown (all ticked) when it is on, hidden when off (owner, 2026-10-20)
+const ftRow = f => '<div class="row"><label class="ly" title="' + f.note + '"><input type="checkbox" id="ft_' + f.id + '"> <span class="sw" style="background:' + f.col + '"></span> ' + (f.row || f.name) + '<span class="ftx" id="ftx_' + f.id + '"></span></label></div>';   // the texts are the page's own
+// the five cliff-drop classes sit under one "Cliff drops" toggle, shown (all ticked) when it is on, hidden when off; their rows
+// give the range alone (owner, 2026-10-20: "do not repeat cliff drops inside the ranges") — the pointer and popup keep the full name
 const CLIFFS = FEATURES.filter(f => f.cliff), iCliff = FEATURES.indexOf(CLIFFS[0]);
+for (const f of CLIFFS) f.row = f.name.replace("Cliff drops ", "");
 $("featRows").innerHTML = FEATURES.slice(0, iCliff).map(ftRow).join("") +
   '<div class="row"><label class="ly" title="near-vertical faces (85–90°) by their drop — five classes, each with its own tick"><input type="checkbox" id="ft_cliffs"> <span class="sw" style="background:linear-gradient(90deg,' + CLIFFS.map(f => f.col).join(",") + ')"></span> Cliff drops</label></div><div id="cliffRows" hidden>' + CLIFFS.map(ftRow).join("") + "</div>" +
   FEATURES.slice(iCliff + CLIFFS.length).map(ftRow).join("") +
