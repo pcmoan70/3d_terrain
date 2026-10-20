@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-20 · Height × and Smooth terrain in the Map section
+
+Owner: "move Height x and smooth terrain into the collapsible Map sub pane". The two rows moved from the panel head to the Map section, under the base-map rows; the head keeps the view buttons. Help ("Moving around") and README name the section.
+
 ## 2026-10-20 · Sun average: a high-pass handle on the legend; the flat map carries the layers only
 
 Owner: "for the average direct radiation give a slider (high pass) along the spectrum at the bottom, cutting away overlay values below this level (default 1kwH/m^2 per day). Also: remove text (clear sky, direct)" — the legend gradient is now the track of a slider (`#sunCut`, `sunCut` in kWh/m² per day, 1 to begin with); `paintBase` leaves cells below it unpainted, the cut part of the bar is dimmed, the text reads "lo – hi kWh/m² per day · below x hidden"; a view link carries it as `scut:`. The phrase "(clear sky, direct)" is gone from the legend and the hover text (the Help still explains the model). Owner: "when switching 3d <-> 2d only transfer the overlays, not the base-map as an overlay" and "do not transfer contours" — `paint2d` uses `overlayRGBA` on every map and `paintBase` takes a `noCont` flag: the 2-D image is the layers alone, the map supplies base and contours; *Plain* is a bare light background (`#map2d` tint); `hillshade()` and the sun-slider repaint hook are removed. Help "Sun" and "2-D map", README.
