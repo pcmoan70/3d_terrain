@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-26 · Red level curves at elevations of your choice
+
+Owner: "allow user to set a list of height levels which are drawn by clear red level curves in the map (let the input be a space or comma separated list of elevations in meters)". A *Red levels (m)* box under the Contours toggle; the list (spaces, commas or semicolons) is painted into the terrain's picture as two-cell-wide red curves after every other layer, so they show in 3-D and on the flat map alike; the box is remembered in the browser (`t3d_levels`). A flat lake exactly at a level gets its shoreline, not a red fill.
+
 ## 2026-10-26 · My location: a ◎ button, Ground view 2 m up from where you stand
 
 Owner: "add button for current location. If user is within view. Also allow viewing from 2m above ground from current location." A **◎** button in the control column takes one GPS fix (`navigator.geolocation`, high accuracy, 20 s). Inside the view's square (`inView`): a blue ball with a white halo and a ring of the fix's accuracy radius on the ground (`markMe`, rebuilt with the terrain; on the flat map a circle and a marker from `vec2d`), the view moves there (orbit target and camera together, or `panTo` on the map) and the point popup opens at the spot (`screenOf` projects it) with "You are here · GPS, ± n m" — its *Ground view* uses `ME_H` = 2 m (`groundView(x, y, h)`; every other ground view keeps 1.75 m). Outside the square a note (`#note`, a small banner) says how far beyond the edge you are; refused or failed fixes say so. Help (Moving around) and README.
