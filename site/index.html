@@ -44,6 +44,7 @@
   #rot{display:flex;flex-direction:column;gap:6px}
   #rot button{width:40px;height:40px;font-size:18px;padding:0;background:#3d5a80}
   #rot button.on{background:#c77d12}
+  #note{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:rgba(20,20,20,.86);color:#fff;padding:8px 14px;border-radius:8px;z-index:60;font-size:14px;max-width:80vw;text-align:center}
   #rot #v2d{font-size:14px;font-weight:bold}
   #map2d{position:absolute;inset:0;z-index:1;background:#d6d8c8}#map2d[hidden]{display:none}   /* the flat map (2-D): under the panels, over the canvas */
   #meas{position:absolute;top:10px;right:10px;max-width:min(300px,calc(100% - 44px));font-size:13px;line-height:1.5}
@@ -181,6 +182,7 @@
 </div>
 </div><button id="sideOpen" title="Show the panels" hidden>›</button>
 <div id="tip"></div>
+<div id="note" hidden></div>
 <div id="help" class="panel" hidden><button class="minb" id="helpX" title="Close">×</button><div id="helpT" style="padding-right:30px"></div></div>
 <div id="pmenu" class="panel" hidden><button class="minb" id="pmenuX" title="Close">×</button><div id="pmenuT" style="padding-right:30px"></div></div>
 <div id="attr" style="position:absolute;left:50%;transform:translateX(-50%);bottom:4px;font-size:10px;color:#ccc;background:rgba(0,0,0,.45);padding:1px 6px;border-radius:4px;pointer-events:none;white-space:nowrap;max-width:60%;overflow:hidden;text-overflow:ellipsis"></div>
@@ -188,7 +190,7 @@
 <!-- the map controls in one column on the right (owner, 2026-10-15: "the controls on the right hand side should be one
      column and collapsible"): › tucks them away, ‹ brings them back -->
 <div id="rside"><button id="rsideX" title="Hide the map controls">›</button>
-<div id="rot"><button id="v2d" title="Flat map with the same layers (2-D)">2D</button><button id="measure" title="Measure: tap two points on the terrain">📏</button><button id="dragmode" title="One-finger / left drag: move the map (tap for rotate)">✋</button><button id="rotl" title="Rotate left 15°">⟲</button><button id="rotr" title="Rotate right 15°">⟳</button><button id="tiltu" title="Tilt up (look more from above)">▲</button><button id="tiltd" title="Tilt down (look more from the side)">▼</button><button id="north" title="North up">N</button><button id="aerial" title="Aerial photo of the place in view, in Norgeskart (Norge i bilder)">🛰</button><button id="birdswhere" title="Open BirdsWhere (thebirding.site) at this locality">🐦</button></div>
+<div id="rot"><button id="v2d" title="Flat map with the same layers (2-D)">2D</button><button id="measure" title="Measure: tap two points on the terrain">📏</button><button id="dragmode" title="One-finger / left drag: move the map (tap for rotate)">✋</button><button id="rotl" title="Rotate left 15°">⟲</button><button id="rotr" title="Rotate right 15°">⟳</button><button id="tiltu" title="Tilt up (look more from above)">▲</button><button id="tiltd" title="Tilt down (look more from the side)">▼</button><button id="north" title="North up">N</button><button id="me" title="My location: if you stand inside the view, mark the spot and open its popup — its Ground view stands 2 m above the ground where you are">◎</button><button id="aerial" title="Aerial photo of the place in view, in Norgeskart (Norge i bilder)">🛰</button><button id="birdswhere" title="Open BirdsWhere (thebirding.site) at this locality">🐦</button></div>
 <div id="zoom"><button id="zin" title="Zoom in">+</button><button id="zout" title="Zoom out">−</button></div>
 </div><button id="rsideOpen" title="Show the map controls" hidden>‹</button>
 <div id="gate" hidden style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,12,16,.6)"><div class="panel" style="position:static;max-width:340px;text-align:center"><div style="margin-bottom:10px">A terrain shared on Google Drive. Sign in with the Google account it is shared with to open it.</div><button id="gateGo" style="font-size:16px;padding:8px 14px">Sign in with Google to open</button><div style="margin-top:8px"><button id="gateX" style="background:#555">Not now</button></div></div></div>
@@ -2832,7 +2834,7 @@ function build(s) {
     walls = buildWalls(go.pos, go.m, O);
   } else walls = buildWalls(gi.pos, gi.m, S);
   world.add(walls);
-  needles = []; flags = []; letters = []; markers = [];
+  needles = []; flags = []; letters = []; markers = []; meObjs = [];
   const pin = (x, y, col, hgt, rad, data, src) => {
     const z = sample(x, y) - S.h0, c = new THREE.Color(col);
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(rad * .15, rad * .15, hgt, 6), new THREE.MeshBasicMaterial({ color: c }));
@@ -2855,6 +2857,7 @@ function build(s) {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(24 * ns, 4 * ns, 8, 40), new THREE.MeshBasicMaterial({ color: c }));
     ring.rotation.x = Math.PI / 2; ring.position.set(p.x, z + 3, -p.y); world.add(ring); needles.push(ring); ring.userData.src = p.src || "__markers";
   });
+  if (me) markMe();
   // compass letters (sprites: always face the viewer; outside the height-scaled group)
   if (S.comp) [["N", 0, "#c81e1e"], ["E", 90, "#222"], ["S", 180, "#222"], ["W", 270, "#222"]].forEach(L => {
     const cv = document.createElement("canvas"); cv.width = cv.height = 64; const c2 = cv.getContext("2d");
@@ -2917,14 +2920,53 @@ $("reset").onclick = () => S && home();
 // heading; the orbit target sits 60 m ahead, so rotating turns the head and dragging walks. The overlays are the terrain's own paint.
 const GROUND_H = 1.75;   // eye height (owner, 2026-10-19: "I ment 1.75m")
 const VS_H = 1;   // the viewshed's eye: 1 m over the ground at its point (owner, 2026-10-20: "The viewshed should be calculated from 1m above ground")
-function groundView(x, y) {
+function groundView(x, y, h) {   // h: the eye height, 1.75 m unless given (2 m from your own location)
   if (!S) return;
   const R = S.RB, ey = world.scale.y; x = Math.max(-R, Math.min(R, x)); y = Math.max(-R, Math.min(R, y));
-  const cy = (sample(x, y) - S.h0 + GROUND_H) * ey, dir = new THREE.Vector3().subVectors(controls.target, camera.position); dir.y = 0;
+  const cy = (sample(x, y) - S.h0 + (h || GROUND_H)) * ey, dir = new THREE.Vector3().subVectors(controls.target, camera.position); dir.y = 0;
   if (dir.length() < 1) dir.set(0, 0, -1); dir.normalize();
   camera.position.set(x, cy, -y); controls.target.set(x + dir.x * 60, cy - 1, -y + dir.z * 60); controls.update(); draw();
 }
 $("ground").onclick = async () => { if (v2d) await show2d(false); groundView(controls.target.x, -controls.target.z); };   // from the flat map: at its centre
+// ---- my location (owner, 2026-10-26: "add button for current location. If user is within view. Also allow viewing from 2m above
+// ground from current location."): one GPS fix on a tap of ◎; inside the view's square the spot gets a blue mark with its accuracy
+// ring, the view moves there and the point popup opens (its Ground view stands 2 m up); outside, the note says how far beyond the edge.
+const ME_H = 2;
+let me = null, meObjs = [];
+function note(msg, ms) { const n = $("note"); n.textContent = msg; n.hidden = false; clearTimeout(note.t); note.t = setTimeout(() => { n.hidden = true; }, ms || 3500); }
+function markMe() {   // the 3-D mark (the flat map's comes from vec2d)
+  meObjs.forEach(o => world.remove(o)); meObjs = [];
+  if (!me || !S || !world || !inView(me.x, me.y, S.RB)) return;
+  const z = sample(me.x, me.y) - S.h0, ns = Math.max(0.35, Math.min(1.5, S.RB / 1000));
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(10 * ns, 14, 10), new THREE.MeshBasicMaterial({ color: 0x1e88e5 })); ball.position.set(me.x, z + 10 * ns, -me.y);
+  const halo = new THREE.Mesh(new THREE.SphereGeometry(12.5 * ns, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.BackSide })); halo.position.copy(ball.position);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(Math.max(me.acc, 8 * ns), 2 * ns, 8, 48), new THREE.MeshBasicMaterial({ color: 0x1e88e5, transparent: true, opacity: 0.7 }));
+  ring.rotation.x = Math.PI / 2; ring.position.set(me.x, z + 2, -me.y);
+  [ball, halo, ring].forEach(o => { world.add(o); meObjs.push(o); });
+}
+function screenOf(x, y) {   // where a terrain point sits on the screen, for the popup
+  if (v2d && map2d) { const q = map2d.latLngToContainerPoint(llOf(x, y)); return [q.x, q.y]; }
+  const v = new THREE.Vector3(x, (sample(x, y) - S.h0) * world.scale.y, -y).project(camera);
+  return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight];
+}
+$("me").onclick = () => {
+  if (!S) return note("Build a terrain first");
+  if (!navigator.geolocation) return note("This browser gives no location");
+  $("me").classList.add("on"); note("Finding where you are …", 20000);
+  navigator.geolocation.getCurrentPosition(pos => {
+    $("me").classList.remove("on");
+    const [x, y] = xyOf({ lat: pos.coords.latitude, lng: pos.coords.longitude }), acc = Math.round(pos.coords.accuracy || 0);
+    if (!inView(x, y, S.RB)) {
+      me = null; markMe(); if (v2d) vec2d();
+      const d = Math.max(Math.abs(x), Math.abs(y)) - S.RB;
+      return note("You are outside the view, " + (d >= 1000 ? (d / 1000).toFixed(1) + " km" : Math.round(d) + " m") + " beyond its edge");
+    }
+    me = { x, y, acc, name: "You are here", desc: "GPS, ± " + acc + " m", me: true }; markMe(); note("", 1);
+    if (v2d) { vec2d(); map2d.panTo(llOf(x, y)); }
+    else { const d = new THREE.Vector3(x, (sample(x, y) - S.h0) * world.scale.y, -y).sub(controls.target); camera.position.add(d); controls.target.add(d); controls.update(); draw(); }
+    const [cx, cy] = screenOf(x, y); pointMenu(x, y, cx, cy, me);
+  }, err => { $("me").classList.remove("on"); note(err.code === 1 ? "Location access was refused" : "No location fix"); }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 });
+};
 $("top").onclick = () => { if (!S) return; const cz = (sample(0, 0) - S.h0) * world.scale.y; camera.position.set(0, cz + S.RB * 2.6, 0.01); controls.target.set(0, cz, 0); controls.update(); draw(); };
 function zoomBy(f) { const v = camera.position.clone().sub(controls.target).multiplyScalar(f); if (v.length() < controls.minDistance || v.length() > controls.maxDistance) return; camera.position.copy(controls.target).add(v); controls.update(); draw(); }
 $("zin").onclick = () => v2d ? map2d.zoomIn() : zoomBy(0.7); $("zout").onclick = () => v2d ? map2d.zoomOut() : zoomBy(1 / 0.7);
@@ -3130,8 +3172,9 @@ function pointMenu(x, y, cx, cy, v) {   // v: a file's point → its name and te
     $("pmenuT").appendChild(row);
   }
   const btns = document.createElement("div"); btns.className = "row"; btns.style.marginTop = "6px";
-  const gb = document.createElement("button"); gb.textContent = "Ground view"; gb.title = "Stand 1.75 m above the ground here and look at the horizon";
-  gb.onclick = async () => { $("pmenu").hidden = true; if (v2d) await show2d(false); groundView(x, y); }; btns.appendChild(gb);
+  const mine = v && v.me;   // your own location: the eye 2 m up (owner, 2026-10-26: "allow viewing from 2m above ground from current location")
+  const gb = document.createElement("button"); gb.textContent = "Ground view"; gb.title = mine ? "Stand 2 m above the ground where you are and look at the horizon" : "Stand 1.75 m above the ground here and look at the horizon";
+  gb.onclick = async () => { $("pmenu").hidden = true; if (v2d) await show2d(false); groundView(x, y, mine ? ME_H : 0); }; btns.appendChild(gb);
   const vb = document.createElement("button"); vb.textContent = "Viewshed"; vb.title = "Show the ground in sight from 1 m above this point (the Viewshed feature, with the share of the view seen)";   // owner, 2026-10-19
   vb.onclick = async () => { $("pmenu").hidden = true; S.vs = { x, y }; for (const G of S.out ? [S, S.out] : [S]) if (G.feat) delete G.feat.viewshed; $("ft_viewshed").checked = true; await featuresOn(); repaint(); }; btns.appendChild(vb);
   $("pmenuT").appendChild(btns);
@@ -3219,6 +3262,10 @@ function vec2d() {   // the centre, the file's areas and points as map marks, un
   S.areas.forEach(a => { if (!layerOn(a.src || "__markers")) return; add(L.polygon(a.ring.map(q => llOf(q[0], q[1])), { color: a.col, weight: 2, fill: false })).bindTooltip(esc(a.name || "area")).on("click", e => menu(a, e)); });
   S.pts.forEach(q => { if (!layerOn(q.src || "__markers")) return; const c = new THREE.Color(q.col), dark = c.r + c.g + c.b < 0.6;
     add(L.circleMarker(llOf(q.x, q.y), { radius: 7, color: dark ? "#fff" : "#111", weight: 2, fillColor: q.col, fillOpacity: 1 })).bindTooltip(esc(q.name || "point")).on("click", e => menu(q, e)); });
+  if (me && inView(me.x, me.y, S.RB)) {   // your own location (◎)
+    add(L.circle(llOf(me.x, me.y), { radius: me.acc, color: "#1e88e5", weight: 1, fillOpacity: 0.15 }));
+    add(L.circleMarker(llOf(me.x, me.y), { radius: 8, color: "#fff", weight: 2, fillColor: "#1e88e5", fillOpacity: 1 })).bindTooltip("You are here").on("click", e => menu(me, e));
+  }
 }
 async function show2d(on) {   // the switch: the map takes the 3-D view's centre and about its zoom; back, the orbit centre moves to the map's centre
   if (on === v2d || (on && !S)) return;
@@ -3894,7 +3941,7 @@ const FEAT_HELP = {   // row checkbox id → [title, what it shows, the assumpti
 };
 const HELP = [
   ["Getting a terrain", "<p>The search box above the map finds a place by name — Norwegian names from Kartverket's place-name register (a spelling close enough will do; each hit says what kind of place it is and its municipality), anything else from OpenStreetMap; a hit moves the map there and places the point, Enter takes the first. </p><p>Tap the coordinates or the 📍 in the title to open the map: tap a place, set the <b>view radius</b> and the <b>model</b>, then Render. <b>1 m</b> is Kartverket's 1 m terrain model (DTM) and reaches 5 km from the point; <b>10 m</b> reaches 15 km; <b>1 m centre + 10 m around</b> nests a 1 m square (up to 5 km) inside a 10 m view (up to 15 km). A 1 m radius dragged or typed past 5 km flips to the mixed model by itself; the frames on the map show both squares. A view can also come from a <b>link</b> (<code>?lat=&amp;lon=&amp;r=&amp;res=</code>), from BirdsWhere (its points come along as pins), from a <b>folder</b> of DTM GeoTIFF tiles with .geojson / .kml / .kmz overlays (Data → Load), from a saved one-file view, or from a Google Drive folder.</p><p>Tapping the terrain opens a popup with the model to fetch at and a row of buttons: <b>Fetch+</b> (fetch the tiles round that point too and show everything fetched so far as one view), <b>Fetch</b> (move the view there) and <b>Ground view</b>. Tiles already in hand are not fetched again.</p>"],
-  ["Moving around", "<p>Drag to move the map (✋ — tap it for ⟳, then drag rotates and tilts) · twist two fingers, right-drag or Shift+drag to rotate · pinch, wheel or <kbd>+</kbd> <kbd>−</kbd> to zoom · ⟲ ⟳ ▲ ▼ rotate and tilt in steps, <kbd>N</kbd> puts north up · arrow keys pan. <b>Reset view</b> returns to the start, <b>Top view</b> looks straight down, <b>Ground view</b> stands 1.75 m above the ground at the point the view turns about (the centre at first; the tap popup's <i>Ground view</i> stands at the tapped point) and looks level at the horizon in the current heading — rotate to look round, tilt to look down, drag to walk; every overlay is painted on the terrain, so all of them show. <b>Height ×</b> (Map section) exaggerates heights (1–3; shadows are exact at ×1). <b>Smooth terrain</b> (Map section) softens the model with a Gaussian of the given σ in metres (off: the raw cells). ‹ tucks the panels away, › the map controls. A closed section whose triangle is <b>blue</b> has a toggle set inside it (a layer on, contours off …).</p>"],
+  ["Moving around", "<p>Drag to move the map (✋ — tap it for ⟳, then drag rotates and tilts) · twist two fingers, right-drag or Shift+drag to rotate · pinch, wheel or <kbd>+</kbd> <kbd>−</kbd> to zoom · ⟲ ⟳ ▲ ▼ rotate and tilt in steps, <kbd>N</kbd> puts north up · arrow keys pan. <b>Reset view</b> returns to the start, <b>Top view</b> looks straight down, <b>Ground view</b> stands 1.75 m above the ground at the point the view turns about (the centre at first; the tap popup's <i>Ground view</i> stands at the tapped point) and looks level at the horizon in the current heading — rotate to look round, tilt to look down, drag to walk; every overlay is painted on the terrain, so all of them show. <b>◎</b> (control column) asks the device where you are: inside the view, the spot gets a blue mark with its accuracy ring, the view moves there and the point popup opens — its <i>Ground view</i> stands 2 m above the ground where you are; outside the view, a note says how far beyond the edge you are. <b>Height ×</b> (Map section) exaggerates heights (1–3; shadows are exact at ×1). <b>Smooth terrain</b> (Map section) softens the model with a Gaussian of the given σ in metres (off: the raw cells). ‹ tucks the panels away, › the map controls. A closed section whose triangle is <b>blue</b> has a toggle set inside it (a layer on, contours off …).</p>"],
   ["2-D map", "<p>The <b>2D</b> button in the control column shows the same place as a flat map carrying the terrain's layers: every layer, mask and graded layer, the pins and areas — drawn with transparency over the map, which supplies its own base and contours (the 3-D base map and the painted contours are not transferred). The <b>Map</b> dropdown is shared: <i>Plain</i> is a bare light background with the layers alone on it; every other choice is a tile map. Hover, a short tap (pinned values), a long press or right-click (the point popup), pins and areas work as in 3-D; <i>Ground view</i> from the map goes back to the terrain at that point. <b>3D</b> returns to the terrain, centred where the map was. A view link made on the map opens flat.</p><p class=\"as\"><b>Assumptions:</b> the square is drawn in Web Mercator by projecting a lattice every 8 px exactly and interpolating between — far below a cell of error; the surround (1+10m) lies under the 1 m square.</p>"],
   ["Map", "<p>The <b>base map</b> is draped onto the terrain for the view's box: plain (a light tint), Kartverket topo and greyscale, OpenTopoMap, CyclOSM (paths), Esri streets and aerial, Esri Wayback (every earlier aerial photo of the spot — a <i>Photo</i> list), and NASA's recent satellite imagery (the days of the last 30 with a Sentinel-2 or Landsat pass over the centre at 30 m, about a week behind, then the last three days of MODIS at 250 m — clouds are yours to judge). <b>Contours</b> every 5 m, labelled every 25 m. One layer per loaded <b>overlay file</b> (its polygons, lines and points), <b>centre & circles</b> (the centre mark, a 500 m circle and the view's edge), and <b>bold markers</b> (bigger pins, seen through hills, areas outlined).</p>"],
   ["Terrain features", null],
