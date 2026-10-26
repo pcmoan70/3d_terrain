@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-26 · Slope / Facing legend classes are remembered
+
+Owner: "the sub toggle options for Facing (the way slopes ≥ 15° face) should be remembered. eg when user selects S this should be remembered even if main toggle is turned on and off." The hidden classes (`clsOff`) are kept in the browser (`t3d_clsoff`), applied to the legend at start, and the view link carries them whether or not the layer is on at the time (before, a link made with the layer off dropped them, so the choice was lost on the way back). Same for the NIBIO class toggles in the link.
+
 ## 2026-10-26 · Red level curves at elevations of your choice
 
 Owner: "allow user to set a list of height levels which are drawn by clear red level curves in the map (let the input be a space or comma separated list of elevations in meters)". A *Red levels (m)* box under the Contours toggle; the list (spaces, commas or semicolons) is painted into the terrain's picture as two-cell-wide red curves after every other layer, so they show in 3-D and on the flat map alike; the box is remembered in the browser (`t3d_levels`). A flat lake exactly at a level gets its shoreline, not a red fill.
