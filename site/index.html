@@ -2326,7 +2326,20 @@ const NB_GROUPS = [
   { id: "veg", svc: "vegetasjon", title: "Vegetation types (NIBIO)", fill: true, layers: [["Vegetasjonstypar", "Vegetation types"], ["Hovudtypar", "Main vegetation types"]] },
   { id: "mis", svc: "mis", title: "MIS forest habitats (NIBIO)", fill: false, layers: [["Nokkelbiotop", "Key biotopes"], ["Hule_lauvtrar_punkt", "Hollow broadleaf trees"], ["Gamle_trar", "Old trees"], ["Staende_dod_ved", "Standing dead wood"], ["Liggende_dod_ved", "Lying dead wood"], ["Eldre_lauvsuksesjon", "Older broadleaf succession"], ["Bergvegger_alle", "Cliff walls"], ["Bekkeklofter", "Stream gorges"], ["Leirraviner", "Clay ravines"], ["Rik_bakkevegetasjon", "Rich ground vegetation"], ["Trar_m_hengelav_alle", "Trees with hanging lichen"], ["Rikbarkstrar_alle", "Rich-bark trees"], ["Brannflater", "Burnt areas"], ["Kartleggingsomr", "Surveyed area"]] }];
 const nbId = (g, L) => "nb_" + g.id + "_" + L, nbUrl = g => NB_WMS + g.svc + "?service=WMS&version=1.3.0&styles=&crs=EPSG:25833", nbName = g => g.title.replace(" (NIBIO)", "");
-$("nibio").innerHTML = NB_GROUPS.map(g => '<details class="nb"><summary id="nbh_' + g.id + '">' + g.title + "</summary>" + g.layers.map(([L, t]) => '<div class="row"><label class="ly"><input type="checkbox" id="' + nbId(g, L) + '"> ' + t + "</label></div>").join("") + '<div class="row lg" id="lg_' + g.id + '" hidden></div></details>').join("");
+$("nibio").innerHTML = NB_GROUPS.map(g => '<details class="nb"><summary id="nbh_' + g.id + '">' + g.title + "</summary>" + g.layers.map(([L, t]) => '<div class="row"><label class="ly"><input type="checkbox" id="' + nbId(g, L) + '"> ' + (g.fill ? "" : '<span class="sw" id="sw_' + nbId(g, L) + '" hidden></span> ') + t + "</label></div>").join("") + '<div class="row lg" id="lg_' + g.id + '" hidden></div></details>').join("");
+// the MIS layers are symbols with no style sheet: each checkbox gets a swatch in its symbol's colour, read off the left (symbol) side of the
+// service's legend image the first time the group is opened (owner, 2026-10-28) — the commonest opaque colour that is neither the white
+// ground nor the black outline / text, ties to the darker (the clay-ravine hatch is grey on grey)
+for (const g of NB_GROUPS) if (!g.fill) $("nbh_" + g.id).parentElement.addEventListener("toggle", async function once(ev) {
+  if (!ev.target.open) return; ev.target.removeEventListener("toggle", once);
+  for (const [L] of g.layers) try {
+    const r = await fetch(NB_WMS + g.svc + "?service=WMS&version=1.3.0&request=GetLegendGraphic&sld_version=1.1.0&format=image/png&style=default&layer=" + L); if (!r.ok) continue;
+    const bm = await createImageBitmap(await r.blob()), cv = document.createElement("canvas"), w = Math.min(bm.width, 24); cv.width = w; cv.height = bm.height; const cx = cv.getContext("2d"); cx.drawImage(bm, 0, 0); const d = cx.getImageData(0, 0, w, bm.height).data, cnt = new Map();
+    for (let k = 0; k < d.length; k += 4) { if (d[k + 3] < 128 || (d[k] > 235 && d[k + 1] > 235 && d[k + 2] > 235) || (d[k] < 40 && d[k + 1] < 40 && d[k + 2] < 40)) continue; const key = (d[k] << 16) | (d[k + 1] << 8) | d[k + 2]; cnt.set(key, (cnt.get(key) || 0) + 1); }
+    const best = [...cnt].sort((a, b) => b[1] - a[1] || (a[0] >> 16) + (a[0] >> 8 & 255) + (a[0] & 255) - ((b[0] >> 16) + (b[0] >> 8 & 255) + (b[0] & 255)))[0];
+    if (best) { const el = $("sw_" + nbId(g, L)); el.style.background = "#" + best[0].toString(16).padStart(6, "0"); el.hidden = false; }
+  } catch (e) {}
+});
 function nbOn() {   // the layers on as [group, layer, blend strength], the map-filling one first
   const out = [];
   for (const g of NB_GROUPS) for (const [L] of g.layers) if ($(nbId(g, L)).checked) out[g.fill ? "unshift" : "push"]([g, L, g.fill ? 0.55 : 1]);

@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-28 · MIS habitat checkboxes carry their symbol colours
+
+Owner: "extract the color from the MIS forest habitats legend images (left hand side of image) and indicate with filled boxes next to check boxes with corresponding color like for other overlays." The MIS layers are symbols without a style sheet, so the viewer reads each layer's legend image from NIBIO the first time the group is opened: the left 24 px (the symbol), the commonest opaque colour that is neither the white ground nor the black outline and text, ties to the darker (the clay-ravine hatch is grey on grey). That colour fills a swatch before the layer's name. No image → no swatch.
+
 ## 2026-10-26 · Slope / Facing legend classes are remembered
 
 Owner: "the sub toggle options for Facing (the way slopes ≥ 15° face) should be remembered. eg when user selects S this should be remembered even if main toggle is turned on and off." The hidden classes (`clsOff`) are kept in the browser (`t3d_clsoff`), applied to the legend at start, and the view link carries them whether or not the layer is on at the time (before, a link made with the layer off dropped them, so the choice was lost on the way back). Same for the NIBIO class toggles in the link.
