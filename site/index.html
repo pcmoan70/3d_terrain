@@ -144,6 +144,10 @@
       <div class="row lg" id="lgSnow" hidden></div>
       <div class="row w"><label class="ly"><input type="checkbox" id="lySnowD"> Snow days &gt; 5 cm (seNorge, NVE)</label><input id="snowYear" type="number" min="1957" step="1" style="width:64px" title="The year: days with more than 5 cm of snow in it"></div>
       <div class="row lg" id="lgSnowD" hidden></div>
+      <div class="row w"><label class="ly"><input type="checkbox" id="lyRr7"> Precipitation, last 7 days (seNorge, MET)</label><input id="wxDay" type="date" style="width:auto" title="The last day of the seven: any day since 1957 up to yesterday"></div>
+      <div class="row lg" id="lgRr7" hidden></div>
+      <div class="row w"><label class="ly"><input type="checkbox" id="lyTg7"> Temperature, last 7 days (seNorge, MET)</label></div>
+      <div class="row lg" id="lgTg7" hidden></div>
     </details>
     <details class="sec" id="sunSec" open><summary>Sun</summary>
       <div class="row w"><select id="lmode" style="width:auto"><option value="sun">Sun at date and time</option><option value="fixed">Fixed light (NW)</option></select></div>
@@ -2484,32 +2488,37 @@ async function nbInfo(g, x, y) {   // MIS: everything within 10 px = 20 m (MapSe
 // seNorge's own palette (its legend graphic); the class under the pointer is read off the colour.
 const SNOW_WMS = "https://gridwms.nve.no/wms_server/wms_server.aspx?service=WMS&version=1.1.1&request=GetMap&styles=&srs=EPSG:25833&format=image/png&transparent=true";
 const SNOW_PAL = [[0, 0, 153], [0, 25, 255], [0, 153, 255], [64, 204, 255], [128, 235, 255], [179, 255, 255], [217, 255, 255], [204, 245, 122]];
+// the 7-day weather maps of senorge.no are not on NVE's grid service: they come from MET's WMS (sla-victoria.met.no, the
+// service senorge.no itself calls; EPSG:25833, CORS, time = the last of the seven days) in seNorge's own classes (owner, 2026-10-29)
+const MET_WMS = "https://sla-victoria.met.no/wms?service=WMS&version=1.3.0&request=GetMap&crs=EPSG:25833&format=image/png&transparent=true&styles=";
 const SNOWL = {
   snow:  { ly: "lySnow", lg: "lgSnow", when: "snowDay", layer: "sd", title: "Snow depth", busy: "Loading snow depth…", cls: ["over 400 cm", "200 – 400 cm", "150 – 200 cm", "100 – 150 cm", "50 – 100 cm", "25 – 50 cm", "under 25 cm", "bare ground"] },
-  snowd: { ly: "lySnowD", lg: "lgSnowD", when: "snowYear", layer: "daygt50sdyr", title: "Snow days > 5 cm", busy: "Loading snow days…", cls: ["over 350 days", "200 – 350 days", "100 – 200 days", "50 – 100 days", "25 – 50 days", "10 – 25 days", "under 10 days", "none"] }
+  snowd: { ly: "lySnowD", lg: "lgSnowD", when: "snowYear", layer: "daygt50sdyr", title: "Snow days > 5 cm", busy: "Loading snow days…", cls: ["over 350 days", "200 – 350 days", "100 – 200 days", "50 – 100 days", "25 – 50 days", "10 – 25 days", "under 10 days", "none"] },
+  rr7: { ly: "lyRr7", lg: "lgRr7", when: "wxDay", layer: "rr_seNorge7daysRr", wms: MET_WMS + "SeNorge_Rainfall", src: "MET", title: "Precipitation, 7 days", busy: "Loading precipitation…", pal: [[255, 102, 255], [255, 0, 255], [153, 0, 255], [0, 0, 153], [0, 25, 255], [0, 153, 255], [128, 235, 255], [217, 255, 255], [219, 219, 219]], cls: ["over 300 mm", "200 – 300 mm", "150 – 200 mm", "100 – 150 mm", "60 – 100 mm", "40 – 60 mm", "20 – 40 mm", "0.1 – 20 mm", "under 0.1 mm"] },
+  tg7: { ly: "lyTg7", lg: "lgTg7", when: "wxDay", layer: "tg_seNorge7daysTg", wms: MET_WMS + "SeNorge_Temperature", src: "MET", title: "Temperature, 7 days", busy: "Loading temperature…", pal: [[204, 0, 0], [255, 25, 0], [255, 102, 0], [255, 179, 0], [255, 230, 77], [255, 255, 64], [255, 255, 190], [217, 255, 255], [179, 255, 255], [128, 235, 255], [64, 204, 255], [0, 153, 255], [0, 25, 255], [0, 0, 153]], cls: ["over 20 °C", "15 – 20 °C", "10 – 15 °C", "5 – 10 °C", "3 – 5 °C", "1 – 3 °C", "0 – 1 °C", "−1 – 0 °C", "−3 – −1 °C", "−5 – −3 °C", "−10 – −5 °C", "−15 – −10 °C", "−20 – −15 °C", "under −20 °C"] }
 };
 async function snowImage(G, k) {   // the layer for one grid at its day / year as ImageData (kept per day; null → failed or nothing there)
   const L = SNOWL[k], when = $(L.when).value; if (G[k] && G[k].when === when) return G[k].img;
   const px = Math.min(G.n, 1500), bb = [S.X - G.R, S.Y - G.R, S.X + G.R, S.Y + G.R].map(v => v.toFixed(1)).join(",");
   G[k] = { when, img: null };
   try {
-    const r = await fetch(SNOW_WMS + "&layers=" + L.layer + "&time=" + encodeURIComponent(when) + "&bbox=" + bb + "&width=" + px + "&height=" + px); if (!r.ok) throw new Error("HTTP " + r.status);
+    const r = await fetch((L.wms || SNOW_WMS) + "&layers=" + L.layer + "&time=" + encodeURIComponent(when) + "&bbox=" + bb + "&width=" + px + "&height=" + px); if (!r.ok) throw new Error("HTTP " + r.status);
     const bm = await createImageBitmap(await r.blob()), cv = document.createElement("canvas"); cv.width = cv.height = G.n; const cx = cv.getContext("2d"); cx.imageSmoothingEnabled = false; cx.drawImage(bm, 0, 0, G.n, G.n);
     const img = cx.getImageData(0, 0, G.n, G.n); let any = false; for (let o = 3; o < img.data.length && !any; o += 4 * 37) any = img.data[o] >= 128;
     if (any) G[k].img = img; else $("dsrc").textContent = L.title + ": seNorge has nothing for " + when + " here.";
-  } catch (e) { $("dsrc").textContent = L.title + ": NVE's map service did not answer (" + e.message + ")."; }
+  } catch (e) { $("dsrc").textContent = L.title + ": " + (L.src || "NVE") + "'s map service did not answer (" + e.message + ")."; }
   return G[k].img;
 }
-const snowClass = (r, g, b) => { let best = -1, bd = 1e9; SNOW_PAL.forEach((c, i) => { const d = (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2; if (d < bd) { bd = d; best = i; } }); return bd < 40 * 40 ? best : -1; };
+const snowClass = (pal, r, g, b) => { let best = -1, bd = 1e9; pal.forEach((c, i) => { const d = (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2; if (d < bd) { bd = d; best = i; } }); return bd < 40 * 40 ? best : -1; };
 function snowAt(G, k, x, y) {   // the class under a point, by its colour
   const L = G && G[k] && G[k].img; if (!L) return null;
   const n = G.n, i = Math.max(0, Math.min(n - 1, Math.floor((x + G.R) / G.c))), j = Math.max(0, Math.min(n - 1, Math.floor((G.R - y) / G.c))), o = 4 * (j * n + i), d = L.data;
-  if (d[o + 3] < 128) return null; const c = snowClass(d[o], d[o + 1], d[o + 2]); return c < 0 ? null : SNOWL[k].cls[c];
+  if (d[o + 3] < 128) return null; const c = snowClass(SNOWL[k].pal || SNOW_PAL, d[o], d[o + 1], d[o + 2]); return c < 0 ? null : SNOWL[k].cls[c];
 }
 const snowOn = () => Object.keys(SNOWL).filter(k => $(SNOWL[k].ly).checked);
 for (const k of Object.keys(SNOWL)) {
   const L = SNOWL[k];
-  $(L.lg).innerHTML = L.cls.map((t, i) => '<span><span class="sw" style="background:rgb(' + SNOW_PAL[i].join(",") + ')"></span> ' + t + "</span>").join("");
+  $(L.lg).innerHTML = L.cls.map((t, i) => '<span><span class="sw" style="background:rgb(' + (L.pal || SNOW_PAL)[i].join(",") + ')"></span> ' + t + "</span>").join("");
   $(L.ly).onchange = async () => {
     const on = $(L.ly).checked; $(L.lg).hidden = !on;
     if (on && S) { busy(L.busy); await tick(); for (const G of S.out ? [S, S.out] : [S]) await snowImage(G, k); busy(false); }
@@ -2517,7 +2526,7 @@ for (const k of Object.keys(SNOWL)) {
   };
   $(L.when).onchange = () => { if ($(L.ly).checked) $(L.ly).onchange(); };
 }
-$("snowDay").value = new Date().toISOString().slice(0, 10); $("snowYear").value = $("snowYear").max = new Date().getFullYear() - 1;   // the year's count exists once the year is over
+$("snowDay").value = new Date().toISOString().slice(0, 10); $("wxDay").value = $("wxDay").max = new Date(Date.now() - 864e5).toISOString().slice(0, 10);   // the 7-day maps end yesterday $("snowYear").value = $("snowYear").max = new Date().getFullYear() - 1;   // the year's count exists once the year is over
 async function clcInfo(x, y) {   // the exact class at a point, from the WMS
   const h = 50, X = S.X + x, Y = S.Y + y;
   const r = await fetch(CLC_WMS + "&request=GetFeatureInfo&query_layers=CORINE_Land_Cover_2018&bbox=" + [X - h, Y - h, X + h, Y + h].map(v => v.toFixed(1)).join(",") + "&width=100&height=100&i=50&j=50&info_format=application/vnd.ogc.gml");
@@ -2653,7 +2662,7 @@ async function satUI(S) {
   BASEMAPS[id] = { url: satUrl(k, day), max: SAT[k][2], attr: "Imagery: NASA GIBS — " + SAT[k][4] + ", " + day + (k === "MOD" ? "" : " (HLS v2.0, NASA / USGS)") };
   return id;
 }
-function setAttr(id) { $("attr").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0)" + ($("lyClc").checked ? " · CORINE Land Cover 2018 © NIBIO / Copernicus" : "") + ["NIBIO", "Miljødirektoratet"].map(a => { const n = [...new Set(nbOn().filter(e => nbAttr(e[0]) === a).map(e => nbName(e[0])))]; return n.length ? " · " + n.join(", ") + " © " + a : ""; }).join("") + (snowOn().length ? " · Snow: seNorge © NVE" : "") + ($("lyWind").checked && $("windDir").value === "rose" && S && S.rose ? " · Winds: Open-Meteo (ERA5)" : "") + (BASEMAPS[id] ? " · " + BASEMAPS[id].attr : "") + " · Viewer: MIT licence, github.com/pcmoan70/3d_terrain"; }   // the code's licence, always (owner, 2026-10-19)
+function setAttr(id) { $("attr").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0)" + ($("lyClc").checked ? " · CORINE Land Cover 2018 © NIBIO / Copernicus" : "") + ["NIBIO", "Miljødirektoratet"].map(a => { const n = [...new Set(nbOn().filter(e => nbAttr(e[0]) === a).map(e => nbName(e[0])))]; return n.length ? " · " + n.join(", ") + " © " + a : ""; }).join("") + (snowOn().some(k => !SNOWL[k].wms) ? " · Snow: seNorge © NVE" : "") + (snowOn().some(k => SNOWL[k].wms) ? " · Weather: seNorge © MET Norway" : "") + ($("lyWind").checked && $("windDir").value === "rose" && S && S.rose ? " · Winds: Open-Meteo (ERA5)" : "") + (BASEMAPS[id] ? " · " + BASEMAPS[id].attr : "") + " · Viewer: MIT licence, github.com/pcmoan70/3d_terrain"; }   // the code's licence, always (owner, 2026-10-19)
 async function getBase(G, id) {   // the map for one grid (a packaged map covers the fine grid: radius_1m, else radius)
   setAttr(id);
   if (!BASEMAPS[id]) return null;
@@ -3942,6 +3951,10 @@ const FEAT_HELP = {   // row checkbox id → [title, what it shows, the assumpti
   lySnow: ["Snow depth (seNorge, NVE)",
     "Snow depth on the chosen day from NVE's seNorge model on 1 km cells — any day since 1957, and the next nine days as a forecast — in seNorge's own classes, from bare ground to over 4 m. The class under the pointer and in the tap popup.",
     "seNorge is a model interpolated from weather stations: one value per 1 km cell, so drifts, wind-swept ridges and sheltered hollows all read the same. A day with no grid says so. Needs the network."],
+  lyRr7: ["Precipitation, last 7 days (seNorge, MET)",
+    "Precipitation summed over the seven days ending on the chosen day (the last day of the seven; any day since 1957 up to yesterday), from the seNorge grid on 1 km cells, in seNorge's own classes from under 0.1 mm to over 300 mm. The class is named under the pointer and listed with a tap. Served by MET Norway's map service, the one senorge.no itself reads; needs the network."],
+  lyTg7: ["Temperature, last 7 days (seNorge, MET)",
+    "Mean air temperature over the seven days ending on the chosen day (shared with the precipitation layer), from the seNorge grid on 1 km cells, in seNorge's classes from under −20 °C to over 20 °C. Class under the pointer and with a tap. MET Norway's map service; needs the network."],
   lySnowD: ["Snow days > 5 cm (seNorge, NVE)",
     "The number of days in the chosen year with more than 5 cm of snow on the ground, from the same seNorge model, in classes from none to over 350 days. The last complete year is chosen at first; the running year has no grid yet.",
     "The same 1 km model as snow depth; the count is a season's length at the cell's scale, not of a particular slope."],
