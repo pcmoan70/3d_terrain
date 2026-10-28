@@ -2320,18 +2320,25 @@ $("lyClc").onchange = async () => {
 // habitat registrations are sparse features and stack on whatever else is on. Legends are built from the services' style
 // sheets (the SR16 table transcribed); the MIS checkboxes carry their symbol colours instead; a tap asks each service for its values at the point.
 const NB_WMS = "https://wms.nibio.no/cgi-bin/";
+const MD = "https://kart.miljodirektoratet.no/arcgis";   // the Environment Agency's Naturbase services, the same WMS shape; ArcGIS: layer classes from the REST legend, feature info as text/xml (owner, 2026-10-29)
+const md = svc => ({ url: MD + "/services/" + svc + "/MapServer/WMSServer", rest: MD + "/rest/services/" + svc + "/MapServer", attr: "Miljødirektoratet", fill: false, blend: 0.6 });
 const NB_GROUPS = [
   { id: "sr16", svc: "sr16", title: "SR16 forest resources (NIBIO)", fill: true, layers: [["SRRTRESLAG", "Tree species"], ["SRRHOYDEM", "Mean height"], ["SRRHOYDEO", "Dominant height"], ["SRRKRONEDEK", "Crown cover"], ["SRRLAI", "Leaf area index"], ["SRRVOLMB", "Timber volume"], ["SRRBMO", "Above-ground biomass"], ["SRRBONITET", "Site index"], ["SRRDIAMMIDDEL", "Mean stem diameter"], ["SRRGRFLATE", "Basal area"], ["SRRTREANTALL", "Trees per hectare"]] },
   { id: "ar5", svc: "ar5", title: "AR5 land resources (NIBIO)", fill: true, layers: [["Arealtype", "Land type"], ["Treslag", "Tree species"], ["Skogbonitet", "Forest productivity"], ["Grunnforhold", "Ground conditions"]] },
   { id: "veg", svc: "vegetasjon", title: "Vegetation types (NIBIO)", fill: true, layers: [["Vegetasjonstypar", "Vegetation types"], ["Hovudtypar", "Main vegetation types"]] },
-  { id: "mis", svc: "mis", title: "MIS forest habitats (NIBIO)", fill: false, layers: [["Nokkelbiotop", "Key biotopes"], ["Hule_lauvtrar_punkt", "Hollow broadleaf trees"], ["Gamle_trar", "Old trees"], ["Staende_dod_ved", "Standing dead wood"], ["Liggende_dod_ved", "Lying dead wood"], ["Eldre_lauvsuksesjon", "Older broadleaf succession"], ["Bergvegger_alle", "Cliff walls"], ["Bekkeklofter", "Stream gorges"], ["Leirraviner", "Clay ravines"], ["Rik_bakkevegetasjon", "Rich ground vegetation"], ["Trar_m_hengelav_alle", "Trees with hanging lichen"], ["Rikbarkstrar_alle", "Rich-bark trees"], ["Brannflater", "Burnt areas"], ["Kartleggingsomr", "Surveyed area"]] }];
-const nbId = (g, L) => "nb_" + g.id + "_" + L, nbUrl = g => NB_WMS + g.svc + "?service=WMS&version=1.3.0&styles=&crs=EPSG:25833", nbName = g => g.title.replace(" (NIBIO)", "");
+  { id: "mis", svc: "mis", title: "MIS forest habitats (NIBIO)", fill: false, layers: [["Nokkelbiotop", "Key biotopes"], ["Hule_lauvtrar_punkt", "Hollow broadleaf trees"], ["Gamle_trar", "Old trees"], ["Staende_dod_ved", "Standing dead wood"], ["Liggende_dod_ved", "Lying dead wood"], ["Eldre_lauvsuksesjon", "Older broadleaf succession"], ["Bergvegger_alle", "Cliff walls"], ["Bekkeklofter", "Stream gorges"], ["Leirraviner", "Clay ravines"], ["Rik_bakkevegetasjon", "Rich ground vegetation"], ["Trar_m_hengelav_alle", "Trees with hanging lichen"], ["Rikbarkstrar_alle", "Rich-bark trees"], ["Brannflater", "Burnt areas"], ["Kartleggingsomr", "Surveyed area"]] },
+  // a layer's third member 1 = one class (its own colour; the A / B / C value classes differ only by hatching) — the value comes with a tap
+  { id: "nin", ...md("naturtyper_nin"), title: "Nature types NiN (Miljødirektoratet)", layers: [["naturtyper_nin_alle", "All NiN localities"], ["naturtype_nin_svart_hoy_kvalitet", "Very high quality"], ["naturtype_nin_hoy_kvalitet", "High quality"], ["naturtype_nin_moderat_kvalitet", "Moderate quality"], ["naturtype_nin_lav_kvalitet", "Low quality"], ["naturtype_nin_svart_lav_kvalitet", "Very low quality"], ["naturtype_nin_ikke_kvalitetsvurdert", "Not quality-assessed"], ["dekningskart_naturtyper_nin", "Surveyed area"]] },
+  { id: "hb13", ...md("naturtyper_hb13"), title: "Nature types DN handbook 13 (Miljødirektoratet)", layers: [["naturtyper_hb13_alle", "All localities, by value"], ["hovednaturtype_hb13_skog", "Forest", 1], ["hovednaturtype_hb13_myr_og_kilde", "Bog and spring", 1], ["hovednaturtype_hb13_ferskvann_vatmark", "Fresh water and wetland", 1], ["hovednaturtype_hb13_rasmark_berg_kantkratt", "Scree, cliff and edge scrub", 1], ["hovednaturtype_hb13_fjell", "Mountain", 1], ["hovednaturtype_hb13_kulturlandskap", "Cultural landscape", 1], ["hovednaturtype_hb13_kyst_havstrand", "Coast and seashore", 1], ["hovednaturtype_hb13_andre_viktige", "Other important areas", 1]] },
+  { id: "utv", ...md("naturtyper_utvalgte2"), title: "Selected nature types (Miljødirektoratet)", layers: [["naturtype_utvalgt_omr", "Selected nature types"]] }];
+const nbId = (g, L) => "nb_" + g.id + "_" + L, nbUrl = g => (g.url || NB_WMS + g.svc) + "?service=WMS&version=1.3.0&styles=&crs=EPSG:25833", nbName = g => g.title.replace(/ \((NIBIO|Miljødirektoratet)\)/, ""), nbAttr = g => g.attr || "NIBIO";
 $("nibio").innerHTML = NB_GROUPS.map(g => '<details class="nb"><summary id="nbh_' + g.id + '">' + g.title + "</summary>" + g.layers.map(([L, t]) => '<div class="row"><label class="ly"><input type="checkbox" id="' + nbId(g, L) + '"> ' + (g.fill ? "" : '<span class="sw" id="sw_' + nbId(g, L) + '" hidden></span> ') + t + "</label></div>").join("") + '<div class="row lg" id="lg_' + g.id + '" hidden></div></details>').join("");
 // the MIS layers are symbols with no style sheet: each checkbox gets a swatch in its symbol's colour, read off the left (symbol) side of the
 // service's legend image the first time the group is opened (owner, 2026-10-28) — the commonest opaque colour that is neither the white
 // ground nor the black outline / text, ties to the darker (the clay-ravine hatch is grey on grey)
 for (const g of NB_GROUPS) if (!g.fill) $("nbh_" + g.id).parentElement.addEventListener("toggle", async function once(ev) {
   if (!ev.target.open) return; ev.target.removeEventListener("toggle", once);
+  if (g.rest) { for (const [L] of g.layers) { const cls = await nbClasses(g, L); if (cls && cls.length === 1) { const el = $("sw_" + nbId(g, L)); el.style.background = cls[0][1]; el.hidden = false; } } return; }   // a one-class layer wears its colour
   for (const [L] of g.layers) try {
     const r = await fetch(NB_WMS + g.svc + "?service=WMS&version=1.3.0&request=GetLegendGraphic&sld_version=1.1.0&format=image/png&style=default&layer=" + L); if (!r.ok) continue;
     const bm = await createImageBitmap(await r.blob()), cv = document.createElement("canvas"), w = Math.min(bm.width, 24); cv.width = w; cv.height = bm.height; const cx = cv.getContext("2d"); cx.drawImage(bm, 0, 0); const d = cx.getImageData(0, 0, w, bm.height).data, cnt = new Map();
@@ -2342,7 +2349,7 @@ for (const g of NB_GROUPS) if (!g.fill) $("nbh_" + g.id).parentElement.addEventL
 });
 function nbOn() {   // the layers on as [group, layer, blend strength], the map-filling one first
   const out = [];
-  for (const g of NB_GROUPS) for (const [L] of g.layers) if ($(nbId(g, L)).checked) out[g.fill ? "unshift" : "push"]([g, L, g.fill ? 0.55 : 1]);
+  for (const g of NB_GROUPS) for (const [L] of g.layers) if ($(nbId(g, L)).checked) out[g.fill ? "unshift" : "push"]([g, L, g.blend != null ? g.blend : g.fill ? 0.55 : 1]);
   return out;
 }
 async function nbImage(G, g, L) {   // one layer for one grid as ImageData at the grid's size (undefined → not asked yet, null → failed)
@@ -2373,13 +2380,29 @@ const SR16_CL = {   // the SR16 rasters have no style sheet to ask for: their cl
   SRRTREANTALL: [["0–200 /ha", "#f7f7a8"], ["200–400 /ha", "#e4f1a2"], ["400–600 /ha", "#d1eb9d"], ["600–800 /ha", "#bce396"], ["800–1000 /ha", "#a0d88a"], ["1000–1200 /ha", "#85cc7f"], ["1200–1400 /ha", "#6bc072"], ["1400–1600 /ha", "#51b365"], ["1600–1800 /ha", "#37a657"], ["1800–2000 /ha", "#23934c"], ["2000–2200 /ha", "#117d41"], ["> 2200 /ha", "#006837"]] };
 const NB_EN = {   // the services' Norwegian class names in English (owner, 2026-10-19: "only show english names"); a name not here is shown as served
   "Fulldyrka jord": "Fully cultivated land", "Overflatedyrka jord": "Surface-cultivated land", "Innmarksbeite": "Pasture", "Skog": "Forest", "Myr": "Bog", "Åpen fastmark": "Open firm ground", "Ferskvann": "Fresh water", "Hav": "Sea", "Bre": "Glacier", "Bebygd": "Built-up", "Samferdsel": "Roads and rail", "Konstruert": "Constructed ground", "Organiske jordlag": "Peat", "Jorddekt": "Soil-covered", "Grunnlendt": "Shallow soil", "Fjell i dagen": "Bare rock", "Blokkmark": "Block field", "Skog, særs høg bonitet": "Forest, very high productivity", "Skog, høg bonitet": "Forest, high productivity", "Skog, middels bonitet": "Forest, medium productivity", "Skog, lav bonitet": "Forest, low productivity", "Uproduktiv skog": "Unproductive forest", "Barskog": "Coniferous forest", "Lauvskog": "Broadleaf forest", "Blandingsskog": "Mixed forest", "Ikke tresatt": "Not wooded", "Snøleie": "Snow-bed", "Heisamfunn i fjellet": "Mountain heath", "Engsamfunn i fjellet": "Mountain meadow", "Varmekjær lauvskog": "Thermophilous broadleaf forest", "Furuskog": "Pine forest", "Granskog": "Spruce forest", "Fukt- og sumpskog": "Damp and swamp forest", "Open fastmark i låglandet": "Open firm ground, lowland", "Jordbruksareal": "Farmland", "Uproduktive areal": "Unproductive ground", "Vatn": "Water", "Mosesnøleie": "Moss snow-bed", "Grassnøleie": "Grass snow-bed", "Frostmark, letype": "Frost ground, sheltered type", "Frostmark, rabbetype": "Frost ground, ridge type", "Tørrgrashei": "Dry grass heath", "Lavhei": "Lichen heath", "Reinrosehei": "Mountain-avens heath", "Rishei": "Dwarf-shrub heath", "Alpin røsslynghei": "Alpine heather heath", "Alpin fukthei": "Alpine damp heath", "Lågurteng": "Low-herb meadow", "Høgstaudeeng": "Tall-herb meadow", "Lav- og lyngrik bjørkeskog": "Lichen and heather birch forest", "Blåbærbjørkeskog": "Bilberry birch forest", "Engbjørkeskog": "Meadow birch forest", "Kalkbjørkeskog": "Calcareous birch forest", "Oreskog": "Alder forest", "Flommarkkratt": "Floodplain scrub", "Hagemarkskog": "Wood pasture", "Fattig edellauvskog": "Poor rich-broadleaf forest", "Rik edellauvskog": "Rich rich-broadleaf forest", "Lav- og lyngrik furuskog": "Lichen and heather pine forest", "Blåbærfuruskog": "Bilberry pine forest", "Engfuruskog": "Meadow pine forest", "Kalkfuruskog": "Calcareous pine forest", "Lav- og lyngrik granskog": "Lichen and heather spruce forest", "Blåbærgranskog": "Bilberry spruce forest", "Enggranskog": "Meadow spruce forest", "Fuktskog": "Damp forest", "Myrskog": "Bog forest", "Fattig sumpskog": "Poor swamp forest", "Rik sumpskog": "Rich swamp forest", "Rismyr": "Dwarf-shrub bog", "Bjønnskjeggmyr": "Deergrass bog", "Grasmyr": "Grass fen", "Blautmyr": "Quaking bog", "Storrsump": "Sedge swamp", "Kystlynghei": "Coastal heath", "Røsslynghei": "Heather heath", "Fukthei": "Damp heath", "Knausar og kratt": "Knolls and scrub", "Fukt- og strangenger": "Damp and shore meadows", "Sanddyner og grusstrender": "Dunes and gravel beaches", "Elveører og grusvifter": "River bars and gravel fans", "Dyrka mark": "Cultivated land", "Beitevoll": "Pasture", "Jord og grus": "Soil and gravel", "Ur og blokkmark": "Scree and block field", "Bart fjell": "Bare rock", "Bebygd areal, tett": "Built-up, dense", "Bebygd areal, ope": "Built-up, open", "Anna nytta areal": "Other used ground", "Varig is og snø": "Permanent ice and snow", "Høy": "high", "Middels": "medium", "Lav": "low", "Særs høy": "very high", "Impediment": "unproductive", "Gran": "spruce", "Furu": "pine", "Lauv": "broadleaf", "Nøkkelbiotop": "Key biotope", "Urørt": "untouched", "Undersøkt": "surveyed", "Ikke undersøkt": "not surveyed" };
+Object.assign(NB_EN, { "Naturtyper NiN": "NiN locality", "Dekningskart naturtyper NiN": "Surveyed area", "Svært høy kvalitet": "Very high quality", "Høy kvalitet": "High quality", "Moderat kvalitet": "Moderate quality", "Lav kvalitet": "Low quality", "Svært lav kvalitet": "Very low quality", "Ikke kvalitetsvurdert": "Not quality-assessed", "Svært viktig og viktig": "Very important and important", "Lokalt viktig": "Locally important",
+  "Slåttemark": "Hay meadow", "Slåttemyr": "Hay fen", "Hule eiker": "Hollow oaks", "Kalklindeskog": "Calcareous lime forest", "Kalksjøer": "Calcareous lakes", "Kystlynghei": "Coastal heath", "Åpen grunnlendt kalkmark i boreonemoral sone": "Open shallow-soil calcareous ground (boreonemoral)", "Olivinskog": "Olivine forest", "God": "good", "Dårlig": "poor", "Stort": "large", "Lite": "small", "Moderat": "moderate" });
 const nbEn = s => NB_EN[s] || NB_EN[s.trim()] || s;
+function symbolColour(b64) {   // the opaque colours of a legend symbol (base64 PNG) as #hex, commonest first (fill and outline: the map paints a locality's fill lighter than its outline), else null
+  return new Promise(res => { const im = new Image(); im.onerror = () => res(null); im.onload = () => {
+    const cv = document.createElement("canvas"); cv.width = im.width; cv.height = im.height; const cx = cv.getContext("2d"); cx.drawImage(im, 0, 0); const d = cx.getImageData(0, 0, im.width, im.height).data, cnt = new Map();
+    for (let k = 0; k < d.length; k += 4) if (d[k + 3] > 127) { const key = (d[k] << 16) | (d[k + 1] << 8) | d[k + 2]; cnt.set(key, (cnt.get(key) || 0) + 1); }
+    const all = [...cnt].sort((a, b) => b[1] - a[1]), tot = all.reduce((t, e) => t + e[1], 0); res(all.length ? all.filter(e => e[1] >= tot / 10).map(e => "#" + e[0].toString(16).padStart(6, "0")) : null); }; im.src = "data:image/png;base64," + b64; });
+}
 const NB_CLS = {};   // classes per layer key: [[label, "#hex"] …] — SR16 from the table, the vector layers from the service's own style sheet (WMS GetStyles), MIS none
 async function nbClasses(g, L) {
   const key = g.id + ":" + L;
   if (NB_CLS[key] !== undefined) return NB_CLS[key];
   if (g.id === "sr16") return NB_CLS[key] = SR16_CL[L] || null;
   if (g.id === "mis") return NB_CLS[key] = null;
+  if (g.rest) {   // ArcGIS: the REST legend gives each class's label and symbol image; the class colour is the symbol's commonest opaque colour
+    try {
+      g.legend = g.legend || (await (await fetch(g.rest + "/legend?f=json")).json()).layers; const lay = g.legend.find(l => l.layerName === L), def = g.layers.find(e => e[0] === L), out = [];
+      for (const e of lay ? lay.legend : []) { const c = await symbolColour(e.imageData); if (c && !out.some(o => o[1] === c[0])) out.push([def[2] ? def[1] : nbEn(e.label), ...c]); if (def[2] && out.length) break; }   // a class = [label, colour, more colours…]
+      NB_CLS[key] = out.length ? out : null;
+    } catch (e) { NB_CLS[key] = null; }
+    return NB_CLS[key];
+  }
   try {   // one <Rule> per class: its <Name> and the fill (or the stroke, for lines)
     const t = await (await fetch(NB_WMS + g.svc + "?service=WMS&version=1.1.1&request=GetStyles&layers=" + L)).text(), out = [];
     for (const m of t.matchAll(/<Rule>([\s\S]*?)<\/Rule>/g)) { const nm = /<Name>([^<]*)<\/Name>/.exec(m[1]), c = /<CssParameter name="(?:fill|stroke)">\s*(#[0-9a-fA-F]{6})/.exec(m[1]); if (nm && c) out.push([nbEn(nm[1]), c[1].toLowerCase()]); }
@@ -2388,7 +2411,7 @@ async function nbClasses(g, L) {
   return NB_CLS[key];
 }
 const nbRgb = c => [parseInt(c[1].slice(1, 3), 16), parseInt(c[1].slice(3, 5), 16), parseInt(c[1].slice(5, 7), 16)];
-const nbClass = (cls, r, g, b) => { let best = null, bd = 1e9; for (const c of cls) { c.rgb = c.rgb || nbRgb(c); const dd = (c.rgb[0] - r) ** 2 + (c.rgb[1] - g) ** 2 + (c.rgb[2] - b) ** 2; if (dd < bd) { bd = dd; best = c; } } return bd < 40 * 40 ? best : null; };
+const nbClass = (cls, r, g, b) => { let best = null, bd = 1e9; for (const c of cls) { c.rgbs = c.rgbs || c.slice(1).map(h => nbRgb([0, h])); for (const q of c.rgbs) { const dd = (q[0] - r) ** 2 + (q[1] - g) ** 2 + (q[2] - b) ** 2; if (dd < bd) { bd = dd; best = c; } } } return bd < 40 * 40 ? best : null; };   // a class may carry several colours (fill, outline)
 function nbClsMap(img, cls) {   // each pixel's class index (255 = none), once per image; the images hold few colours, so a memo makes it quick
   if (img.cls) return img.cls;
   const d = img.data, m = new Uint8Array(d.length / 4), memo = new Map();
@@ -2425,7 +2448,7 @@ async function nbLegend() {   // each group's row: the classes of every layer of
 }
 async function nbRefresh() {   // fetch what is on for both grids, then legend, attribution, paint
   const on = nbOn();
-  if (on.length && S) { busy("Loading NIBIO layers…"); await tick(); for (const G of S.out ? [S, S.out] : [S]) for (const [g, L] of on) await nbImage(G, g, L); busy(false); }
+  if (on.length && S) { busy("Loading overlays…"); await tick(); for (const G of S.out ? [S, S.out] : [S]) for (const [g, L] of on) await nbImage(G, g, L); busy(false); }
   await nbLegend(); setAttr($("basemap").value); repaint();
 }
 for (const g of NB_GROUPS) for (const [L] of g.layers) $(nbId(g, L)).onchange = () => {
@@ -2435,9 +2458,15 @@ for (const g of NB_GROUPS) for (const [L] of g.layers) $(nbId(g, L)).onchange = 
 // a tap: the SR16 answer is HTML with each layer's cell value as `if (<value> == 9999)` (9999 = no data; a layer without
 // data is left out altogether); the others answer GML, read for the group's descriptive fields
 const SR16_VAL = [["SRRTRESLAG", v => ["spruce", "pine", "broadleaf"][v - 1] || "species " + v], ["SRRHOYDEM", v => "mean height " + (v / 10).toFixed(1) + " m"], ["SRRHOYDEO", v => "dominant height " + (v / 10).toFixed(1) + " m"], ["SRRKRONEDEK", v => "crown cover " + v + " %"], ["SRRLAI", v => "LAI " + (v / 100).toFixed(1)], ["SRRVOLMB", v => v + " m³/ha"], ["SRRBMO", v => v + " t/ha biomass"], ["SRRBONITET", v => "site index " + v], ["SRRDIAMMIDDEL", v => "diameter " + v + " cm"], ["SRRGRFLATE", v => "basal area " + v + " m²/ha"], ["SRRTREANTALL", v => v + " trees/ha"]];
-const NB_FIELDS = { ar5: [["artype_beskrivelse", ""], ["artreslag_beskrivelse", ""], ["arskogbon_beskrivelse", "productivity"], ["argrunnf_beskrivelse", "ground"]], mis: [["forv_besk", ""], ["ko_status", ""], ["beh_kode", "treatment"], ["opph_merk", ""]] };
+const NB_FIELDS = { ar5: [["artype_beskrivelse", ""], ["artreslag_beskrivelse", ""], ["arskogbon_beskrivelse", "productivity"], ["argrunnf_beskrivelse", "ground"]], mis: [["forv_besk", ""], ["ko_status", ""], ["beh_kode", "treatment"], ["opph_merk", ""]],
+  nin: [["Naturtype", ""], ["Lokalitetskvalitet", ""], ["Tilstand", "condition"], ["Naturmangfold", "diversity"], ["Hovedøkosystem", ""], ["Områdenavn", ""]], hb13: [["naturtype", ""], ["verdi", "value"], ["utforming", ""], ["omraadenavn", ""]], utv: [["UtvalgtNaturtype", ""], ["Verdi", "value"], ["Lokalitetskvalitet", ""], ["Tilstand", "condition"], ["Områdenavn", ""]] };
 async function nbInfo(g, x, y) {   // MIS: everything within 10 px = 20 m (MapServer's radius), the features being drawn wider than they are
   const X = S.X + x, Y = S.Y + y, h = g.id === "mis" ? 100 : 50, q = (g.id === "sr16" ? SR16_VAL.map(e => e[0]) : g.layers.filter(([L]) => $(nbId(g, L)).checked).map(e => e[0])).join(",");
+  if (g.rest) {   // ArcGIS answers text/xml: one <FIELDS> element per feature with the values as attributes
+    const r = await fetch(nbUrl(g) + "&request=GetFeatureInfo&layers=" + q + "&query_layers=" + q + "&bbox=" + [X - h, Y - h, X + h, Y + h].map(v => v.toFixed(1)).join(",") + "&width=100&height=100&i=50&j=50&feature_count=5&info_format=text/xml");
+    const lines = [...new DOMParser().parseFromString(await r.text(), "text/xml").getElementsByTagName("FIELDS")].map(f => NB_FIELDS[g.id].map(([k, lbl]) => { const v = f.getAttribute(k); return v && v !== "Null" ? (lbl ? lbl + " " : "") + esc(nbEn(v)) : ""; }).filter(Boolean).join(", ")).filter(Boolean);
+    return lines.length ? [...new Set(lines)].join("<br>") : "nothing here";
+  }
   const r = await fetch(nbUrl(g) + "&request=GetFeatureInfo&layers=" + q + "&query_layers=" + q + "&bbox=" + [X - h, Y - h, X + h, Y + h].map(v => v.toFixed(1)).join(",") + "&width=100&height=100&i=50&j=50" + (g.id === "mis" ? "&feature_count=5&radius=10" : "") + "&info_format=" + (g.id === "sr16" ? "text/html" : "application/vnd.ogc.gml")), t = await r.text();
   if (g.id === "sr16") {   // one <th> section per layer that has anything, named "(SRRxxx raster)" (one is misspelt SSR…), so match by name
     const out = []; for (const sec of t.split("<th").slice(1)) { const nm = /\((S+R+\w+) raster\)/.exec(sec), v = /if \((-?[\d.]+) == 9999\)/.exec(sec), e = nm && SR16_VAL.find(e => e[0].slice(3) === nm[1].replace(/^S+R+/, "")); if (e && v && +v[1] !== 9999) out.push(e[1](+v[1])); }
@@ -2624,7 +2653,7 @@ async function satUI(S) {
   BASEMAPS[id] = { url: satUrl(k, day), max: SAT[k][2], attr: "Imagery: NASA GIBS — " + SAT[k][4] + ", " + day + (k === "MOD" ? "" : " (HLS v2.0, NASA / USGS)") };
   return id;
 }
-function setAttr(id) { $("attr").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0)" + ($("lyClc").checked ? " · CORINE Land Cover 2018 © NIBIO / Copernicus" : "") + (nbOn().length ? " · " + [...new Set(nbOn().map(e => nbName(e[0])))].join(", ") + " © NIBIO" : "") + (snowOn().length ? " · Snow: seNorge © NVE" : "") + ($("lyWind").checked && $("windDir").value === "rose" && S && S.rose ? " · Winds: Open-Meteo (ERA5)" : "") + (BASEMAPS[id] ? " · " + BASEMAPS[id].attr : "") + " · Viewer: MIT licence, github.com/pcmoan70/3d_terrain"; }   // the code's licence, always (owner, 2026-10-19)
+function setAttr(id) { $("attr").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0)" + ($("lyClc").checked ? " · CORINE Land Cover 2018 © NIBIO / Copernicus" : "") + ["NIBIO", "Miljødirektoratet"].map(a => { const n = [...new Set(nbOn().filter(e => nbAttr(e[0]) === a).map(e => nbName(e[0])))]; return n.length ? " · " + n.join(", ") + " © " + a : ""; }).join("") + (snowOn().length ? " · Snow: seNorge © NVE" : "") + ($("lyWind").checked && $("windDir").value === "rose" && S && S.rose ? " · Winds: Open-Meteo (ERA5)" : "") + (BASEMAPS[id] ? " · " + BASEMAPS[id].attr : "") + " · Viewer: MIT licence, github.com/pcmoan70/3d_terrain"; }   // the code's licence, always (owner, 2026-10-19)
 async function getBase(G, id) {   // the map for one grid (a packaged map covers the fine grid: radius_1m, else radius)
   setAttr(id);
   if (!BASEMAPS[id]) return null;
@@ -3217,7 +3246,7 @@ function pointMenu(x, y, cx, cy, v) {   // v: a file's point → its name and te
   }
   for (const g of NB_GROUPS) if (g.layers.some(([L]) => $(nbId(g, L)).checked)) {   // what NIBIO's services say about the point
     const el = document.createElement("div"); el.textContent = nbName(g) + ": …"; $("pmenuT").appendChild(el);
-    nbInfo(g, x, y).then(s => { el.innerHTML = esc(nbName(g)) + ": " + s; }, () => { el.textContent = nbName(g) + ": no answer from NIBIO"; });
+    nbInfo(g, x, y).then(s => { el.innerHTML = esc(nbName(g)) + ": " + s; }, () => { el.textContent = nbName(g) + ": no answer from " + nbAttr(g); });
   }
 }
 $("pmenuX").onclick = () => { $("pmenu").hidden = true; };
@@ -3901,6 +3930,12 @@ const FEAT_HELP = {   // row checkbox id → [title, what it shows, the assumpti
   nbh_veg: ["Vegetation types (NIBIO)",
     "NIBIO's vegetation maps (1:50 000) of mountain and outfield areas: the vegetation type (lavhei = lichen heath, rishei = dwarf-shrub heath, blåbærbjørkeskog = bilberry birch forest, rik sumpskog = rich swamp forest, myr = bog, snøleie = snow-bed, engbjørkeskog = meadow birch forest …) or the main types only. Rich meadows, bogs and willow scrub are forage; birch forest and heath are nesting ground for the mountain birds. The type is named under the pointer; a tap gives it where the map has one.",
     "Mapped only in parts of the country, mostly mountain and outfield areas; elsewhere the layer is blank. Needs the network."],
+  nbh_nin: ["Nature types NiN (Miljødirektoratet)",
+    "The Environment Agency's nature-type localities mapped after its NiN instruction (Natur i Norge 2.1): every locality in one purple, or the localities of one quality class each in its own shade (very high to very low, and not assessed), plus the surveyed area. A tap names the nature type, its quality, condition, diversity, main ecosystem and locality name. Polygons stack over whatever else is on."],
+  nbh_hb13: ["Nature types DN handbook 13 (Miljødirektoratet)",
+    "The older nature-type mapping (DN-håndbok 13): all localities coloured by value (very important and important, locally important), or one main type at a time — forest, bog and spring, fresh water and wetland, scree and cliff, mountain, cultural landscape, coast, other important areas — each in its colour (the A / B / C value classes differ only by hatching; the value comes with a tap, with the type, form and locality name)."],
+  nbh_utv: ["Selected nature types (Miljødirektoratet)",
+    "The nature types selected under the Nature Diversity Act — hay meadows, hay fens, hollow oaks, calcareous lime forest, calcareous lakes, coastal heath, open calcareous ground, olivine forest — each in its colour, with the legend listing those in view. A tap gives the type, value, quality, condition and locality name."],
   nbh_mis: ["MIS forest habitats (NIBIO)",
     "The environmental registrations in forest (MiS) made for forestry plans: key biotopes (nøkkelbiotop) set aside from logging, and the habitat elements found — hollow broadleaf trees, old trees, standing and lying dead wood, older broadleaf succession, cliff walls, stream gorges, clay ravines, rich ground vegetation, trees with hanging lichen, rich-bark trees and burnt areas. <i>Surveyed area</i> shows where the registration has been done at all (undersøkt) and where not. Hollow and old trees, dead wood and cliff walls are nest sites; the rich, damp habitats are feeding grounds. Each of these stacks on whatever else is on; the pointer names the layers that have something under it. A tap lists the features at the point with their notes.",
     "Registered only where a forestry plan was made, by the plan's surveyors; an area without features may simply be unsurveyed (see Surveyed area). The service draws every feature several pixels wide, so on a 10 m grid a registered tree or patch looks far bigger than it is; the tap finds the features within 20 m of the point. Needs the network."],
