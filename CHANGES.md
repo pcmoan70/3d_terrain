@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-29 · ? popups, Norwegian default, flags
+
+Owner: "All questionmarks should show show a separate window popup. Default Language should be norwegian (statefull between loads), instead of Norsk/English show Norwegian and British flag." Every **?** (the feature rows, the data groups, the DTM derived heading) now opens `#qpop`, a small panel beside the button with that entry alone (title, text, assumptions; × to close) — `qOpen`; the DTM note's hover tip is gone. `LANG` starts as "no" unless `t3d_lang` says otherwise. The language select is two flag buttons (inline SVG, the active one lit). Help entry and README updated.
+
 ## 2026-10-29 · English / Norwegian
 
 Owner: "add a locale choice English or Norwegian where all menue texts explanations and buttons etc are translated." A *English / Norsk* select in the first button row (`setLang`, localStorage `t3d_lang`, the browser language at first). The code and markup stay English; the JSON block `i18n-no` in the template holds the English → Norwegian dictionary (~1,200 UI strings and the whole help entries). `T(s)` translates whole strings (the help, the feature explanations, the DTM note — `helpRender` re-renders on a switch); everything else is translated in the DOM as it is written: a MutationObserver on the body runs `trTree` over added nodes, changed text and `title` / `placeholder` attributes — the trimmed text as a key, else one regex over every plain key (longest first) replaces the phrases inside composed lines ("844 m a.s.l. · slope 11° …"). The English of every node is kept in a WeakMap so switching back works. Help entry *Language*; README.
