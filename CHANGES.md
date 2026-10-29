@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-10-29 · CORINE below Selected nature types
+
+Owner: "Move the 'CORINE' overlay in 3d viewer below 'Selected nature types'". The CORINE rows (`clcRow`, `lgClc`) are moved under the *Selected nature types* group once the data groups are built, so the order is DTM derived · NIBIO · Environment Agency · CORINE · NGU · Weather. README updated.
+
+## 2026-10-29 · Every overlay in the hover text
+
+Owner: "make sure all overlays at a point are showed in the hover window". `tipXY` now also writes the *Slope* overlay's NVE class (or "below 27°, not painted") and the *Facing* overlay's direction class (or "slope below 15°, not painted"), with "(hidden)" when the class is switched off in the legend; `nbAt` says "here" for any data layer whose class table could not be read (before only MIS did, so such a layer was silent). The other overlays (CORINE, NIBIO, Environment Agency, NGU, weather, masks, graded layers, wind, sun) were already listed.
+
 ## 2026-10-29 · DTM derived subpane closed at first, state remembered
 
 Owner: "Let 'DTM derived' features subpane be collapsed by default … make the open/closed stateful (default=closed)". The *DTM derived* group no longer starts open; its open/closed state is kept in the browser (`t3d_dtmopen`) and restored on the next visit. README updated.
