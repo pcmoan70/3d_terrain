@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-29 · My points → KMZ
+
+Owner: "add a function for creating kmz files: adding points by clicking on 3d view. Notes include overlay values, in addition to user entered note. A button on the side-pane allows saving a named file. Make sure the point list is kept in local storage, and available on each loading of the webpage. Entered points should be shown in both 3d view and 2d view(map). Remember that a button should be available for clearing the stored points. (after saving ask user if entered points should be cleared)". The point popup gets **Add point** (name + note form; `myAdd` writes the hover text at the point — `tipText`, the plain-text twin of the new `tipHtml` — into the note) and, on one of these pins, **Delete point**. `myPts` lives in localStorage `t3d_mypoints` as lat/lon; in `build` the ones inside the view join `S.pts` (src `__mine`, magenta), so the pins, the flat map's marks, the Map-section row ("My points") and the pin hover all come from the existing file-point paths; the pin block of `build` is now `pins()` so a change redraws the pins alone. A new side-pane section **My points** shows the count, takes a file name and saves a KMZ (`myKml` → `zipOf` → `saveFile`; description = note + values + time, `color` in ExtendedData, an IconStyle colour), then `confirm`s clearing; **Clear** confirms too. Help entry, README.
+
 ## 2026-10-29 · CORINE below Selected nature types
 
 Owner: "Move the 'CORINE' overlay in 3d viewer below 'Selected nature types'". The CORINE rows (`clcRow`, `lgClc`) are moved under the *Selected nature types* group once the data groups are built, so the order is DTM derived · NIBIO · Environment Agency · CORINE · NGU · Weather. README updated.
