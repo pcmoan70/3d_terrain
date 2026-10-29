@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-29 · One flag, a toggle
+
+Owner: "Make the flags a toggle: when norwegian text is showing show the British flag and vice versa. Do not use space by showing both flags." One button (`langBtn`) holds both SVG flags and shows the one of the language a click switches to (`.langs.no` shows the British flag, `.langs.en` the Norwegian); `setLang` sets the class and the tooltip. Help and README reworded.
+
 ## 2026-10-29 · DTM derived: one large help popup
 
 Owner: "For 'Avledet fra DTM' question mark include all the overlays in a large popup, with sections describing each. (and remove the question marks on the individual question marks for the DTM fields)". `qOpen("dtm")` now fills a centred, larger `#qpop.big` with the DTM note followed by one section per DTM-derived overlay in the subpane's own row order (`FEAT_HELP` entries whose toggle sits inside `#dtmSec`, cliff drops included); `helpUI` adds no ? to those rows any more. README.
