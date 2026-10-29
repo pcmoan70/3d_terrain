@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-29 · NGU lime content of the bedrock
+
+Owner: "There are NGU mineral maps showing calcium rich minerals etc, those are preferred." A third NGU group, **Lime content of the bedrock** (`ngu_k`, `BerggrunnOkologiWMS`): *Kalkinnhold_N250* — the lime gradient of the main rock types in five classes (very lime-poor … very lime-rich, NiN's KA) — and *Ultramafisk_N250* (ultramafic rocks); placed first of the NGU groups. Classes from the service's style sheet (`NB_EN` gives them English), feature info by GML (`kalkinnhold_tekst`, `hovedbergart_tekst`, `tegnforklaring`). Help entry, dictionary entries, README. (NGU's industrial-mineral deposit layers — limestone, dolomite — are point symbols without fills in the style sheet and were left out.)
+
 ## 2026-10-29 · ? popups, Norwegian default, flags
 
 Owner: "All questionmarks should show show a separate window popup. Default Language should be norwegian (statefull between loads), instead of Norsk/English show Norwegian and British flag." Every **?** (the feature rows, the data groups, the DTM derived heading) now opens `#qpop`, a small panel beside the button with that entry alone (title, text, assumptions; × to close) — `qOpen`; the DTM note's hover tip is gone. `LANG` starts as "no" unless `t3d_lang` says otherwise. The language select is two flag buttons (inline SVG, the active one lit). Help entry and README updated.
