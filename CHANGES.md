@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-29 · Weather subpane
+
+Owner: "Move snow, temperature and percipation toggles under a subpane 'weather'". The four seNorge layers (snow depth, snow days, precipitation and temperature over 7 days) sit in a collapsible *Weather (seNorge)* group like the NIBIO and Environment Agency groups, closed at first, with a help entry.
+
 ## 2026-10-29 · NGU bedrock and superficial deposits
 
 Owner: "Also a mineral type overlay would be nice, ngu has those". Two map-filling groups from the Geological Survey's MapServer WMS (`geo.ngu.no`, the same conventions as NIBIO's: style sheet → classes, GML feature info, EPSG:25833, CORS): **Bedrock (NGU)** — main rock types from the compiled map (it draws nothing finer than 10 m per pixel, so it is asked for at 10 m/px like MIS and scaled up; a tap asks the local 1:50 000 and regional 1:250 000 maps instead, since the compiled layer is not queryable), the local map where it exists, the 1:250 000 map, age of formation and tectonic division; **Superficial deposits (NGU)** — deposit types, and the detailed map where one exists. Class names come from NGU's rules with the "123 - " code dropped; the common rock and deposit names are shown in English (`NB_EN`), the rest as served. One filling layer at a time, 55 %, legend / pointer / tap as before; "© NGU" in the attribution. Two generalisations for it: a layer's 4th member marks it coarse, its 5th names the layers a tap should ask; `nbClasses` asks the group's own URL for its style sheet (it had asked NIBIO's host for every group). NGU's metal, natural-stone and gravel services answered with MapServer errors and were left out.

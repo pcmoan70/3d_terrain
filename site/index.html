@@ -139,7 +139,8 @@
       <div class="row lg" id="lgClc" hidden></div>
       <!-- owner, 2026-10-19: "add nibo sr16 overlays, where user is allowed to toggle each type on and off" + "Any other nibio overlays that might be of interest, relevant to breeding and forage behaviours should be added as overlay options too" -->
       <div id="nibio"></div>
-      <!-- owner, 2026-10-18: "go for snow depth and recent satelite imagery" + "make sure to include the daygt50sdyr" -->
+      <!-- owner, 2026-10-18: "go for snow depth and recent satelite imagery" + "make sure to include the daygt50sdyr"; 2026-10-29: "Move snow, temperature and percipation toggles under a subpane 'weather'" -->
+      <details class="nb"><summary id="nbh_wx">Weather (seNorge)</summary>
       <div class="row w"><label class="ly"><input type="checkbox" id="lySnow"> Snow depth (seNorge, NVE)</label><input id="snowDay" type="date" style="width:auto" title="Any day since 1957, and the next nine days (forecast)"></div>
       <div class="row lg" id="lgSnow" hidden></div>
       <div class="row w"><label class="ly"><input type="checkbox" id="lySnowD"> Snow days &gt; 5 cm (seNorge, NVE)</label><input id="snowYear" type="number" min="1957" step="1" style="width:64px" title="The year: days with more than 5 cm of snow in it"></div>
@@ -148,6 +149,7 @@
       <div class="row lg" id="lgRr7" hidden></div>
       <div class="row w"><label class="ly"><input type="checkbox" id="lyTg7"> Temperature, last 7 days (seNorge, MET)</label></div>
       <div class="row lg" id="lgTg7" hidden></div>
+      </details>
     </details>
     <details class="sec" id="sunSec" open><summary>Sun</summary>
       <div class="row w"><select id="lmode" style="width:auto"><option value="sun">Sun at date and time</option><option value="fixed">Fixed light (NW)</option></select></div>
@@ -3965,6 +3967,8 @@ const FEAT_HELP = {   // row checkbox id → [title, what it shows, the assumpti
   lySnow: ["Snow depth (seNorge, NVE)",
     "Snow depth on the chosen day from NVE's seNorge model on 1 km cells — any day since 1957, and the next nine days as a forecast — in seNorge's own classes, from bare ground to over 4 m. The class under the pointer and in the tap popup.",
     "seNorge is a model interpolated from weather stations: one value per 1 km cell, so drifts, wind-swept ridges and sheltered hollows all read the same. A day with no grid says so. Needs the network."],
+  nbh_wx: ["Weather (seNorge)",
+    "The seNorge grid (1 km cells, NVE and MET Norway): snow depth on a day and snow days in a year from NVE's grid service, precipitation and mean temperature over seven days from MET's. Each layer has its own date or year box; the class is named under the pointer and listed with a tap."],
   lyRr7: ["Precipitation, last 7 days (seNorge, MET)",
     "Precipitation summed over the seven days ending on the chosen day (the last day of the seven; any day since 1957 up to yesterday), from the seNorge grid on 1 km cells, in seNorge's own classes from under 0.1 mm to over 300 mm. The class is named under the pointer and listed with a tap. Served by MET Norway's map service, the one senorge.no itself reads; needs the network."],
   lyTg7: ["Temperature, last 7 days (seNorge, MET)",
