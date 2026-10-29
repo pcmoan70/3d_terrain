@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-29 · Sun section closed at first
+
+Owner: "Note that 'Sun' should be collapsed by default". The *Sun* section no longer carries `open`; every section starts closed (Data opens itself when it has something to say).
+
 ## 2026-10-29 · Fixed light from the south, the default
 
 Owner: "Default for 'Sun' should be 'Fixed light'. When fixed light: do not show controls for data, and time. Also the fixed light should be from south, not North-west". The light-mode select lists *Fixed light (S)* first (the default, so links encode only the sun mode); `updateSun` lights from azimuth 180° at 40° and hides the Date, Time and Now / ▶ Day rows while fixed. Help, dictionary and README follow.

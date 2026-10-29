@@ -103,7 +103,7 @@
     <!-- owner, 2026-10-19: "a mode where view is from 175m above ground [1.75 m] viewing the horizon supporting all overlays etc. 'Ground view'" -->
     <div class="row"><button id="langBtn" class="langs" title="English"><svg id="flagNo" viewBox="0 0 22 16"><rect width="22" height="16" fill="#ba0c2f"/><rect x="6" width="4" height="16" fill="#fff"/><rect y="6" width="22" height="4" fill="#fff"/><rect x="7" width="2" height="16" fill="#00205b"/><rect y="7" width="22" height="2" fill="#00205b"/></svg><svg id="flagEn" viewBox="0 0 60 30"><rect width="60" height="30" fill="#012169"/><path d="M0,0L60,30M60,0L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0L60,30M60,0L0,30" stroke="#c8102e" stroke-width="2"/><path d="M30,0V30M0,15H60" stroke="#fff" stroke-width="10"/><path d="M30,0V30M0,15H60" stroke="#c8102e" stroke-width="6"/></svg></button><button id="reset">Reset view</button><button id="top">Top view</button><button id="ground" title="Stand 1.75 m above the ground at the point the view turns about and look at the horizon — drag to walk, rotate to look round, tilt to look down">Ground view</button></div>
     <!-- collapsible sections (owner, 2026-10-15: "make the subsections: Map, Layers and Sun collapsible like Birds. Default
-         is sun open, while others closed"): Map, Birds closed, Sun open; Map and Layers one Map section (2026-10-16: "merge the
+         is sun open, while others closed"): Map, Birds closed, Sun open (closed too since 2026-10-29: "Sun should be collapsed by default"); Map and Layers one Map section (2026-10-16: "merge the
          Map and Layers subsections into a Map subsection") — the base map, then what is drawn on it -->
     <details class="sec" id="mapSec"><summary>Map</summary>
     <div class="row w">Map <select id="basemap" style="width:auto"><option value="slope">Plain</option><option value="kv_topo">Kartverket topo</option><option value="kv_grey">Kartverket greyscale</option><option value="osm">OpenStreetMap (OpenTopoMap)</option><option value="cyclosm">Paths &amp; cycling (CyclOSM)</option><option value="esri_st">Streets (Esri)</option><option value="esri">Aerial (Esri)</option><option value="wayback">Aerial, earlier photos (Esri Wayback)</option><option value="sat">Satellite, recent (NASA: Sentinel-2 &amp; Landsat 30 m, MODIS daily)</option></select>
@@ -153,7 +153,7 @@
       <div class="row lg" id="lgTg7" hidden></div>
       </details>
     </details>
-    <details class="sec" id="sunSec" open><summary>Sun</summary>
+    <details class="sec" id="sunSec"><summary>Sun</summary>
       <div class="row w"><select id="lmode" style="width:auto"><option value="fixed">Fixed light (S)</option><option value="sun">Sun at date and time</option></select></div>
       <div class="row">Date <input id="day" type="range" min="1" max="365" step="1"><span id="dayv" style="min-width:52px"></span></div>
       <div class="row">Time <input id="tod" type="range" min="0" max="1435" step="5"><span id="todv" style="min-width:52px"></span></div>
