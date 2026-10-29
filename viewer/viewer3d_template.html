@@ -60,7 +60,7 @@
   label.ly{display:flex;align-items:center;gap:6px}
   button:disabled,select:disabled,input:disabled{opacity:.45;cursor:not-allowed}
   .langs button{width:30px;height:22px;padding:2px 3px;border:1px solid #667;border-radius:4px;background:#2a3038;cursor:pointer;opacity:.55;vertical-align:middle}.langs button svg{display:block;width:100%;height:100%}.langs button.on{opacity:1;outline:2px solid #9fb3bf}
-  #qpop{position:fixed;z-index:26;width:min(440px,calc(100vw - 24px));max-height:70vh;overflow:auto;box-sizing:border-box;font-size:13px;line-height:1.45;padding-right:36px}#qpop h3{margin:0 0 6px;font-size:14px}#qpop p{margin:0 0 8px}
+  #qpop{position:fixed;z-index:26;width:min(440px,calc(100vw - 24px));max-height:70vh;overflow:auto;box-sizing:border-box;font-size:13px;line-height:1.45;padding-right:36px}#qpop h3{margin:0 0 6px;font-size:14px}#qpop p{margin:0 0 8px}#qpop.big{left:50%;top:50%;transform:translate(-50%,-50%);width:min(720px,calc(100vw - 24px));max-height:88vh}#qpop.big h2{margin:0 0 8px;font-size:16px}#qpop.big h3{margin:14px 0 4px;padding-top:8px;border-top:1px solid #445}
   .qb{width:18px;height:18px;border-radius:50%;border:1px solid #889;background:#2a3038;color:#cde;font-size:12px;line-height:16px;padding:0;cursor:pointer;flex:none}
   #help{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:25;width:min(600px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;box-sizing:border-box;font-size:13px;line-height:1.45}
   #help h2{font-size:14px;margin:14px 0 4px;color:#ffd54f}#help h2:first-child{margin-top:0}#help h3{font-size:13px;margin:10px 0 2px;color:#fff}#help p{margin:3px 0 6px;color:#dde}#help .as{color:#aab;font-size:12px}#help kbd{background:#2a3038;border:1px solid #556;border-radius:3px;padding:0 4px;font-size:12px}
@@ -4012,7 +4012,8 @@ function helpRender() {   // the help text in the current language (whole entrie
 }
 function helpUI() {
   helpRender();
-  for (const k of Object.keys(FEAT_HELP)) {   // a ? behind each feature's toggle
+  for (const k of Object.keys(FEAT_HELP)) {   // a ? behind each feature's toggle — not inside DTM derived, whose heading's ? covers them all (owner, 2026-10-29)
+    if ($("dtmSec").contains($(k))) continue;
     const b = document.createElement("button"); b.className = "qb"; b.textContent = "?"; b.title = "What this shows, and the assumptions made";
     b.onclick = e => { e.preventDefault(); e.stopPropagation(); qOpen(k, b); }; const l = $(k).closest("label"); if (l) l.after(b); else $(k).appendChild(b);   // a row's label, or a group's heading
   }
@@ -4020,10 +4021,17 @@ function helpUI() {
 // The note behind the "DTM derived" heading's ? (owner, 2026-10-20: "move the explanatory text to a ? showing on hovering/clicking the ?")
 const DTM_NOTE = "Worked out from the terrain model (and the sun model for the sun-warmed, shade and sheltered ones — computed when first switched on). The graded layers at the end are coloured over the view's own range, or a fixed one, with a legend bar; every layer's ? opens its help.";
 // Every ? opens its own popup window with that entry alone (owner, 2026-10-29: "All questionmarks should show a separate window popup"), beside the button
+const qEntry = f => "<h3>" + esc(T(f[0])) + "</h3><p>" + T(f[1]) + "</p>" + (f[2] ? '<p class="as"><b>' + T("Assumptions:") + "</b> " + T(f[2]) + "</p>" : "");
 function qOpen(k, b) {
-  const f = k === "dtm" ? ["DTM derived", DTM_NOTE] : FEAT_HELP[k]; if (!f) return;
-  $("qpopT").innerHTML = "<h3>" + esc(T(f[0])) + "</h3><p>" + T(f[1]) + "</p>" + (f[2] ? '<p class="as"><b>' + T("Assumptions:") + "</b> " + T(f[2]) + "</p>" : "");
-  const q = $("qpop"), r = b.getBoundingClientRect(); q.hidden = false;
+  const q = $("qpop"); q.classList.toggle("big", k === "dtm");
+  if (k === "dtm") {   // one large popup: the note, then a section per DTM-derived overlay in the subpane's own order (owner, 2026-10-29)
+    const ks = [...$("dtmSec").querySelectorAll("input[type=checkbox]")].map(i => i.id).filter(id => FEAT_HELP[id]);
+    $("qpopT").innerHTML = "<h2>" + esc(T("DTM derived")) + "</h2><p>" + esc(T(DTM_NOTE)) + "</p>" + ks.map(id => qEntry(FEAT_HELP[id])).join("");
+    q.hidden = false; q.scrollTop = 0; q.style.left = q.style.top = ""; return;
+  }
+  const f = FEAT_HELP[k]; if (!f) return;
+  $("qpopT").innerHTML = qEntry(f);
+  const r = b.getBoundingClientRect(); q.hidden = false;
   q.style.left = Math.max(8, Math.min(innerWidth - q.offsetWidth - 8, r.right + 8)) + "px"; q.style.top = Math.max(8, Math.min(innerHeight - q.offsetHeight - 8, r.top - 4)) + "px";
 }
 $("qpopX").onclick = () => { $("qpop").hidden = true; };

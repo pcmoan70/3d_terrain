@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-29 · DTM derived: one large help popup
+
+Owner: "For 'Avledet fra DTM' question mark include all the overlays in a large popup, with sections describing each. (and remove the question marks on the individual question marks for the DTM fields)". `qOpen("dtm")` now fills a centred, larger `#qpop.big` with the DTM note followed by one section per DTM-derived overlay in the subpane's own row order (`FEAT_HELP` entries whose toggle sits inside `#dtmSec`, cliff drops included); `helpUI` adds no ? to those rows any more. README.
+
 ## 2026-10-29 · NGU lime content of the bedrock
 
 Owner: "There are NGU mineral maps showing calcium rich minerals etc, those are preferred." A third NGU group, **Lime content of the bedrock** (`ngu_k`, `BerggrunnOkologiWMS`): *Kalkinnhold_N250* — the lime gradient of the main rock types in five classes (very lime-poor … very lime-rich, NiN's KA) — and *Ultramafisk_N250* (ultramafic rocks); placed first of the NGU groups. Classes from the service's style sheet (`NB_EN` gives them English), feature info by GML (`kalkinnhold_tekst`, `hovedbergart_tekst`, `tegnforklaring`). Help entry, dictionary entries, README. (NGU's industrial-mineral deposit layers — limestone, dolomite — are point symbols without fills in the style sheet and were left out.)
