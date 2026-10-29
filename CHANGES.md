@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-29 · Fixed light from the south, the default
+
+Owner: "Default for 'Sun' should be 'Fixed light'. When fixed light: do not show controls for data, and time. Also the fixed light should be from south, not North-west". The light-mode select lists *Fixed light (S)* first (the default, so links encode only the sun mode); `updateSun` lights from azimuth 180° at 40° and hides the Date, Time and Now / ▶ Day rows while fixed. Help, dictionary and README follow.
+
 ## 2026-10-29 · One flag, a toggle
 
 Owner: "Make the flags a toggle: when norwegian text is showing show the British flag and vice versa. Do not use space by showing both flags." One button (`langBtn`) holds both SVG flags and shows the one of the language a click switches to (`.langs.no` shows the British flag, `.langs.en` the Norwegian); `setLang` sets the class and the tooltip. Help and README reworded.
