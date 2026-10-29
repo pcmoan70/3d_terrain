@@ -123,7 +123,7 @@
          various features listed as possible selections in the menu"), each painted at 70 % in its colour, the cliff drops solid -->
     <details class="sec" id="featSec"><summary>Terrain features</summary>
       <!-- owner, 2026-10-19: "the DTM derived features should be under a collapsible subpan \"DTM derived\"" -->
-      <details class="nb" id="dtmSec" open><summary id="dtmh">DTM derived <button type="button" class="qb" id="dtmQ" title="About these layers">?</button></summary>
+      <details class="nb" id="dtmSec"><summary id="dtmh">DTM derived <button type="button" class="qb" id="dtmQ" title="About these layers">?</button></summary>
       <div class="row"><label class="ly"><input type="checkbox" id="lySlope"> Slope (NVE steepness classes)</label></div>
       <div class="row lg" id="lgSlope" hidden></div>
       <div class="row"><label class="ly"><input type="checkbox" id="lyFacing"> Facing (the way slopes ≥ 15° face)</label></div>
@@ -4064,6 +4064,9 @@ FEAT_HELP.ft_cliffs = ["Cliff drops",
   "The DTM's gridding smears a vertical wall over two to three cells of a 1 m grid, so two cells (one on coarser grids) are taken off the run before the angle is judged, and a face within that smear always counts as vertical; the unsmoothed heights are used. Even so the rule is strict: at Preikestolen about one face in eight that drops 5 m or more passes it. The colour is solid, over the contours, and goes on the face itself and on the first tile beyond its top and its bottom. On a 10 m grid a drop under 10 m cannot be told at all and the classes are coarse — use a 1 m view. Overhangs are not in a DTM."];
 helpUI();
 const LEVELS_KEY = "t3d_levels";
+const DTM_OPEN_KEY = "t3d_dtmopen";   // the DTM derived subpane: closed at first, then as the user last left it (owner, 2026-10-29)
+try { $("dtmSec").open = localStorage.getItem(DTM_OPEN_KEY) === "1"; } catch (e) {}
+$("dtmSec").addEventListener("toggle", () => { try { localStorage.setItem(DTM_OPEN_KEY, $("dtmSec").open ? "1" : "0"); } catch (e) {} });
 function levelsList() { const t = $("levels").value.trim(); return t ? t.split(/[\s,;]+/).map(Number).filter(v => v === v) : []; }
 try { $("levels").value = localStorage.getItem(LEVELS_KEY) || ""; } catch (e) {}
 $("levels").onchange = () => { try { localStorage.setItem(LEVELS_KEY, $("levels").value); } catch (e) {} repaint(); };

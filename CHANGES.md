@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-29 · DTM derived subpane closed at first, state remembered
+
+Owner: "Let 'DTM derived' features subpane be collapsed by default … make the open/closed stateful (default=closed)". The *DTM derived* group no longer starts open; its open/closed state is kept in the browser (`t3d_dtmopen`) and restored on the next visit. README updated.
+
 ## 2026-10-29 · Weather subpane
 
 Owner: "Move snow, temperature and percipation toggles under a subpane 'weather'". The four seNorge layers (snow depth, snow days, precipitation and temperature over 7 days) sit in a collapsible *Weather (seNorge)* group like the NIBIO and Environment Agency groups, closed at first, with a help entry.
