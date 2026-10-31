@@ -611,7 +611,7 @@
 "No DTM GeoTIFF (.tif) found in what was opened.": "Fant ingen DTM GeoTIFF (.tif) i det som ble åpnet.",
 "No DTM data here": "Ingen DTM-data her",
 "No Wayback photos here": "Ingen Wayback-bilder her",
-"No location fix": "Ingen posisjon funnet",
+"No location fix — is location switched on for the browser?": "Ingen posisjon funnet – er posisjon slått på for nettleseren?",
 "No network: the map and the terrain need the internet.": "Ikke noe nett: kartet og terrenget trenger internett.",
 "No network: the map needs the internet (only a packaged map works offline).": "Ingen nettverk: kartet trenger internett (bare et pakket kart virker frakoblet).",
 "No photos here": "Ingen bilder her",
@@ -2977,13 +2977,20 @@ function screenOf(x, y) {   // where a terrain point sits on the screen, for the
   const v = new THREE.Vector3(x, (sample(x, y) - S.h0) * world.scale.y, -y).project(camera);
   return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight];
 }
+let meWatch = null;   // the position watch in flight (a second ◎ meanwhile is ignored)
 $("me").onclick = () => {
   if (!S) return note("Build a terrain first");
   if (!navigator.geolocation) return note("This browser gives no location");
-  $("me").classList.add("on"); note("Finding where you are …", 20000);
-  navigator.geolocation.getCurrentPosition(pos => {
-    $("me").classList.remove("on");
-    const [x, y] = xyOf({ lat: pos.coords.latitude, lng: pos.coords.longitude }), acc = Math.round(pos.coords.accuracy || 0);
+  if (meWatch !== null) return;
+  // watchPosition, not getCurrentPosition: the first (coarse, network) fix comes at once and GPS has 4 s to better it
+  // (a fix within 30 m ends the wait); our own 20 s deadline decides — getCurrentPosition's timeout may never fire,
+  // nor any callback, when the device has no position source or the prompt was dismissed, which left the button
+  // lit and said nothing (owner, 2026-10-31: "gps location is not working")
+  let best = null, timer = null;
+  const finish = msg => {
+    navigator.geolocation.clearWatch(meWatch); clearTimeout(timer); meWatch = null; $("me").classList.remove("on");
+    if (!best) return note(msg || "No location fix — is location switched on for the browser?");
+    const [x, y] = xyOf({ lat: best.coords.latitude, lng: best.coords.longitude }), acc = Math.round(best.coords.accuracy || 0);
     if (!inView(x, y, S.RB)) {
       me = null; markMe(); if (v2d) vec2d();
       const d = Math.max(Math.abs(x), Math.abs(y)) - S.RB;
@@ -2993,7 +3000,14 @@ $("me").onclick = () => {
     if (v2d) { vec2d(); map2d.panTo(llOf(x, y)); }
     else { const d = new THREE.Vector3(x, (sample(x, y) - S.h0) * world.scale.y, -y).sub(controls.target); camera.position.add(d); controls.target.add(d); controls.update(); draw(); }
     const [cx, cy] = screenOf(x, y); pointMenu(x, y, cx, cy, me);
-  }, err => { $("me").classList.remove("on"); note(err.code === 1 ? "Location access was refused" : "No location fix"); }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 });
+  };
+  $("me").classList.add("on"); note("Finding where you are …", 21000);
+  meWatch = navigator.geolocation.watchPosition(pos => {
+    if (!best) { clearTimeout(timer); timer = setTimeout(finish, 4000); }
+    if (!best || pos.coords.accuracy < best.coords.accuracy) best = pos;
+    if (best.coords.accuracy <= 30) finish(); else note("Finding where you are … ± " + Math.round(best.coords.accuracy) + " m", 21000);
+  }, err => { if (err.code === 1) { best = null; finish("Location access was refused"); } }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+  timer = setTimeout(finish, 20000);
 };
 $("top").onclick = () => { if (!S) return; const cz = (sample(0, 0) - S.h0) * world.scale.y; camera.position.set(0, cz + S.RB * 2.6, 0.01); controls.target.set(0, cz, 0); controls.update(); draw(); };
 function zoomBy(f) { const v = camera.position.clone().sub(controls.target).multiplyScalar(f); if (v.length() < controls.minDistance || v.length() > controls.maxDistance) return; camera.position.copy(controls.target).add(v); controls.update(); draw(); }

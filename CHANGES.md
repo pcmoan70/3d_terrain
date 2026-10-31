@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-10-31 · My location: a watch with its own deadline
+
+Owner: "In 3d viewer it seems gps location is not working". The ◎ called `getCurrentPosition` with a 20 s timeout; on a device without a position source (and when the permission prompt is dismissed) Chrome never calls back — not even the timeout — so the button stayed lit and nothing was said. Now `watchPosition`: the first (network) fix is taken after 4 s, or at once when within 30 m, and the viewer's own 20 s timer ends the wait with *No location fix — is location switched on for the browser?*; a second ◎ while in flight is ignored; the note shows the accuracy while GPS refines. Norwegian string added; README.
+
 ## 2026-10-29 · Sun section closed at first
 
 Owner: "Note that 'Sun' should be collapsed by default". The *Sun* section no longer carries `open`; every section starts closed (Data opens itself when it has something to say).
