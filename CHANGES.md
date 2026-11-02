@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-02 · Picker bar slimmed; the model chosen under Map
+
+Owner: "In the 3d viewer, the search pane in 2d map is too large. Put help text behind a '?' Also keep resolution default to 1m + 10m (1m up to 5 km) and remove selector. Instead include a selector in settings(map) for the various resolutions." The picker bar keeps the search box, the view radius and Build; its instructions sit behind a **?** beside the × (the `?` popup, now above the picker). The *Terrain model* select moved to the **Map** section (`resSel`, remembered on this device as `t3d_res`): *1 m centre + 10 m around* to begin with — the 1 m detail reaches 5 km, so it is the whole view up to that radius; the inner frame's white handle still narrows it — then *1 m* and *10 m* alone. A 1 m radius dragged past 5 km still flips the setting to the mixed model. The terrain popup's model select is preset to the Map choice. Help entry, dictionary and README follow.
+
 ## 2026-10-31 · My location: a watch with its own deadline
 
 Owner: "In 3d viewer it seems gps location is not working". The ◎ called `getCurrentPosition` with a 20 s timeout; on a device without a position source (and when the permission prompt is dismissed) Chrome never calls back — not even the timeout — so the button stayed lit and nothing was said. Now `watchPosition`: the first (network) fix is taken after 4 s, or at once when within 30 m, and the viewer's own 20 s timer ends the wait with *No location fix — is location switched on for the browser?*; a second ◎ while in flight is ignored; the note shows the accuracy while GPS refines. Norwegian string added; README.
