@@ -63,6 +63,21 @@ python3 rewrap.py FILE_3dterrain.html … [--points FILE.geojson] [--viewer DIR]
 
 **`config.toml`** (`lib/config.py`; `$TERRAIN3D_CONFIG`, `./config.toml`, `~/.config/terrain3d/config.toml`): `dtm1_tiles` and `map_tiles` — the caches (default under `~/.cache/terrain3d/`; the 10 m tiles go to `tiles10/` beside the 1 m `tiles/`); `dtm10` — a local DTM10 instead of the WCS at 10 m, optional; `n250` — Kartverket's N250 file geodatabase, optional.
 
+## The Python scripts at a glance
+
+Everything the browser shows is computed in the browser; the Python side only *packages* terrain folders in advance (the demo scene, standalone offline files) and keeps a local tile cache. Dates are the last commit that touched the file (`git log -1 -- FILE`).
+
+| Script | What it does | Where its results are used | Last modified |
+|---|---|---|---|
+| `viz3d.py` | Command line `viz3d.py LAT LON --name NAME --radius R …`: fetches the Kartverket DTM tiles of the ±R square (1 m, or 10 m with `--res 10`, or 1 m inside 10 m with `--radius-1m`), mosaics them, runs the cliff rules, drapes the Kartverket topo map, packages the points given with `--points`, and writes `scene.json`, `index.json` and the scene catalog. | `site/scenes/<name>/` — served by GitHub Pages and listed in the viewer's scene picker (`site/scenes/index.json`); `<out>/<name>_3dterrain.html` — the viewer with the folder embedded, a single file that opens offline; it also regenerates `site/index.html` (the empty viewer). | 2026-10-17 |
+| `rewrap.py` | Puts the *current* viewer round standalone `*_3dterrain.html` files that were built earlier, keeping each file's embedded folder (no recomputation); `--points FILE.geojson` swaps the points in each file for those of the file within its view; `--viewer DIR` rewrites `DIR/index.html`. | The same standalone files, refreshed after every viewer change; `site/index.html` (`rewrap.py --viewer site` is how the viewer is published). | 2026-10-17 |
+| `lib/config.py` | Reads `config.toml` (the first of `$TERRAIN3D_CONFIG`, `./config.toml`, `~/.config/terrain3d/config.toml`; every key optional, defaults under `~/.cache/terrain3d/`): the DTM and map tile caches, an optional local DTM10, an optional Kartverket N250 database. | `CFG`, imported by `viz3d.py`, `lib/dtm.py` and `lib/habitat.py`. | 2026-10-17 |
+| `lib/dtm.py` | The Geonorge WCS client: which 1 km (1 m) or 10 km (10 m) tiles a square needs, fetching them one at a time with exponential backoff (1 … 60 s) into the tile cache, and reading the cached ones back; `fetch_backoff` is the shared polite downloader. | `viz3d.py` (the terrain mosaic; map tiles go through `fetch_backoff` too); the cache `<dtm1_tiles>/tiles/` and `tiles10/` is reused by every later build of the same place. | 2026-10-17 |
+| `lib/habitat.py` | The cliff rules on the 1 m model, every constant from `rules.json`: steep ground ≥ 50° on the σ 1.5 m-smoothed model as polygons, kept as a **cliff** when the face is ≥ 10 m and looks E … S … W, with facing, height and shape; with N250, distance to the nearest building and road, quarries and small islands told apart; the steepest point near the centre; the layer's title, legend and colours. | `site/scenes/<name>/habitat.geojson` and the steepest point in `points.geojson`, drawn by the viewer as the *Cliffs* overlay with the legend that `scene.json` names (`layers`). | 2026-10-17 |
+| `lib/__init__.py` | Empty; makes `lib` a package. | — | 2026-10-17 |
+
+The viewer itself (`viewer/viewer3d_template.html`) needs none of these at run time: a map-built view fetches the WCS from the browser and computes its own overlays.
+
 ## Layout
 
 ```

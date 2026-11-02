@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-02 · README: the Python scripts at a glance
+
+Owner: "Make a readme overview of all the python scripts in the repo, explain what they do and where results are used and when they were last modified in a table." A table of the six Python files (`viz3d.py`, `rewrap.py`, `lib/config.py`, `lib/dtm.py`, `lib/habitat.py`, `lib/__init__.py`) with what each does, where its output goes and its last commit date, before *Layout*.
+
 ## 2026-11-02 · Picker bar slimmed; the model chosen under Map
 
 Owner: "In the 3d viewer, the search pane in 2d map is too large. Put help text behind a '?' Also keep resolution default to 1m + 10m (1m up to 5 km) and remove selector. Instead include a selector in settings(map) for the various resolutions." The picker bar keeps the search box, the view radius and Build; its instructions sit behind a **?** beside the × (the `?` popup, now above the picker). The *Terrain model* select moved to the **Map** section (`resSel`, remembered on this device as `t3d_res`): *1 m centre + 10 m around* to begin with — the 1 m detail reaches 5 km, so it is the whole view up to that radius; the inner frame's white handle still narrows it — then *1 m* and *10 m* alone. A 1 m radius dragged past 5 km still flips the setting to the mixed model. The terrain popup's model select is preset to the Map choice. Help entry, dictionary and README follow.
