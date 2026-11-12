@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-12 · Height server: Geonorge WCS or hoydedata.no; clearer fetch errors
+
+Owner: "the 3d_terrain generator viewer seems to get errors now: 'Terrain tile E263_N6657_1m.tif: Failed to fetch — retry in 32 s'" — Geonorge's height WCS was down (GetCoverage 404, GetCapabilities a Tomcat 500 on every `wcs.hoyde-*` service), and its error replies carry no CORS header, so the browser reported only "Failed to fetch". Then: "do 2 and 3, give user choice to use the hoydedata.no server". **Map → Height server** (`srvSel`, remembered as `t3d_srv`) picks Geonorge WCS (default) or hoydedata.no's ArcGIS ImageServer `NHM_DTM_25833` (`exportImage`, same bbox and size, Float32 TIFF, `noData=0`). The retry line and the final error name the server ("Geonorge WCS is not responding", "hoydedata.no answers HTTP 500") and point at the switch; a 4xx from hoydedata.no is a failure, not "no data here" as it is from the WCS. The view's source line names the server used. Help entry and Norwegian strings follow. hoydedata.no was down too at the time (ArcGIS "Could not access any server machines"), so its tiles are untested against a live reply.
+
 ## 2026-11-02 · README: the Python scripts at a glance
 
 Owner: "Make a readme overview of all the python scripts in the repo, explain what they do and where results are used and when they were last modified in a table." A table of the six Python files (`viz3d.py`, `rewrap.py`, `lib/config.py`, `lib/dtm.py`, `lib/habitat.py`, `lib/__init__.py`) with what each does, where its output goes and its last commit date, before *Layout*.
