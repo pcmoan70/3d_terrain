@@ -115,6 +115,8 @@
       <div class="row w"><label>Terrain model <select id="resSel" style="width:auto"><option value="n">1 m centre (up to 5 km) + 10 m around (up to 15 km)</option><option value="1">1 m (view radius up to 5 km)</option><option value="10">10 m (view radius up to 15 km)</option></select></label></div>
       <!-- owner, 2026-11-12: "give user choice to use the hoydedata.no server" (Geonorge's WCS was down) -->
       <div class="row w" title="Where the terrain tiles are fetched from: both serve Kartverket's same model; switch when one does not answer"><label>Height server <select id="srvSel" style="width:auto"><option value="geonorge">Geonorge WCS</option><option value="hoydedata">hoydedata.no</option></select></label></div>
+      <!-- owner, 2026-11-13: "introduce a true 3d rendering mode of the terrain … trees, their height and types … buildings … fields" -->
+      <div class="row" title="Trees found in Kartverket's surface model (species from SR16), buildings from OpenStreetMap raised to their measured height, fields shaded from AR5 — 1 m views up to 3 km radius; fetches the surface model too"><label class="ly"><input type="checkbox" id="lyObj"> 3-D trees, buildings and fields</label></div>
       <!-- the model's shape (owner, 2026-10-20: "move Height x and smooth terrain into the collapsible Map sub pane") -->
       <div class="row">Height ×<input id="ex" type="range" min="1" max="3" step="0.1" value="1"><span id="exv">1.0</span></div>
       <div class="row"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="csmooth" checked> Smooth terrain, σ</label><input id="csig" type="number" min="0.5" max="5" step="0.5" value="1.5" style="width:56px"> m</div>
@@ -2193,6 +2195,30 @@
 "— not found, or not shared with this Google account": "— ikke funnet, eller ikke delt med denne Google-kontoen",
 "— retry in": "— prøv igjen om",
 "Height server": "Høydeserver",
+"Surface model": "Overflatemodell",
+"Buildings © OpenStreetMap contributors": "Bygninger © OpenStreetMap-bidragsytere",
+"3-D trees, buildings and fields": "3D-trær, bygninger og jorder",
+"<p><b>Map → 3-D trees, buildings and fields<\/b> stands the view's objects up in 3-D. Kartverket's surface model (NHM DOM: the tops of trees and roofs) less the terrain model gives the height of whatever stands on the ground in every cell. Each tree is a local top of that height (its search window widens with the height), drawn as its kind: a narrow cone for spruce, a trunk with a flat crown for pine, a round crown for broadleaf — the species from NIBIO's SR16 at that spot, broadleaf where SR16 has no forest (gardens, parks, mountain birch). Buildings are OpenStreetMap's outlines raised to the median height measured inside them (OpenStreetMap's height or floors where the surface model has none). Fields from NIBIO's AR5: cultivated land in rows, pasture greener, bog browner. Hovering gives the height above the ground there.<\/p><p>Only in a 1 m view or 1 m centre of at most 3 km radius, and the surface model is fetched too — as much again as the terrain. At most 250 000 trees, the nearest the centre. The trees are shapes of the measured height, not portraits: a dense stand merges into fewer tops, a roof without an OpenStreetMap outline may stand as a tree, and the colours do not follow the season.<\/p>": "<p><b>Kart → 3D-trær, bygninger og jorder<\/b> reiser visningens objekter opp i 3D. Kartverkets overflatemodell (NHM DOM: toppen av trær og tak) minus terrengmodellen gir høyden på det som står på bakken i hver celle. Hvert tre er en lokal topp i den høyden (søkevinduet vokser med høyden), tegnet etter sin art: en smal kjegle for gran, en stamme med flat krone for furu, en rund krone for lauvtre — treslaget fra NIBIOs SR16 på stedet, lauvtre der SR16 ikke har skog (hager, parker, fjellbjørk). Bygninger er OpenStreetMaps omriss reist til medianhøyden målt inni dem (OpenStreetMaps høyde eller etasjer der overflatemodellen ikke har noe). Jorder fra NIBIOs AR5: dyrket mark i rader, beite grønnere, myr brunere. Hover gir høyden over bakken der.<\/p><p>Bare i en 1 m-visning eller et 1 m-sentrum med radius inntil 3 km, og overflatemodellen hentes også — like mye til som terrenget. Høyst 250 000 trær, de nærmeste sentrum. Trærne er former med målt høyde, ikke portretter: et tett bestand smelter sammen til færre topper, et tak uten omriss i OpenStreetMap kan stå som et tre, og fargene følger ikke årstiden.<\/p>",
+"Trees found in Kartverket's surface model (species from SR16), buildings from OpenStreetMap raised to their measured height, fields shaded from AR5 — 1 m views up to 3 km radius; fetches the surface model too": "Trær funnet i Kartverkets overflatemodell (treslag fra SR16), bygninger fra OpenStreetMap reist til målt høyde, jorder skyggelagt fra AR5 — 1 m-visninger inntil 3 km radius; henter også overflatemodellen",
+"Fetching the surface model…": "Henter overflatemodellen…",
+"Reading the surface model…": "Leser overflatemodellen…",
+"Fetching the buildings (OpenStreetMap)…": "Henter bygningene (OpenStreetMap)…",
+"Loading SR16 and AR5…": "Laster SR16 og AR5…",
+"Finding the trees…": "Finner trærne…",
+"Building the 3-D objects…": "Bygger 3D-objektene…",
+"3-D objects:": "3D-objekter:",
+"trees": "trær",
+"buildings (OpenStreetMap)": "bygninger (OpenStreetMap)",
+"no buildings: OpenStreetMap did not answer": "ingen bygninger: OpenStreetMap svarte ikke",
+"the nearest the centre": "de nærmeste sentrum",
+"3-D trees and buildings need a 1 m view or centre of at most 3 km radius (this one has": "3D-trær og bygninger trenger en 1 m-visning eller et sentrum med radius inntil 3 km (denne har",
+"m cells)": "m celler)",
+"3-D trees and buildings:": "3D-trær og bygninger:",
+"the surface model is served in UTM zone 33 only.": "overflatemodellen leveres bare i UTM-sone 33.",
+"no surface model here.": "ingen overflatemodell her.",
+"Building:": "Bygning:",
+"Trees:": "Trær:",
+"above the ground (surface model)": "over bakken (overflatemodell)",
 "Where the terrain tiles are fetched from: both serve Kartverket's same model; switch when one does not answer": "Hvor terrengflisene hentes fra: begge leverer samme modell fra Kartverket; bytt når en av dem ikke svarer",
 "is not responding": "svarer ikke",
 "answers HTTP": "svarer HTTP",
@@ -2434,7 +2460,7 @@ async function loadFolder(items) {
 function rMax() { return SRC && SRC.tiles.some(t => t.res[0] >= 10) ? 15000 : 5000; }
 // one grid: the ±R square at cell c m from the tiles, missing cells filled, smoothed, gradients. The finest
 // tiles are read first: where one has data the cell is settled, a coarser tile only fills what is left.
-async function makeGrid(tiles, X, Y, R, c, sig, label) {
+async function makeGrid(tiles, X, Y, R, c, sig, label, raw) {   // raw: the heights alone (no fill, smoothing or slopes)
   label = label || "Reading the terrain…";
   const n = Math.round(2 * R / c), h = new Float32Array(n * n).fill(NaN), x0 = X - R, y1 = Y + R;
   const inGrid = tiles.filter(t => !(t.bbox[2] <= x0 || t.bbox[0] >= X + R || t.bbox[3] <= Y - R || t.bbox[1] >= y1)).sort((a, b) => a.res[0] - b.res[0]); let ti = 0;
@@ -2456,6 +2482,7 @@ async function makeGrid(tiles, X, Y, R, c, sig, label) {
     }
     ti++; await tick();
   }
+  if (raw) return { n, c, R, h };
   let cnt = 0, lo = Infinity, hi = -Infinity;
   for (const v of h) if (v === v) { cnt++; if (v < lo) lo = v; if (v > hi) hi = v; }
   if (cnt < n * n * 0.02) return null;
@@ -2645,6 +2672,7 @@ function paintBase(G, base, noCont) {   // G: the fine grid S or the coarse surr
   if ($("lyClc").checked && G.clc) blendImg(d, G.clc.data, bad, n, .55);   // CORINE land cover at 55 % over the map
   for (const sk of snowOn()) if (G[sk] && G[sk].img) blendImg(d, G[sk].img.data, bad, n, .55);   // seNorge snow at 55 % over the map
   for (const [g, L, k] of nbOn()) { const key = g.id + ":" + L, img = G.nb && G.nb[key], off = nbOff[key]; if (img) blendImg(d, img.data, bad, n, k, off && off.size && NB_CLS[key] ? { map: nbClsMap(img, NB_CLS[key]), off } : null); }   // NIBIO: the filling layer at 55 %, MIS features as drawn, hidden classes left out
+  if (G === S && S.obj && S.obj.land) fieldPaint(d, S.obj.land, n, c);   // the 3-D mode's fields
   if (lyS || lyF) {
     const SC = SLOPE_CL.map(x => hexRgb(x[1])), FC = FACE_CL.map(x => hexRgb(x[1]));
     for (let k = 0; k < n * n; k++) {
@@ -3648,7 +3676,7 @@ async function satUI(S) {
   BASEMAPS[id] = { url: satUrl(k, day), max: SAT[k][2], attr: "Imagery: NASA GIBS — " + SAT[k][4] + ", " + day + (k === "MOD" ? "" : " (HLS v2.0, NASA / USGS)") };
   return id;
 }
-function setAttr(id) { $("attr").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0)" + ($("lyClc").checked ? " · CORINE Land Cover 2018 © NIBIO / Copernicus" : "") + ["NIBIO", "Miljødirektoratet", "NGU"].map(a => { const n = [...new Set(nbOn().filter(e => nbAttr(e[0]) === a).map(e => nbName(e[0])))]; return n.length ? " · " + n.join(", ") + " © " + a : ""; }).join("") + (snowOn().some(k => !SNOWL[k].wms) ? " · Snow: seNorge © NVE" : "") + (snowOn().some(k => SNOWL[k].wms) ? " · Weather: seNorge © MET Norway" : "") + ($("lyWind").checked && $("windDir").value === "rose" && S && S.rose ? " · Winds: Open-Meteo (ERA5)" : "") + (BASEMAPS[id] ? " · " + BASEMAPS[id].attr : "") + " · Viewer: MIT licence, github.com/pcmoan70/3d_terrain"; }   // the code's licence, always (owner, 2026-10-19)
+function setAttr(id) { $("attr").textContent = "Terrain: Kartverket NHM DTM (CC BY 4.0)" + (S && S.obj ? " · Surface model: Kartverket NHM DOM (CC BY 4.0) · SR16, AR5 © NIBIO" + (S.obj.osm ? " · Buildings © OpenStreetMap contributors" : "") : "") + ($("lyClc").checked ? " · CORINE Land Cover 2018 © NIBIO / Copernicus" : "") + ["NIBIO", "Miljødirektoratet", "NGU"].map(a => { const n = [...new Set(nbOn().filter(e => nbAttr(e[0]) === a).map(e => nbName(e[0])))]; return n.length ? " · " + n.join(", ") + " © " + a : ""; }).join("") + (snowOn().some(k => !SNOWL[k].wms) ? " · Snow: seNorge © NVE" : "") + (snowOn().some(k => SNOWL[k].wms) ? " · Weather: seNorge © MET Norway" : "") + ($("lyWind").checked && $("windDir").value === "rose" && S && S.rose ? " · Winds: Open-Meteo (ERA5)" : "") + (BASEMAPS[id] ? " · " + BASEMAPS[id].attr : "") + " · Viewer: MIT licence, github.com/pcmoan70/3d_terrain"; }   // the code's licence, always (owner, 2026-10-19)
 async function getBase(G, id) {   // the map for one grid (a packaged map covers the fine grid: radius_1m, else radius)
   setAttr(id);
   if (!BASEMAPS[id]) return null;
@@ -3944,6 +3972,7 @@ function build(s) {
   if ($("lyWind").checked) setTimeout(windOn, 0);
   if ($("lyClc").checked) setTimeout(() => $("lyClc").onchange(), 0);
   if (nbOn().length) setTimeout(nbRefresh, 0);
+  if ($("lyObj").checked) setTimeout(objOn, 0);
   if (pendingCam) { const c = pendingCam; pendingCam = null; setTimeout(() => { camera.position.set(c[0], c[1], c[2]); controls.target.set(c[3], c[4], c[5]); controls.update(); draw(); }, 0); }   // a shared view's camera
   for (const sk of snowOn()) setTimeout(() => $(SNOWL[sk].ly).onchange(), 0);
   if (pendingVs) { S.vs = pendingVs; pendingVs = null; }
@@ -4223,6 +4252,9 @@ function tipHtml(x, y) {   // the terrain's values and every overlay's at (x, y)
   const fx = (sample(x + e, y) - sample(x - e, y)) / (2 * e), fy = (sample(x, y + e) - sample(x, y - e)) / (2 * e);
   const face = sl >= 3 ? " facing " + FACE_CL[Math.round(facingOf(fx, fy, S.gam) / 45) % 8][0] + " (" + Math.round(facingOf(fx, fy, S.gam)) + "°)" : "";
   let html = (miss ? "<b>No DTM data here</b> — the surface is a smooth fill · " : "") + Math.round(sample(x, y)) + " m a.s.l. · slope " + Math.round(sl) + "°" + face + " · " + Math.round(Math.hypot(x, y)) + " m from centre";
+  if (S.obj && G === S) { const k = cellOf(S, x, y), h = S.obj.H[k], sp = S.obj.sp ? S.obj.sp[k] : 255;   // the 3-D mode: what stands here, from the surface model
+    if (S.obj.mask[k] && h >= 2) html += "<br>Building: <b>" + Math.round(h) + " m</b> above the ground (surface model)";
+    else if (h >= 2) html += "<br>Trees: <b>" + Math.round(h) + " m</b> above the ground (surface model)" + (sp < 3 ? ", SR16: " + ["spruce", "pine", "broadleaf"][sp] : ""); }
   // every overlay that is on gets its own line (owner, 2026-10-29: "make sure all overlays at a point are showed in the hover window"): the Slope and Facing overlays in their own classes …
   if ($("lySlope").checked) { let i = SLOPE_CL.length - 1; while (i > 0 && sl < SLOPE_CL[i][0]) i--; html += "<br>Slope (NVE classes): <b>" + (sl < 27 ? "below 27°, not painted" : SLOPE_CL[i][2] + (clsOff.slope.has(i) ? " (hidden)" : "")) + "</b>"; }
   if ($("lyFacing").checked) { const i = Math.round(facingOf(fx, fy, S.gam) / 45) % 8; html += "<br>Facing: <b>" + (sl < FACE_MIN ? "slope below " + FACE_MIN + "°, not painted" : FACE_CL[i][0] + (clsOff.face.has(i) ? " (hidden)" : "")) + "</b>"; }
@@ -4815,6 +4847,175 @@ function linkPoints() {
     return feats.length ? new Blob([JSON.stringify({ type: "FeatureCollection", features: feats })], { type: "application/json" }) : null;
   } catch (e) { console.warn("the link's pts list was not read", e); return null; }
 }
+// ---- 3-D objects (owner, 2026-11-13: "introduce a true 3d rendering mode of the terrain: from the selected overlays for trees,
+// their height and types, if possible other types of nature and buildings etc as well, fields etc generate 3d renditions").
+// Kartverket's surface model (NHM DOM, same services as the DTM) less the terrain is the height of whatever stands on the
+// ground, per cell: tree tops are its local maxima, SR16 names the species, OpenStreetMap gives the building outlines (raised
+// to the roof height measured inside them), AR5 shades the fields. The fine grid only, at 1–2 m cells (a 1 m view or centre of
+// ≤ 3 km radius); off unless Map → 3-D trees, buildings and fields is ticked (t3d_obj), since it fetches a second model.
+const OBJ_KEY = "t3d_obj", OBJ_MAX = 250000, OBJ_CMAX = 2;
+const OVERPASS = ["https://overpass-api.de/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
+const domTiles = new Map();   // DOM tile name → decoded tile (null = no data there), kept for the session
+const osmCache = new Map();   // Overpass answer per bounding box, for the session
+let objRun = 0;
+async function domGrid() {   // the surface model on the fine grid: { h } raw, or null
+  const T = 1000, c = S.c, w = Math.round(T / c), tmpl = (srvOf() === "hoydedata" ? HDS : WCS).replace(/DTM/g, "DOM").replace(/-dtm-/g, "-dom-"), todo = [], tiles = [];
+  for (let e = Math.floor((S.X - S.R) / T); e <= Math.floor((S.X + S.R - 1e-6) / T); e++)
+    for (let n = Math.floor((S.Y - S.R) / T); n <= Math.floor((S.Y + S.R - 1e-6) / T); n++) {
+      const name = "dom_E" + e + "_N" + n + "_" + c + "m.tif";
+      if (domTiles.has(name)) { if (domTiles.get(name)) tiles.push(domTiles.get(name)); continue; }
+      todo.push({ name, url: tmpl.replace("{x0}", e * T).replace("{y0}", n * T).replace("{x1}", (e + 1) * T).replace("{y1}", (n + 1) * T).replace(/\{w\}/g, w) });
+    }
+  let done = 0;
+  for (const it of todo) {
+    busy("Fetching the surface model… " + done + " / " + todo.length, done / todo.length);
+    const b = await wcsFetch(it); let t = null;
+    if (b) { const { img } = await sparseFix(b); t = { img, bbox: img.getBoundingBox(), res: img.getResolution(), nodata: img.getGDALNoData() }; tiles.push(t); }
+    domTiles.set(it.name, t); done++;
+  }
+  return tiles.length ? makeGrid(tiles, S.X, S.Y, S.R, S.c, 0, "Reading the surface model…", true) : null;
+}
+async function osmBuildings() {   // OpenStreetMap's building outlines over the fine grid as [{ ring: [[x, y] …], tags }] (m from the centre), or null
+  const cs = [[-1, -1], [-1, 1], [1, -1], [1, 1]].map(([a, b]) => UTM.inv(S.X + a * S.R, S.Y + b * S.R, SRC.zone)), la = cs.map(p => p[0]), lo = cs.map(p => p[1]);
+  const bb = [Math.min(...la), Math.min(...lo), Math.max(...la), Math.max(...lo)].map(v => v.toFixed(5)).join(",");
+  const q = "[out:json][timeout:90];(way[\"building\"](" + bb + ");relation[\"building\"][\"type\"=\"multipolygon\"](" + bb + "););out geom;";
+  if (osmCache.has(bb)) return osmCache.get(bb);
+  for (const u of OVERPASS) {
+    try {
+      const ac = new AbortController(), to = setTimeout(() => ac.abort(), 90000);
+      const r = await fetch(u, { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" }, signal: ac.signal }); clearTimeout(to);
+      if (!r.ok) continue;
+      const js = await r.json(), out = [], xy = g => g.map(p => { const [e, n] = UTM.fwd(p.lat, p.lon, SRC.zone); return [e - S.X, n - S.Y]; });
+      for (const el of js.elements || []) {
+        if (el.type === "way" && el.geometry) out.push({ ring: xy(el.geometry), tags: el.tags || {} });
+        else if (el.type === "relation") for (const m of el.members || []) if (m.role === "outer" && m.geometry) out.push({ ring: xy(m.geometry), tags: el.tags || {} });
+      }
+      osmCache.set(bb, out); return out;
+    } catch (e) {}
+  }
+  return null;
+}
+function buildingMesh(list, H, mask) {   // the outlines inside the fine grid, walls and a flat roof at the median height measured inside; marks their cells
+  const n = S.n, c = S.c, R = S.R, P = [], C = [], WALL = [0.85, 0.82, 0.76], ROOF = [0.42, 0.27, 0.22], FLAT = [0.36, 0.36, 0.36]; let cnt = 0;
+  for (const b of list) {
+    let ring = b.ring; const L = ring.length;
+    if (L > 3 && ring[0][0] === ring[L - 1][0] && ring[0][1] === ring[L - 1][1]) ring = ring.slice(0, -1);
+    if (ring.length < 3 || !ring.every(p => Math.max(Math.abs(p[0]), Math.abs(p[1])) < R - c)) continue;
+    const xs = ring.map(p => p[0]), ys = ring.map(p => p[1]);
+    const i0 = Math.max(0, Math.floor((Math.min(...xs) + R) / c) - 1), i1 = Math.min(n - 1, Math.floor((Math.max(...xs) + R) / c) + 1);
+    const j0 = Math.max(0, Math.floor((R - Math.max(...ys)) / c) - 1), j1 = Math.min(n - 1, Math.floor((R - Math.min(...ys)) / c) + 1), hv = [];
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      const x = (i + 0.5) * c - R, y = R - (j + 0.5) * c, d = polyDist(x, y, ring);
+      if (d === 0) hv.push(H[j * n + i]); if (d <= c) mask[j * n + i] = 1;   // the outline's cells and one more round: no "tree top" on a roof edge
+    }
+    hv.sort((a, z) => a - z);
+    const med = hv.length >= 4 ? hv[hv.length >> 1] : 0, t = b.tags, hgt = Math.max(2.5, Math.min(150, med >= 2 ? med : parseFloat(t.height) || (+t["building:levels"] > 0 ? 3 * t["building:levels"] + 1 : 6)));
+    const gs = ring.map(p => sample(p[0], p[1]) - S.h0), base = Math.min(...gs) - 0.5, top = gs.reduce((a, v) => a + v, 0) / gs.length + hgt;
+    const v = (x, y, z, col) => { P.push(x, z, -y); C.push(col[0], col[1], col[2]); };
+    for (let k = 0; k < ring.length; k++) {
+      const a = ring[k], e = ring[(k + 1) % ring.length], sh = 0.92 + 0.08 * ((k * 7) % 3) / 2, col = WALL.map(q => q * sh);
+      v(a[0], a[1], base, col); v(e[0], e[1], base, col); v(e[0], e[1], top, col); v(a[0], a[1], base, col); v(e[0], e[1], top, col); v(a[0], a[1], top, col);
+    }
+    const tris = THREE.ShapeUtils.triangulateShape(ring.map(p => new THREE.Vector2(p[0], p[1])), []), roof = hv.length > 150 ? FLAT : ROOF;
+    for (const tr of tris) for (const q of tr) v(ring[q][0], ring[q][1], top, roof);
+    cnt++;
+  }
+  if (!cnt) return null;
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); g.setAttribute("color", new THREE.Float32BufferAttribute(C, 3)); g.computeVertexNormals();
+  const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide })); m.castShadow = m.receiveShadow = true; m.userData.count = cnt;
+  return m;
+}
+async function treeTops(H, mask) {   // the canopy's local maxima ≥ 2.5 m (a window that widens with the height), not on a building or a flat roof: [i, j, h …]
+  const n = S.n, c = S.c, Hs = new Float32Array(n * n), tops = [], fd = Math.max(2, Math.round(3 / c));
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {   // a 3 × 3 mean on 1 m cells: one top per crown, not per branch
+    const k = j * n + i; if (c > 1 || H[k] < 2 || !i || !j || i === n - 1 || j === n - 1) { Hs[k] = H[k]; continue; }
+    Hs[k] = (H[k - n - 1] + H[k - n] + H[k - n + 1] + H[k - 1] + H[k] + H[k + 1] + H[k + n - 1] + H[k + n] + H[k + n + 1]) / 9;
+  }
+  for (let j = fd; j < n - fd; j++) {
+    if (j % 300 === 0) { busy("Finding the trees… " + pctOf(j / n), j / n); await tick(); }
+    for (let i = fd; i < n - fd; i++) {
+      const k = j * n + i, h = Hs[k]; if (h < 2.5 || mask[k]) continue;
+      const r = Math.max(1, Math.round((1 + 0.08 * h) / c)), r2 = r * r + r; let ok = true;
+      for (let dj = -r; dj <= r && ok; dj++) { const jj = j + dj; if (jj < 0 || jj >= n) continue; for (let di = -r; di <= r; di++) {
+        if ((!di && !dj) || di * di + dj * dj > r2) continue; const ii = i + di; if (ii < 0 || ii >= n) continue;
+        const q = Hs[jj * n + ii]; if (q > h || (q === h && (dj < 0 || (!dj && di < 0)))) { ok = false; break; } } }
+      if (!ok) continue;
+      const f = (Hs[k - fd * n] + Hs[k + fd * n] + Hs[k - fd] + Hs[k + fd]) / 4; if (f > 0.98 * h) continue;   // flat around the top: a roof OSM does not know, not a crown
+      tops.push(i, j, h);
+    }
+  }
+  return tops;
+}
+function treeMeshes(tops, sp) {   // one instanced mesh per crown shape plus the trunks; sp: SR16 species per cell (0 spruce, 1 pine, 2 broadleaf, 255 none → broadleaf)
+  const n = S.n, c = S.c, R = S.R; let idx = []; for (let q = 0; q < tops.length; q += 3) idx.push(q);
+  if (idx.length > OBJ_MAX) { const d = q => ((tops[q] + 0.5) * c - R) ** 2 + (R - (tops[q + 1] + 0.5) * c) ** 2; idx.sort((a, b) => d(a) - d(b)); idx = idx.slice(0, OBJ_MAX); }
+  const kind = q => { const v = sp ? sp[tops[q + 1] * n + tops[q]] : 255; return v === 0 || v === 1 ? v : 2; };
+  const cnt = [0, 0, 0]; for (const q of idx) cnt[kind(q)]++;
+  const GEO = [new THREE.ConeGeometry(1, 1, 7).translate(0, 0.5, 0), new THREE.IcosahedronGeometry(1, 0), new THREE.IcosahedronGeometry(1, 1)], COL = [0x2e4f2a, 0x4d6e36, 0x5f8a3c];
+  const meshes = GEO.map((g, s) => cnt[s] ? new THREE.InstancedMesh(g, new THREE.MeshLambertMaterial({ color: 0xffffff }), cnt[s]) : null);
+  const nTr = cnt[1] + cnt[2], trunk = nTr ? new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 5, 1, true).translate(0, 0.5, 0), new THREE.MeshLambertMaterial({ color: 0x5a4636 }), nTr) : null;
+  const at = [0, 0, 0], m4 = new THREE.Matrix4(), qt = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), pos = new THREE.Vector3(), scl = new THREE.Vector3(), col = new THREE.Color(); let ti = 0;
+  for (const q of idx) {
+    const s = kind(q), h = tops[q + 2], x = (tops[q] + 0.5) * c - R, y = R - (tops[q + 1] + 0.5) * c, g = sample(x, y) - S.h0, rnd = ((q * 2654435761) >>> 0) / 4294967296;
+    qt.setFromAxisAngle(up, rnd * 6.283);
+    if (s === 0) { const r = Math.max(0.6, Math.min(4, 0.16 * h + 0.4)); pos.set(x, g + 0.12 * h, -y); scl.set(r, 0.88 * h, r); }
+    else if (s === 1) { const r = Math.max(0.8, Math.min(5, 0.2 * h + 0.5)); pos.set(x, g + 0.78 * h, -y); scl.set(r, 0.22 * h, r); }
+    else { const r = Math.max(1, Math.min(8, 0.28 * h + 0.6)); pos.set(x, g + 0.62 * h, -y); scl.set(r, 0.38 * h, r); }
+    m4.compose(pos, qt, scl); meshes[s].setMatrixAt(at[s], m4); col.setHex(COL[s]).multiplyScalar(0.85 + 0.3 * rnd); meshes[s].setColorAt(at[s], col); at[s]++;
+    if (s) { const th = (s === 1 ? 0.62 : 0.3) * h, tr = Math.min(0.5, 0.012 * h + 0.08); pos.set(x, g, -y); scl.set(tr, th, tr); m4.compose(pos, qt, scl); trunk.setMatrixAt(ti++, m4); }
+  }
+  const out = meshes.filter(Boolean); if (trunk) out.push(trunk);
+  out.forEach(o => { o.castShadow = o.receiveShadow = true; o.frustumCulled = false; });   // r128 culls an instanced mesh by its one shape's bounds
+  return { meshes: out, cnt };
+}
+async function objOn() {   // fetch, compute and show; the data stay with the view (S.obj), the meshes are rebuilt with the world
+  if (!S || !$("lyObj").checked) return;
+  if (S.obj && S.obj.group && S.obj.group.parent === world) return;
+  if (S.c > OBJ_CMAX) { $("dsrc").textContent = "3-D trees and buildings need a 1 m view or centre of at most 3 km radius (this one has " + S.c + " m cells)."; return; }
+  if (SRC.zone !== 33) { $("dsrc").textContent = "3-D trees and buildings: the surface model is served in UTM zone 33 only."; return; }
+  const run = ++objRun, s0 = S, live = () => run === objRun && S === s0 && $("lyObj").checked;
+  try {
+    if (!S.obj) {
+      const D = await domGrid(); if (!live()) return busy(false);
+      if (!D) { busy(false); $("dsrc").textContent = "3-D trees and buildings: no surface model here."; return; }
+      const n = S.n, H = new Float32Array(n * n), mask = new Uint8Array(n * n);
+      for (let k = 0; k < n * n; k++) { const a = D.h[k], b = S.h[k]; H[k] = a === a && b === b ? Math.max(0, Math.min(60, a - b)) : 0; }
+      busy("Fetching the buildings (OpenStreetMap)…"); await tick();
+      const blds = await osmBuildings(); if (!live()) return busy(false);
+      const bmesh = blds ? buildingMesh(blds, H, mask) : null;
+      const sr = NB_GROUPS.find(g => g.id === "sr16"), ar = NB_GROUPS.find(g => g.id === "ar5");
+      busy("Loading SR16 and AR5…"); await tick();
+      const spImg = await nbImage(S, sr, "SRRTRESLAG"), sp = spImg ? nbClsMap(spImg, SR16_CL.SRRTRESLAG) : null;
+      const arImg = await nbImage(S, ar, "Arealtype"), arCls = arImg ? await nbClasses(ar, "Arealtype") : null; if (!live()) return busy(false);
+      let land = null;
+      if (arImg && arCls) { const m = nbClsMap(arImg, arCls), kindOf = arCls.map(e => /cultivated/i.test(e[0]) ? 1 : /^Pasture/i.test(e[0]) ? 2 : /^Bog/i.test(e[0]) ? 3 : 0); land = new Uint8Array(m.length); for (let k = 0; k < m.length; k++) land[k] = m[k] === 255 ? 0 : kindOf[m[k]]; }
+      const tops = await treeTops(H, mask); if (!live()) return busy(false);
+      S.obj = { H, mask, sp, land, tops, bmesh, nB: bmesh ? bmesh.userData.count : 0, osm: !!blds };
+    }
+    busy("Building the 3-D objects…"); await tick();
+    const o = S.obj, tm = treeMeshes(o.tops, o.sp), grp = new THREE.Group(), L = S.out ? 1 : 0;
+    tm.meshes.forEach(m => grp.add(m)); if (o.bmesh) grp.add(o.bmesh);
+    grp.traverse(q => q.layers.set(L)); world.add(grp); o.group = grp; o.cnt = tm.cnt;
+    busy(false);
+    $("dsrc").textContent = "3-D objects: " + (tm.cnt[0] + tm.cnt[1] + tm.cnt[2]) + " trees (spruce " + tm.cnt[0] + ", pine " + tm.cnt[1] + ", broadleaf " + tm.cnt[2] + ")" + (o.tops.length / 3 > OBJ_MAX ? ", the " + OBJ_MAX + " nearest the centre" : "") + " · " + (o.osm ? o.nB + " buildings (OpenStreetMap)" : "no buildings: OpenStreetMap did not answer");
+    setAttr($("basemap").value); await repaint();
+  } catch (e) { busy(false); $("dsrc").textContent = "3-D trees and buildings: " + e.message; }
+}
+function objOff() {
+  objRun++; if (!S || !S.obj) return;
+  if (S.obj.group) { world.remove(S.obj.group); S.obj.group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); }
+  S.obj = null; setAttr($("basemap").value); repaint();
+}
+function fieldPaint(d, land, n, c) {   // AR5 under the 3-D objects: cultivated land in rows, pasture greener, bog browner
+  const TINT = [null, [201, 207, 122, 0.35], [150, 196, 104, 0.3], [184, 167, 122, 0.3]];
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const k = j * n + i, t = TINT[land[k]]; if (!t) continue;
+    const o = 4 * k, f = land[k] === 1 ? (((i + j) * c / 2.5) % 2 < 1 ? 0.93 : 1.05) : 1;
+    for (let q = 0; q < 3; q++) d[o + q] = Math.min(255, (d[o + q] + (t[q] - d[o + q]) * t[3]) * f);
+  }
+}
+try { $("lyObj").checked = localStorage.getItem(OBJ_KEY) === "1"; } catch (e) {}
+$("lyObj").onchange = () => { try { localStorage.setItem(OBJ_KEY, $("lyObj").checked ? "1" : "0"); } catch (e) {} if ($("lyObj").checked) objOn(); else objOff(); };
 // ---- map-built views grow (owner, 2026-10-18: "user can add tiles at edges of the scene by clicking on a location …
 // 'fetch more' … fetches more tiles centered on that point (not re-fetching those existing) and expanding scene as the
 // union of all fetches done … also a 'fetch' option that only re-renders the tiles around the last point" + "an option
@@ -5106,6 +5307,7 @@ const HELP = [
   ["Moving around", "<p>Drag to move the map (✋ — tap it for ⟳, then drag rotates and tilts) · twist two fingers, right-drag or Shift+drag to rotate · pinch, wheel or <kbd>+</kbd> <kbd>−</kbd> to zoom · ⟲ ⟳ ▲ ▼ rotate and tilt in steps, <kbd>N</kbd> puts north up · arrow keys pan. <b>Reset view</b> returns to the start, <b>Top view</b> looks straight down, <b>Ground view</b> stands 1.75 m above the ground at the point the view turns about (the centre at first; the tap popup's <i>Ground view</i> stands at the tapped point) and looks level at the horizon in the current heading — rotate to look round, tilt to look down, drag to walk; every overlay is painted on the terrain, so all of them show. <b>◎</b> (control column) asks the device where you are: inside the view, the spot gets a blue mark with its accuracy ring, the view moves there and the point popup opens — its <i>Ground view</i> stands 2 m above the ground where you are; outside the view, a note says how far beyond the edge you are. <b>Height ×</b> (Map section) exaggerates heights (1–3; shadows are exact at ×1). <b>Smooth terrain</b> (Map section) softens the model with a Gaussian of the given σ in metres (off: the raw cells). ‹ tucks the panels away, › the map controls. A closed section whose triangle is <b>blue</b> has a toggle set inside it (a layer on, contours off …).</p>"],
   ["2-D map", "<p>The <b>2D</b> button in the control column shows the same place as a flat map carrying the terrain's layers: every layer, mask and graded layer, the pins and areas — drawn with transparency over the map, which supplies its own base and contours (the 3-D base map and the painted contours are not transferred). The <b>Map</b> dropdown is shared: <i>Plain</i> is a bare light background with the layers alone on it; every other choice is a tile map. Hover, a short tap (pinned values), a long press or right-click (the point popup), pins and areas work as in 3-D; <i>Ground view</i> from the map goes back to the terrain at that point. <b>3D</b> returns to the terrain, centred where the map was. A view link made on the map opens flat.</p><p class=\"as\"><b>Assumptions:</b> the square is drawn in Web Mercator by projecting a lattice every 8 px exactly and interpolating between — far below a cell of error; the surround (1+10m) lies under the 1 m square.</p>"],
   ["Map", "<p>The <b>base map</b> is draped onto the terrain for the view's box: plain (a light tint), Kartverket topo and greyscale, OpenTopoMap, CyclOSM (paths), Esri streets and aerial, Esri Wayback (every earlier aerial photo of the spot — a <i>Photo</i> list), and NASA's recent satellite imagery (the days of the last 30 with a Sentinel-2 or Landsat pass over the centre at 30 m, about a week behind, then the last three days of MODIS at 250 m — clouds are yours to judge). <b>Contours</b> every 5 m, labelled every 25 m. One layer per loaded <b>overlay file</b> (its polygons, lines and points), <b>centre & circles</b> (the centre mark, a 500 m circle and the view's edge), and <b>bold markers</b> (bigger pins, seen through hills, areas outlined). <b>Red levels (m)</b>: elevations of your choice (spaces or commas) drawn as clear red curves over every layer, in 3-D and on the flat map; remembered in the browser.</p>"],
+  ["3-D trees, buildings and fields", "<p><b>Map → 3-D trees, buildings and fields</b> stands the view's objects up in 3-D. Kartverket's surface model (NHM DOM: the tops of trees and roofs) less the terrain model gives the height of whatever stands on the ground in every cell. Each tree is a local top of that height (its search window widens with the height), drawn as its kind: a narrow cone for spruce, a trunk with a flat crown for pine, a round crown for broadleaf — the species from NIBIO's SR16 at that spot, broadleaf where SR16 has no forest (gardens, parks, mountain birch). Buildings are OpenStreetMap's outlines raised to the median height measured inside them (OpenStreetMap's height or floors where the surface model has none). Fields from NIBIO's AR5: cultivated land in rows, pasture greener, bog browner. Hovering gives the height above the ground there.</p><p>Only in a 1 m view or 1 m centre of at most 3 km radius, and the surface model is fetched too — as much again as the terrain. At most 250 000 trees, the nearest the centre. The trees are shapes of the measured height, not portraits: a dense stand merges into fewer tops, a roof without an OpenStreetMap outline may stand as a tree, and the colours do not follow the season.</p>"],
   ["Terrain features", null],
   ["Sun", "<p><b>Sun at date and time</b> lights and shadows the terrain as the sun stands then (NOAA sun position; times are Norway time, CET/CEST) — <b>Fixed light (S)</b>, the setting to begin with, is a plain studio light from the south instead (the date and time controls are hidden then); <b>Now</b> sets the moment, <b>▶ Day</b> runs through the day. The line under the sliders gives the sun's height and azimuth, the clear-sky direct radiation on level ground, sunrise, solar noon and sunset. <b>Sun: average direct radiation</b> colours the terrain by the clear-sky direct sun on the ground in kWh/m² per day over a month range (the two-handle slider, Jan – Apr to begin with; From after To runs over the new year; the range you set is remembered on this device): hourly, two days per month, the beam times the cosine of its incidence on the cell's slope, nothing when the sun is below the cell's own terrain horizon (32 directions). The colours run from the view's lowest to its highest; the handle on the legend bar is a high-pass: cells below it are left unpainted (1 kWh/m² per day to begin with). The pointer gives the point's value.</p><p class=\"as\"><b>Assumptions:</b> clear sky always; direct beam only (no diffuse sky light, no reflection from snow); terrain horizons on a coarse grid of at most 250 × 250 cells; no trees.</p>"],
   ["Pointing, tapping, measuring", "<p><b>Hovering</b> shows the height, slope, facing and distance from the centre under the pointer, and the value of every overlay that is on. A <b>long press</b> (touch) or <b>right-click</b> (mouse) on the terrain opens a popup with the coordinates (tap them to copy), height, the overlays' classes, then the model and <i>Fetch+</i> (fetch the tiles round the point too and show everything fetched so far as one view) and <i>Fetch</i> (move the view there), and under them <i>Ground view</i> (stand there) and <i>Viewshed</i>; a <b>short tap</b> shows the hover text at the point — the height, slope, facing and every overlay's value — and keeps it until the next tap (the way to read the overlays on a touch screen); on a pin it shows the pin's name and text. <b>📏 Measure</b>: tap two points for the distance, height difference, slope and bearing between them. <b>🛰</b> opens Norgeskart's aerial photo of the place, <b>🐦</b> opens BirdsWhere there.</p>"],
