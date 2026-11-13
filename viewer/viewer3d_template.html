@@ -1191,7 +1191,11 @@
 const PAGE_SRC = "<!doctype html>\n" + document.documentElement.outerHTML;
 // ======================================================================= helpers
 const $ = id => document.getElementById(id);
-const busy = (t, frac) => { $("busy").hidden = !t; if (t) $("busyt").textContent = t; $("busyb").hidden = !(t && frac != null); if (frac != null) $("busybi").style.width = Math.round(100 * Math.max(0, Math.min(1, frac))) + "%"; };
+let bSpan = null, bLast = 0;   // a multi-step job (the 3-D objects) maps each step's 0–1 onto its slice [from, width] of one bar
+const busy = (t, frac) => {
+  if (bSpan && t) { frac = frac == null ? Math.max(bLast, bSpan[0]) : bSpan[0] + bSpan[1] * Math.max(0, Math.min(1, frac)); bLast = frac; }
+  $("busy").hidden = !t; if (t) $("busyt").textContent = t; $("busyb").hidden = !(t && frac != null); if (frac != null) $("busybi").style.width = Math.round(100 * Math.max(0, Math.min(1, frac))) + "%";
+};
 const pctOf = f => Math.round(100 * Math.max(0, Math.min(1, f))) + " %";
 // ---- language (owner, 2026-10-29: "add a locale choice English or Norwegian where all menu texts explanations and buttons etc
 // are translated"). The code stays English; NO (the JSON block i18n-no) maps English → Norwegian. T(s) translates a whole
@@ -3760,7 +3764,7 @@ async function sparseFix(blob) {
   for (let i = 0; i < bc.length; i++) if (bc[i] === 0) { off[i] = buf.byteLength; bc[i] = blk; }
   return { tif, img };
 }
-async function wcsFetch(it) {
+async function wcsFetch(it, onBytes) {   // onBytes(n): the bytes in so far (the servers send no length, so the caller knows the size)
   let cache = null; try { cache = await caches.open(DTM_CACHE); } catch (e) {}
   if (cache) { const c = await cache.match(it.url); if (c) return c.blob(); }
   const waits = [1, 2, 4, 8, 16, 32, 60], srv = it.url.indexOf("hoydedata.no") > 0 ? "hoydedata" : "geonorge";
@@ -3769,7 +3773,10 @@ async function wcsFetch(it) {
     try {
       const r = await fetch(it.url);
       if (r.ok) {
-        const b = await r.blob(), head = await b.slice(0, 2).text();
+        let b;
+        if (onBytes && r.body) { const rd = r.body.getReader(), parts = []; let got = 0; for (;;) { const { done, value } = await rd.read(); if (done) break; parts.push(value); onBytes(got += value.length); } b = new Blob(parts); }
+        else b = await r.blob();
+        const head = await b.slice(0, 2).text();
         if (head === "II" || head === "MM") {
           if (cache) { try { await cache.put(it.url, new Response(b, { headers: { "content-type": "image/tiff" } })); const ks = await cache.keys(); for (let i = 0; i < ks.length - DTM_CACHE_MAX; i++) await cache.delete(ks[i]); } catch (e) {} }
           return b;
@@ -3808,7 +3815,7 @@ const OVERPASS = ["https://overpass-api.de/api/interpreter", "https://maps.mail.
 const domTiles = new Map();   // DOM tile name → decoded tile (null = no data there), kept for the session
 const osmCache = new Map();   // Overpass answer per bounding box, for the session
 let objRun = 0;
-async function domGrid() {   // the surface model on the fine grid: { h } raw, or null
+async function domGrid(reading) {   // the surface model on the fine grid: { h } raw, or null; reading(): called when the fetching is done
   const T = 1000, c = S.c, w = Math.round(T / c), tmpl = (srvOf() === "hoydedata" ? HDS : WCS).replace(/DTM/g, "DOM").replace(/-dtm-/g, "-dom-"), todo = [], tiles = [];
   for (let e = Math.floor((S.X - S.R) / T); e <= Math.floor((S.X + S.R - 1e-6) / T); e++)
     for (let n = Math.floor((S.Y - S.R) / T); n <= Math.floor((S.Y + S.R - 1e-6) / T); n++) {
@@ -3818,11 +3825,13 @@ async function domGrid() {   // the surface model on the fine grid: { h } raw, o
     }
   let done = 0;
   for (const it of todo) {
-    busy("Fetching the surface model… " + done + " / " + todo.length, done / todo.length);
-    const b = await wcsFetch(it); let t = null;
+    const msg = "Fetching the surface model… " + (done + 1) + " / " + todo.length, size = 4 * w * w;   // float32 cells
+    busy(msg, done / todo.length);
+    const b = await wcsFetch(it, got => busy(msg, (done + Math.min(0.98, got / size)) / todo.length)); let t = null;
     if (b) { const { img } = await sparseFix(b); t = { img, bbox: img.getBoundingBox(), res: img.getResolution(), nodata: img.getGDALNoData() }; tiles.push(t); }
     domTiles.set(it.name, t); done++;
   }
+  if (reading) reading();
   return tiles.length ? makeGrid(tiles, S.X, S.Y, S.R, S.c, 0, "Reading the surface model…", true) : null;
 }
 async function osmFetch() {   // OpenStreetMap over the fine grid: { bld: building outlines [{ ring: [[x, y] …], tags }], ww: waterway lines [{ line, tags }] } (m from the centre), or null
@@ -3924,34 +3933,37 @@ async function objOn() {   // fetch, compute and show; the data stay with the vi
   if (S.obj && S.obj.group && S.obj.group.parent === world) return;
   if (S.c > OBJ_CMAX) { $("dsrc").textContent = "3-D trees and buildings need a 1 m view or centre of at most 3 km radius (this one has " + S.c + " m cells)."; return; }
   if (SRC.zone !== 33) { $("dsrc").textContent = "3-D trees and buildings: the surface model is served in UTM zone 33 only."; return; }
-  const run = ++objRun, s0 = S, live = () => run === objRun && S === s0 && $("lyObj").checked;
+  const run = ++objRun, s0 = S, live = () => run === objRun && S === s0 && $("lyObj").checked, step = (a, b) => { bSpan = [a, b - a, run]; bLast = a; }, unstep = () => { if (bSpan && bSpan[2] === run) bSpan = null; };
+  const fresh = !S.obj;
   try {
-    if (!S.obj) {
-      const D = await domGrid(); if (!live()) return busy(false);
+    if (fresh) {
+      step(0, 0.55); const D = await domGrid(() => step(0.55, 0.6)); if (!live()) return busy(false);
       if (!D) { busy(false); $("dsrc").textContent = "3-D trees and buildings: no surface model here."; return; }
       const n = S.n, H = new Float32Array(n * n), mask = new Uint8Array(n * n);
       for (let k = 0; k < n * n; k++) { const a = D.h[k], b = S.h[k]; H[k] = a === a && b === b ? Math.max(0, Math.min(60, a - b)) : 0; }
-      busy("Fetching the buildings (OpenStreetMap)…"); await tick();
+      step(0.6, 0.72); busy("Fetching the buildings (OpenStreetMap)…"); await tick();
       const osm = await osmFetch(), blds = osm && osm.bld; if (!live()) return busy(false);
       const bmesh = blds ? buildingMesh(blds, H, mask) : null;
       const sr = NB_GROUPS.find(g => g.id === "sr16"), ar = NB_GROUPS.find(g => g.id === "ar5");
-      busy("Loading SR16 and AR5…"); await tick();
+      step(0.72, 0.8); busy("Loading SR16 and AR5…"); await tick();
       const spImg = await nbImage(S, sr, "SRRTRESLAG"), sp = spImg ? nbClsMap(spImg, SR16_CL.SRRTRESLAG) : null;
+      step(0.8, 0.88); busy("Loading SR16 and AR5…"); await tick();
       const arImg = await nbImage(S, ar, "Arealtype"), arCls = arImg ? await nbClasses(ar, "Arealtype") : null; if (!live()) return busy(false);
       let land = null;
       if (arImg && arCls) { const m = nbClsMap(arImg, arCls), kindOf = arCls.map(e => /cultivated/i.test(e[0]) ? 1 : /^Pasture/i.test(e[0]) ? 2 : /^Bog/i.test(e[0]) ? 3 : /^(Fresh water|Sea)$/i.test(e[0]) ? 4 : 0); land = new Uint8Array(m.length); for (let k = 0; k < m.length; k++) land[k] = m[k] === 255 ? 0 : kindOf[m[k]]; }
-      const tops = await treeTops(H, mask, land); if (!live()) return busy(false);
+      step(0.88, 0.96); const tops = await treeTops(H, mask, land); if (!live()) return busy(false);
       S.obj = { H, mask, sp, land, tops, bmesh, nB: bmesh ? bmesh.userData.count : 0, osm: !!blds, ww: osm ? osm.ww : [] };
     }
-    busy("Building the 3-D objects…"); await tick();
+    if (fresh) step(0.96, 1); busy("Building the 3-D objects…", fresh ? 0 : null); await tick();
     const o = S.obj, tm = treeMeshes(o.tops, o.sp), grp = new THREE.Group(), L = S.out ? 1 : 0;
     const wm = waterMesh(o.land, o.ww);
     tm.meshes.forEach(m => grp.add(m)); if (o.bmesh) grp.add(o.bmesh); if (wm) grp.add(wm);
     grp.traverse(q => q.layers.set(L)); world.add(grp); o.group = grp; o.cnt = tm.cnt;
-    busy(false);
+    busy(false); unstep();
     $("dsrc").textContent = "3-D objects: " + (tm.cnt[0] + tm.cnt[1] + tm.cnt[2]) + " trees (spruce " + tm.cnt[0] + ", pine " + tm.cnt[1] + ", broadleaf " + tm.cnt[2] + ")" + (o.tops.length / 3 > OBJ_MAX ? ", the " + OBJ_MAX + " nearest the centre" : "") + " · " + (o.osm ? o.nB + " buildings (OpenStreetMap)" : "no buildings: OpenStreetMap did not answer") + (wm ? " · water" + (wm.userData.nW ? ", " + wm.userData.nW + " streams and rivers" : "") : "");
     setAttr($("basemap").value); await repaint();
   } catch (e) { busy(false); $("dsrc").textContent = "3-D trees and buildings: " + e.message; }
+  finally { unstep(); }
 }
 function objOff() {
   objRun++; if (!S || !S.obj) return;
