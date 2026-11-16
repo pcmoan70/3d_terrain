@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-16 · Water in a water colour
+
+Owner: "3d terrain view should when 3-D trees, buildings and fields is ticked on show lakes and rivers in a nice water color". The water was there but one flat slate blue, the sun's glint lost on a mirror-flat surface. Now `waterMesh` colours per vertex by the distance from the shore (`shoreDist`, a two-pass chamfer over AR5's water cells): turquoise at the edge deepening to blue 40 m out (runs cut every 8 steps so the colour can change along them); rivers and canals from OpenStreetMap a mid tone, streams and ditches the shallow one. A generated, tileable ripple normal map (`waterNormals`, five sine swells, 256 px, repeating every 40 m) breaks up the highlights. Help and Norwegian follow. Checked headless at Sognsvann and on Mesnaelva in Lillehammer.
+
 ## 2026-11-13 · One progress bar through the 3-D build
 
 Owner: "When building the 3d features, include a progress bar". The 3-D objects' build had a bar only between surface tiles (a 1 m tile takes 12–20 s, so it sat still) and none for the later steps. Now one bar runs 0–100 % through it all: `busy()` maps each step's 0–1 onto its slice when `bSpan` is set (surface tiles 0–55 %, reading them 55–60, OpenStreetMap 60–72, SR16 72–80, AR5 80–88, tree tops 88–96, meshes 96–100; a step without its own fraction holds the bar where it is, so a retry line never sends it back). `wcsFetch(it, onBytes)` streams the reply and reports the bytes in; the servers send no Content-Length, so `domGrid` measures against the tile's known size (4 × cells², float32). The slice belongs to its run (a cancelled build never leaves it set). Tested headless on a fresh 600 m view (4 tiles): 38 steps, never backwards, cleared after.
