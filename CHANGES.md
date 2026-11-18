@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-18 · A scrolling log under the progress bar on a PC
+
+Owner: "On pc browser, show more of the log when reading tiles and map overlays, make it a scrolling window so user can read log". On a wide screen without a touch-only pointer (`LOGPC`: ≥ 700 px, not `pointer: coarse`) `busy()` also writes every step into `#busylog` under the bar: the time, then the step; a new line per step and per tile, a line updated in place when only its percentage moves (`busyLog`), at most 400 lines, started afresh with each job. It is scrollable (the overlay is otherwise click-through) and follows the newest line only while it is scrolled to the bottom. The box widens to 620 px and sits above the side panel while the log shows. The terrain and surface-model fetch lines name their tile (`E255_N6655_1m.tif`, "(no data)" where the server has none; Norwegian "(ingen data)"). Phones unchanged. Checked headless at 1100 × 750 on a 16-tile 1 m view.
+
 ## 2026-11-16 · Water in a water colour
 
 Owner: "3d terrain view should when 3-D trees, buildings and fields is ticked on show lakes and rivers in a nice water color". The water was there but one flat slate blue, the sun's glint lost on a mirror-flat surface. Now `waterMesh` colours per vertex by the distance from the shore (`shoreDist`, a two-pass chamfer over AR5's water cells): turquoise at the edge deepening to blue 40 m out (runs cut every 8 steps so the colour can change along them); rivers and canals from OpenStreetMap a mid tone, streams and ditches the shallow one. A generated, tileable ripple normal map (`waterNormals`, five sine swells, 256 px, repeating every 40 m) breaks up the highlights. Help and Norwegian follow. Checked headless at Sognsvann and on Mesnaelva in Lillehammer.

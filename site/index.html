@@ -57,6 +57,10 @@
   #busy>div{background:rgba(0,0,0,.8);padding:12px 18px;border-radius:8px;min-width:240px;max-width:min(420px,90vw);text-align:center}
   #busyb{height:6px;background:#3a3f46;border-radius:3px;margin-top:9px;overflow:hidden}
   #busybi{display:block;height:100%;width:0;background:#ffd54f;transition:width .15s}
+  #busylog[hidden]{display:none}
+  #busy.log{z-index:6}#busy.log>div{width:min(620px,92vw);max-width:min(620px,92vw);background:rgba(16,18,21,.95)}
+  #busylog{margin-top:9px;padding-top:6px;border-top:1px solid #3a3f46;max-height:13em;overflow-y:auto;text-align:left;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;color:#cfd6de;pointer-events:auto}
+  #busylog div{white-space:pre-wrap;overflow-wrap:anywhere}#busylog i{font-style:normal;color:#8a949e;margin-right:6px}
   label.file{display:inline-block;background:#3d5a80;color:#fff;border-radius:5px;padding:4px 9px;cursor:pointer}
   label.file input{display:none}
   label.ly{display:flex;align-items:center;gap:6px}
@@ -233,7 +237,7 @@
   <div class="row w"><button id="pickGo" disabled>Build 3-D view</button></div>
   <div class="sub" id="pickS" style="margin:4px 0 0"></div>
 </div></div>
-<div id="busy" hidden><div><span id="busyt">Working…</span><div id="busyb" hidden><i id="busybi"></i></div></div></div>
+<div id="busy" hidden><div><span id="busyt">Working…</span><div id="busyb" hidden><i id="busybi"></i></div><div id="busylog" hidden></div></div></div>
 <script>/**
  * @license
  * Copyright 2010-2021 Three.js Authors
@@ -1293,7 +1297,7 @@
 //# sourceMappingURL=geotiff.js.map
 </script>
 <script id="embed" type="application/json"></script>
-<script id="i18n-no" type="application/json">{
+<script id="i18n-no" type="application/json">{"(no data)": "(ingen data)", 
 "\" title=\"Click to hide or show this class\"><span class=\"sw\" style=\"background:": "\" title=\"Klikk for å skjule eller vise denne klassen\"><span class=\"sw\" style=\"background:",
 "\"><\/div><div class=\"row\"><textarea id=\"myNote\" rows=\"3\" placeholder=\"Note (optional)\" style=\"width:100%;box-sizing:border-box\"><\/textarea><\/div><div class=\"row w\"><button id=\"myOk\">Add<\/button><button id=\"myNo\">Cancel<\/button><\/div>": "\"><\/div><div class=\"row\"><textarea id=\"myNote\" rows=\"3\" placeholder=\"Note (optional)\" style=\"width:100%;box-sizing:border-box\"><\/textarea><\/div><div class=\"row w\"><button id=\"myOk\">Legg til<\/button><button id=\"myNo\">Avbryt<\/button><\/div>",
 "% of the view seen (": "% av visningen sett (",
@@ -2247,7 +2251,25 @@ const PAGE_SRC = "<!doctype html>\n" + document.documentElement.outerHTML;
 // ======================================================================= helpers
 const $ = id => document.getElementById(id);
 let bSpan = null, bLast = 0;   // a multi-step job (the 3-D objects) maps each step's 0–1 onto its slice [from, width] of one bar
+// On a PC (owner, 2026-11-18: "show more of the log when reading tiles and map overlays, make it a scrolling window so
+// user can read log") every step also goes into a scrolling log under the bar, with the time: a new line per step and per
+// tile, a line updated in place while only its percentage moves; it starts afresh with each job. It stays where the reader
+// scrolled it, and follows the newest line while it is at the bottom.
+const LOGPC = matchMedia("(min-width: 700px)").matches && !matchMedia("(pointer: coarse)").matches;   // a wide screen without a touch-only pointer
+let bKey = "";
+function busyLog(t) {
+  const L = $("busylog"), atEnd = L.scrollTop + L.clientHeight >= L.scrollHeight - 4, key = t.replace(/\d+(\.\d+)?\s*%/g, "%");
+  if ($("busy").hidden) { L.textContent = ""; bKey = ""; }
+  if (key === bKey && L.lastChild) L.lastChild.lastChild.textContent = t;
+  else {
+    const d = document.createElement("div"), tm = document.createElement("i"); tm.textContent = new Date().toTimeString().slice(0, 8);
+    d.append(tm, document.createTextNode(t)); L.append(d); bKey = key;
+    while (L.childNodes.length > 400) L.firstChild.remove();
+  }
+  if (atEnd) L.scrollTop = L.scrollHeight;
+}
 const busy = (t, frac) => {
+  if (LOGPC && t) { busyLog(t); $("busylog").hidden = false; $("busy").classList.add("log"); }
   if (bSpan && t) { frac = frac == null ? Math.max(bLast, bSpan[0]) : bSpan[0] + bSpan[1] * Math.max(0, Math.min(1, frac)); bLast = frac; }
   $("busy").hidden = !t; if (t) $("busyt").textContent = t; $("busyb").hidden = !(t && frac != null); if (frac != null) $("busybi").style.width = Math.round(100 * Math.max(0, Math.min(1, frac))) + "%";
 };
@@ -4880,7 +4902,7 @@ async function domGrid(reading) {   // the surface model on the fine grid: { h }
     }
   let done = 0;
   for (const it of todo) {
-    const msg = "Fetching the surface model… " + (done + 1) + " / " + todo.length, size = 4 * w * w;   // float32 cells
+    const msg = "Fetching the surface model… " + (done + 1) + " / " + todo.length + " · " + it.name, size = 4 * w * w;   // float32 cells
     busy(msg, done / todo.length);
     const b = await wcsFetch(it, got => busy(msg, (done + Math.min(0.98, got / size)) / todo.length)); let t = null;
     if (b) { const { img } = await sparseFix(b); t = { img, bbox: img.getBoundingBox(), res: img.getResolution(), nodata: img.getGDALNoData() }; tiles.push(t); }
@@ -5121,7 +5143,7 @@ async function wcsGather(lat, lon, R, res, R1) {   // the plan's tiles: those no
   for (const it of todo) {
     const b = await wcsFetch(it);
     if (b) { const t = { name: it.name, blob: b, wcs: true }; WCSV.items.push(t); have.set(it.name, t); } else WCSV.skip.add(it.name);
-    busy("Fetching the terrain… " + (++done) + " / " + todo.length, done / todo.length);
+    busy("Fetching the terrain… " + (++done) + " / " + todo.length + " · " + it.name + (b ? "" : " (no data)"), done / todo.length);
   }
   busy(false);
   const items = plan.items.filter(it => have.has(it.name)).map(it => have.get(it.name));
