@@ -1299,7 +1299,7 @@
 //# sourceMappingURL=geotiff.js.map
 </script>
 <script id="embed" type="application/json"></script>
-<script id="i18n-no" type="application/json">{"Stopped:": "Stoppet:", "not read in 60 s — skipped": "ikke lest på 60 s — hoppet over", "is searching…": "søker…", "MB received": "MB mottatt", "reading it": "leser det", "waterways": "vannveier", "trying": "prøver", "gave no answer in 90 s": "svarte ikke på 90 s", "failed": "feilet", "Raising the buildings…": "Reiser bygningene…", "buildings": "bygninger", "(no data)": "(ingen data)", 
+<script id="i18n-no" type="application/json">{"the stored copy is incomplete — fetching it again": "den lagrede kopien er ufullstendig — henter den på nytt", "sent an incomplete tile": "sendte en ufullstendig flis", "could not be read": "kunne ikke leses", "skipped": "hoppet over", "Stopped:": "Stoppet:", "not read in 60 s — skipped": "ikke lest på 60 s — hoppet over", "is searching…": "søker…", "MB received": "MB mottatt", "reading it": "leser det", "waterways": "vannveier", "trying": "prøver", "gave no answer in 90 s": "svarte ikke på 90 s", "failed": "feilet", "Raising the buildings…": "Reiser bygningene…", "buildings": "bygninger", "(no data)": "(ingen data)", 
 "\" title=\"Click to hide or show this class\"><span class=\"sw\" style=\"background:": "\" title=\"Klikk for å skjule eller vise denne klassen\"><span class=\"sw\" style=\"background:",
 "\"><\/div><div class=\"row\"><textarea id=\"myNote\" rows=\"3\" placeholder=\"Note (optional)\" style=\"width:100%;box-sizing:border-box\"><\/textarea><\/div><div class=\"row w\"><button id=\"myOk\">Add<\/button><button id=\"myNo\">Cancel<\/button><\/div>": "\"><\/div><div class=\"row\"><textarea id=\"myNote\" rows=\"3\" placeholder=\"Note (optional)\" style=\"width:100%;box-sizing:border-box\"><\/textarea><\/div><div class=\"row w\"><button id=\"myOk\">Legg til<\/button><button id=\"myNo\">Avbryt<\/button><\/div>",
 "% of the view seen (": "% av visningen sett (",
@@ -2516,7 +2516,9 @@ async function makeGrid(tiles, X, Y, R, c, sig, label, raw) {   // raw: the heig
     if (c1 <= c0 || r1 <= r0) { ti++; continue; }
     // a tile whose decoding never settles (owner, 2026-11-18: "The fetching is stopping on 'Leser sentrum'") is skipped after
     // a minute, said in the log, instead of holding the whole view; its ground is filled like any missing tile
-    const rd = await Promise.race([t.img.readRasters({ window: [c0, r0, c1, r1], samples: [0] }), new Promise(r => setTimeout(() => r(null), 60000))]);
+    let rd;
+    try { rd = await Promise.race([t.img.readRasters({ window: [c0, r0, c1, r1], samples: [0] }), new Promise(r => setTimeout(() => r(null), 60000))]); }
+    catch (e) { console.warn(t.name, e); busy(tl() + ": could not be read (" + e.message + ") — skipped"); ti++; continue; }   // a damaged tile: its ground is filled
     if (!rd) { busy(tl() + ": not read in 60 s — skipped"); ti++; continue; }
     const ras = rd[0], ww = c1 - c0;
     for (let j = 0; j < n; j++) {
@@ -4859,9 +4861,20 @@ async function sparseFix(blob) {
   for (let i = 0; i < bc.length; i++) if (bc[i] === 0) { off[i] = buf.byteLength; bc[i] = blk; }
   return { tif, img };
 }
+// A tile cut short (owner, 2026-11-18: "Stoppet: Offset is outside the bounds of the DataView"): a download that ended early
+// still starts "II" and was cached, and every later read of it threw. Whole = every block it lists (offset + length) lies inside
+// the file; empty blocks (length 0, the sparse tiles sparseFix pads) are fine.
+async function tiffWhole(b) {
+  try {
+    const fd = (await (await GeoTIFF.fromBlob(b)).getImage()).fileDirectory, O = fd.TileOffsets || fd.StripOffsets, C = fd.TileByteCounts || fd.StripByteCounts;
+    if (!O || !C) return false;
+    for (let i = 0; i < O.length; i++) if (C[i] && O[i] + C[i] > b.size) return false;
+    return true;
+  } catch (e) { return false; }
+}
 async function wcsFetch(it, onBytes) {   // onBytes(n): the bytes in so far (the servers send no length, so the caller knows the size)
   let cache = null; try { cache = await caches.open(DTM_CACHE); } catch (e) {}
-  if (cache) { const c = await cache.match(it.url); if (c) return c.blob(); }
+  if (cache) { const c = await cache.match(it.url); if (c) { const b = await c.blob(); if (await tiffWhole(b)) return b; busy("Terrain tile " + it.name + ": the stored copy is incomplete — fetching it again"); try { await cache.delete(it.url); } catch (e) {} } }
   const waits = [1, 2, 4, 8, 16, 32, 60], srv = it.url.indexOf("hoydedata.no") > 0 ? "hoydedata" : "geonorge";
   for (let k = 0; ; k++) {
     let why;
@@ -4872,12 +4885,13 @@ async function wcsFetch(it, onBytes) {   // onBytes(n): the bytes in so far (the
         if (onBytes && r.body) { const rd = r.body.getReader(), parts = []; let got = 0; for (;;) { const { done, value } = await rd.read(); if (done) break; parts.push(value); onBytes(got += value.length); } b = new Blob(parts); }
         else b = await r.blob();
         const head = await b.slice(0, 2).text();
-        if (head === "II" || head === "MM") {
+        if ((head === "II" || head === "MM") && !(await tiffWhole(b))) why = SRV[srv] + " sent an incomplete tile (" + b.size + " bytes)";
+        else if (head === "II" || head === "MM") {
           if (cache) { try { await cache.put(it.url, new Response(b, { headers: { "content-type": "image/tiff" } })); const ks = await cache.keys(); for (let i = 0; i < ks.length - DTM_CACHE_MAX; i++) await cache.delete(ks[i]); } catch (e) {} }
           return b;
         }
-        if (head === "<?" || head === "<S" || head === "<o" || head === "<E") return null;   // an OGC exception: no data here (sea, abroad)
-        why = SRV[srv] + " sent an unexpected reply (" + b.size + " bytes)";
+        else if (head === "<?" || head === "<S" || head === "<o" || head === "<E") return null;   // an OGC exception: no data here (sea, abroad)
+        else why = SRV[srv] + " sent an unexpected reply (" + b.size + " bytes)";
       } else if (srv === "geonorge" && r.status !== 429 && r.status >= 400 && r.status < 500) return null;   // the WCS: no coverage there
       else why = SRV[srv] + " answers HTTP " + r.status;
     } catch (e) { why = SRV[srv] + " is not responding"; }   // a refused or broken reply (no CORS header on an error page): the browser says only "Failed to fetch"
