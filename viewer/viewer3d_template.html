@@ -57,7 +57,9 @@
   #busy>div{background:rgba(0,0,0,.8);padding:12px 18px;border-radius:8px;min-width:240px;max-width:min(420px,90vw);text-align:center}
   #busyb{height:6px;background:#3a3f46;border-radius:3px;margin-top:9px;overflow:hidden}
   #busybi{display:block;height:100%;width:0;background:#ffd54f;transition:width .15s}
-  #busylog[hidden]{display:none}
+  #busylog[hidden],#busyx[hidden]{display:none}
+  #busy>div{position:relative}#busyx{position:absolute;top:4px;right:6px;background:none;border:0;color:#cfd6de;font-size:20px;cursor:pointer;pointer-events:auto}
+  #busy.fail #busyt{color:#ff8a80}
   #busy.log{z-index:6}#busy.log>div{width:min(620px,92vw);max-width:min(620px,92vw);background:rgba(16,18,21,.95)}
   #busylog{margin-top:9px;padding-top:6px;border-top:1px solid #3a3f46;max-height:13em;overflow-y:auto;text-align:left;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;color:#cfd6de;pointer-events:auto}
   #busylog div{white-space:pre-wrap;overflow-wrap:anywhere}#busylog i{font-style:normal;color:#8a949e;margin-right:6px}
@@ -237,12 +239,12 @@
   <div class="row w"><button id="pickGo" disabled>Build 3-D view</button></div>
   <div class="sub" id="pickS" style="margin:4px 0 0"></div>
 </div></div>
-<div id="busy" hidden><div><span id="busyt">Working…</span><div id="busyb" hidden><i id="busybi"></i></div><div id="busylog" hidden></div></div></div>
+<div id="busy" hidden><div><span id="busyt">Working…</span><div id="busyb" hidden><i id="busybi"></i></div><div id="busylog" hidden></div><button id="busyx" hidden title="Close">×</button></div></div>
 <script>/*THREE*/</script>
 <script>/*ORBIT*/</script>
 <script>/*GEOTIFF*/</script>
 <script id="embed" type="application/json">/*EMBED*/</script>
-<script id="i18n-no" type="application/json">{"(no data)": "(ingen data)", 
+<script id="i18n-no" type="application/json">{"Stopped:": "Stoppet:", "not read in 60 s — skipped": "ikke lest på 60 s — hoppet over", "is searching…": "søker…", "MB received": "MB mottatt", "reading it": "leser det", "waterways": "vannveier", "trying": "prøver", "gave no answer in 90 s": "svarte ikke på 90 s", "failed": "feilet", "Raising the buildings…": "Reiser bygningene…", "buildings": "bygninger", "(no data)": "(ingen data)", 
 "\" title=\"Click to hide or show this class\"><span class=\"sw\" style=\"background:": "\" title=\"Klikk for å skjule eller vise denne klassen\"><span class=\"sw\" style=\"background:",
 "\"><\/div><div class=\"row\"><textarea id=\"myNote\" rows=\"3\" placeholder=\"Note (optional)\" style=\"width:100%;box-sizing:border-box\"><\/textarea><\/div><div class=\"row w\"><button id=\"myOk\">Add<\/button><button id=\"myNo\">Cancel<\/button><\/div>": "\"><\/div><div class=\"row\"><textarea id=\"myNote\" rows=\"3\" placeholder=\"Note (optional)\" style=\"width:100%;box-sizing:border-box\"><\/textarea><\/div><div class=\"row w\"><button id=\"myOk\">Legg til<\/button><button id=\"myNo\">Avbryt<\/button><\/div>",
 "% of the view seen (": "% av visningen sett (",
@@ -1198,12 +1200,12 @@ const $ = id => document.getElementById(id);
 let bSpan = null, bLast = 0;   // a multi-step job (the 3-D objects) maps each step's 0–1 onto its slice [from, width] of one bar
 // On a PC (owner, 2026-11-18: "show more of the log when reading tiles and map overlays, make it a scrolling window so
 // user can read log") every step also goes into a scrolling log under the bar, with the time: a new line per step and per
-// tile, a line updated in place while only its percentage moves; it starts afresh with each job. It stays where the reader
+// tile, a line updated in place while only its percentage, seconds or MB move; it starts afresh with each job. It stays where the reader
 // scrolled it, and follows the newest line while it is at the bottom.
 const LOGPC = matchMedia("(min-width: 700px)").matches && !matchMedia("(pointer: coarse)").matches;   // a wide screen without a touch-only pointer
 let bKey = "";
 function busyLog(t) {
-  const L = $("busylog"), atEnd = L.scrollTop + L.clientHeight >= L.scrollHeight - 4, key = t.replace(/\d+(\.\d+)?\s*%/g, "%");
+  const L = $("busylog"), atEnd = L.scrollTop + L.clientHeight >= L.scrollHeight - 4, key = t.replace(/\d+(\.\d+)?\s*(%|s\b|MB)/g, "#");   // a ticking percentage, seconds or MB updates its line
   if ($("busy").hidden) { L.textContent = ""; bKey = ""; }
   if (key === bKey && L.lastChild) L.lastChild.lastChild.textContent = t;
   else {
@@ -1214,10 +1216,22 @@ function busyLog(t) {
   if (atEnd) L.scrollTop = L.scrollHeight;
 }
 const busy = (t, frac) => {
+  if ($("busy").classList.contains("fail")) { if (!t) return; $("busy").classList.remove("fail"); $("busyx").hidden = true; }   // a stop message stays until closed or the next job
   if (LOGPC && t) { busyLog(t); $("busylog").hidden = false; $("busy").classList.add("log"); }
   if (bSpan && t) { frac = frac == null ? Math.max(bLast, bSpan[0]) : bSpan[0] + bSpan[1] * Math.max(0, Math.min(1, frac)); bLast = frac; }
   $("busy").hidden = !t; if (t) $("busyt").textContent = t; $("busyb").hidden = !(t && frac != null); if (frac != null) $("busybi").style.width = Math.round(100 * Math.max(0, Math.min(1, frac))) + "%";
 };
+// Anything that throws while the overlay is up used to leave its last line standing as if still at work. Now it says
+// so: "Stopped: <why>" in red, the log above it, and a × to close it (the next job also clears it).
+function busyFail(e) {
+  if ($("busy").hidden) return;
+  const m = (e && (e.message || e.reason && e.reason.message)) || String(e && e.reason || e || "error");
+  bSpan = null; busy("Stopped: " + m); $("busybi").parentNode.hidden = true;
+  $("busy").classList.add("fail"); $("busyx").hidden = false; $("dsrc").textContent = "Stopped: " + m;
+}
+addEventListener("unhandledrejection", e => { console.error(e.reason); busyFail(e.reason); });
+addEventListener("error", e => busyFail(e.error || e.message));
+$("busyx").onclick = () => { $("busy").classList.remove("fail"); $("busyx").hidden = true; busy(false); };
 const pctOf = f => Math.round(100 * Math.max(0, Math.min(1, f))) + " %";
 // ---- language (owner, 2026-10-29: "add a locale choice English or Norwegian where all menu texts explanations and buttons etc
 // are translated"). The code stays English; NO (the JSON block i18n-no) maps English → Norwegian. T(s) translates a whole
@@ -1391,7 +1405,7 @@ async function loadFolder(items) {
         } else if (it.wcs) { if (!it.parsed) it.parsed = await sparseFix(it.blob); ({ tif, img } = it.parsed); }   // decoded once: Fetch more re-renders without re-reading
         else { tif = await GeoTIFF.fromBlob(it.blob); img = await tif.getImage(); }
         const gk = img.getGeoKeys() || {}, epsg = gk.ProjectedCSTypeGeoKey || 25833;
-        tiles.push({ img, bbox: img.getBoundingBox(), res: img.getResolution(), zone: zoneOf(epsg), epsg, nodata: img.getGDALNoData() });
+        tiles.push({ name: it.name, img, bbox: img.getBoundingBox(), res: img.getResolution(), zone: zoneOf(epsg), epsg, nodata: img.getGDALNoData() });
       } else if (nm === "scene.json") scene = JSON.parse(await it.blob.text());
       else if (/^basemap_[\w-]+\.(jpe?g|png)$/.test(nm)) { basemaps[nm] = it.blob; }
       else if (/\.(geo)?json$/.test(nm)) overlays.push(...parseGeoJSON(JSON.parse(await it.blob.text())).map(o => (o.src = it.name, o)));
@@ -1440,14 +1454,18 @@ async function makeGrid(tiles, X, Y, R, c, sig, label, raw) {   // raw: the heig
   const n = Math.round(2 * R / c), h = new Float32Array(n * n).fill(NaN), x0 = X - R, y1 = Y + R;
   const inGrid = tiles.filter(t => !(t.bbox[2] <= x0 || t.bbox[0] >= X + R || t.bbox[3] <= Y - R || t.bbox[1] >= y1)).sort((a, b) => a.res[0] - b.res[0]); let ti = 0;
   for (const t of inGrid) {
-    const b = t.bbox; busy(label + " tile " + (ti + 1) + " / " + inGrid.length, ti / inGrid.length);
+    const b = t.bbox, tl = () => label + " tile " + (ti + 1) + " / " + inGrid.length + (t.name ? " · " + t.name : ""); busy(tl(), ti / inGrid.length);
     const rx = t.res[0], ry = Math.abs(t.res[1]), W = t.img.getWidth(), Hh = t.img.getHeight();
     const c0 = Math.max(0, Math.floor((x0 - b[0]) / rx)), c1 = Math.min(W, Math.ceil((X + R - b[0]) / rx));
     const r0 = Math.max(0, Math.floor((b[3] - y1) / ry)), r1 = Math.min(Hh, Math.ceil((b[3] - (Y - R)) / ry));
-    if (c1 <= c0 || r1 <= r0) continue;
-    const ras = (await t.img.readRasters({ window: [c0, r0, c1, r1], samples: [0] }))[0], ww = c1 - c0;
+    if (c1 <= c0 || r1 <= r0) { ti++; continue; }
+    // a tile whose decoding never settles (owner, 2026-11-18: "The fetching is stopping on 'Leser sentrum'") is skipped after
+    // a minute, said in the log, instead of holding the whole view; its ground is filled like any missing tile
+    const rd = await Promise.race([t.img.readRasters({ window: [c0, r0, c1, r1], samples: [0] }), new Promise(r => setTimeout(() => r(null), 60000))]);
+    if (!rd) { busy(tl() + ": not read in 60 s — skipped"); ti++; continue; }
+    const ras = rd[0], ww = c1 - c0;
     for (let j = 0; j < n; j++) {
-      if (j && j % 400 === 0) { busy(label + " tile " + (ti + 1) + " / " + inGrid.length, (ti + j / n) / inGrid.length); await tick(); }
+      if (j && j % 400 === 0) { busy(tl(), (ti + j / n) / inGrid.length); await tick(); }
       const yy = y1 - (j + 0.5) * c, rr = Math.floor((b[3] - yy) / ry) - r0; if (rr < 0 || rr >= r1 - r0) continue;
       for (let i = 0; i < n; i++) {
         const k = j * n + i; if (h[k] === h[k]) continue;
@@ -3850,7 +3868,7 @@ async function domGrid(reading) {   // the surface model on the fine grid: { h }
     const msg = "Fetching the surface model… " + (done + 1) + " / " + todo.length + " · " + it.name, size = 4 * w * w;   // float32 cells
     busy(msg, done / todo.length);
     const b = await wcsFetch(it, got => busy(msg, (done + Math.min(0.98, got / size)) / todo.length)); let t = null;
-    if (b) { const { img } = await sparseFix(b); t = { img, bbox: img.getBoundingBox(), res: img.getResolution(), nodata: img.getGDALNoData() }; tiles.push(t); }
+    if (b) { const { img } = await sparseFix(b); t = { name: it.name, img, bbox: img.getBoundingBox(), res: img.getResolution(), nodata: img.getGDALNoData() }; tiles.push(t); }
     domTiles.set(it.name, t); done++;
   }
   if (reading) reading();
@@ -3861,25 +3879,46 @@ async function osmFetch() {   // OpenStreetMap over the fine grid: { bld: buildi
   const bb = [Math.min(...la), Math.min(...lo), Math.max(...la), Math.max(...lo)].map(v => v.toFixed(5)).join(",");
   const q = "[out:json][timeout:90];(way[\"building\"](" + bb + ");relation[\"building\"][\"type\"=\"multipolygon\"](" + bb + ");way[\"waterway\"~\"^(river|stream|brook|canal|ditch|drain)$\"](" + bb + "););out geom;";
   if (osmCache.has(bb)) return osmCache.get(bb);
-  for (const u of OVERPASS) {
+  // Each step said (owner, 2026-11-18: "Fetching buildings from open streetmap seems slow, make sure to show more detailed
+  // progress"): which server is asked, the seconds while it searches (Overpass answers only when its query is done), the MB
+  // as they arrive, a server that fails and the next one tried. The bar creeps on time while waiting, on size while receiving.
+  const L0 = "Fetching the buildings (OpenStreetMap)… ";
+  for (let ui = 0; ui < OVERPASS.length; ui++) {
+    const u = OVERPASS[ui], host = new URL(u).host, t0 = Date.now(), secs = () => Math.round((Date.now() - t0) / 1000);
+    let tk = null;
     try {
       const ac = new AbortController(), to = setTimeout(() => ac.abort(), 90000);
-      const r = await fetch(u, { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" }, signal: ac.signal }); clearTimeout(to);
-      if (!r.ok) continue;
-      const js = await r.json(), out = [], ww = [], xy = g => g.map(p => { const [e, n] = UTM.fwd(p.lat, p.lon, SRC.zone); return [e - S.X, n - S.Y]; });
+      busy(L0 + host + " is searching… 0 s", 0);
+      tk = setInterval(() => busy(L0 + host + " is searching… " + secs() + " s", 0.5 * (1 - Math.exp(-secs() / 25))), 1000);
+      const r = await fetch(u, { method: "POST", body: "data=" + encodeURIComponent(q), headers: { "Content-Type": "application/x-www-form-urlencoded" }, signal: ac.signal });
+      clearInterval(tk); tk = null;
+      if (!r.ok) { clearTimeout(to); busy(L0 + host + " answers HTTP " + r.status + (ui + 1 < OVERPASS.length ? " — trying " + new URL(OVERPASS[ui + 1]).host : "")); continue; }
+      let txt;
+      if (r.body) {
+        const rd = r.body.getReader(), parts = []; let got = 0, last = 0;
+        for (;;) { const { done, value } = await rd.read(); if (done) break; parts.push(value); got += value.length;
+          if (got - last > 200000) { last = got; busy(L0 + host + " · " + (got / 1e6).toFixed(1) + " MB received, " + secs() + " s", 0.5 + 0.3 * (1 - Math.exp(-got / 8e6))); } }
+        txt = new TextDecoder().decode(await new Blob(parts).arrayBuffer());
+      } else txt = await r.text();
+      clearTimeout(to);
+      busy(L0 + host + " · " + (txt.length / 1e6).toFixed(1) + " MB received, " + secs() + " s — reading it", 0.82); await tick();
+      const js = JSON.parse(txt), out = [], ww = [], xy = g => g.map(p => { const [e, n] = UTM.fwd(p.lat, p.lon, SRC.zone); return [e - S.X, n - S.Y]; });
       for (const el of js.elements || []) {
         if (el.type === "way" && el.geometry && el.tags && el.tags.waterway) ww.push({ line: xy(el.geometry), tags: el.tags });
         else if (el.type === "way" && el.geometry) out.push({ ring: xy(el.geometry), tags: el.tags || {} });
         else if (el.type === "relation") for (const m of el.members || []) if (m.role === "outer" && m.geometry) out.push({ ring: xy(m.geometry), tags: el.tags || {} });
       }
-      const res = { bld: out, ww }; osmCache.set(bb, res); return res;
-    } catch (e) {}
+      const res = { bld: out, ww }; osmCache.set(bb, res);
+      busy(L0 + out.length + " buildings, " + ww.length + " waterways", 0.85); return res;
+    } catch (e) { if (tk) clearInterval(tk); busy(L0 + host + (e.name === "AbortError" ? " gave no answer in 90 s" : " failed (" + e.message + ")") + (ui + 1 < OVERPASS.length ? " — trying " + new URL(OVERPASS[ui + 1]).host : "")); }
   }
   return null;
 }
-function buildingMesh(list, H, mask) {   // the outlines inside the fine grid, walls and a flat roof at the median height measured inside; marks their cells
+async function buildingMesh(list, H, mask) {   // the outlines inside the fine grid, walls and a flat roof at the median height measured inside; marks their cells
   const n = S.n, c = S.c, R = S.R, P = [], C = [], WALL = [0.85, 0.82, 0.76], ROOF = [0.42, 0.27, 0.22], FLAT = [0.36, 0.36, 0.36]; let cnt = 0;
+  let bi = 0;
   for (const b of list) {
+    if (++bi % 400 === 0) { busy("Raising the buildings… " + bi + " / " + list.length, 0.85 + 0.15 * bi / list.length); await tick(); }
     let ring = b.ring; const L = ring.length;
     if (L > 3 && ring[0][0] === ring[L - 1][0] && ring[0][1] === ring[L - 1][1]) ring = ring.slice(0, -1);
     if (ring.length < 3 || !ring.every(p => Math.max(Math.abs(p[0]), Math.abs(p[1])) < R - c)) continue;
@@ -3959,13 +3998,13 @@ async function objOn() {   // fetch, compute and show; the data stay with the vi
   const fresh = !S.obj;
   try {
     if (fresh) {
-      step(0, 0.55); const D = await domGrid(() => step(0.55, 0.6)); if (!live()) return busy(false);
+      step(0, 0.45); const D = await domGrid(() => step(0.45, 0.5)); if (!live()) return busy(false);
       if (!D) { busy(false); $("dsrc").textContent = "3-D trees and buildings: no surface model here."; return; }
       const n = S.n, H = new Float32Array(n * n), mask = new Uint8Array(n * n);
       for (let k = 0; k < n * n; k++) { const a = D.h[k], b = S.h[k]; H[k] = a === a && b === b ? Math.max(0, Math.min(60, a - b)) : 0; }
-      step(0.6, 0.72); busy("Fetching the buildings (OpenStreetMap)…"); await tick();
+      step(0.5, 0.72); busy("Fetching the buildings (OpenStreetMap)…"); await tick();
       const osm = await osmFetch(), blds = osm && osm.bld; if (!live()) return busy(false);
-      const bmesh = blds ? buildingMesh(blds, H, mask) : null;
+      const bmesh = blds ? await buildingMesh(blds, H, mask) : null;
       const sr = NB_GROUPS.find(g => g.id === "sr16"), ar = NB_GROUPS.find(g => g.id === "ar5");
       step(0.72, 0.8); busy("Loading SR16 and AR5…"); await tick();
       const spImg = await nbImage(S, sr, "SRRTRESLAG"), sp = spImg ? nbClsMap(spImg, SR16_CL.SRRTRESLAG) : null;
