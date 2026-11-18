@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-18 · Water without the moiré
+
+Owner: "The rendering of water on 10m tiles seems to be off, creating moire patterns". Reproduced on a 1 m centre (1.5 km) in a 10 m surround (5 km): the lakes were drawn as runs along each row, each run with its own corner colours and widened 0.3 cell into its neighbours — on a wide view's coarse steps (5 m) the overlapping strips showed as bands, and the ripple map's finer swells shimmered into fine stripes. Now `waterMesh` draws lakes and sea as one indexed grid of step-sized squares with shared corners (no overlap, no seams, the shore-distance colour continuous across rows) and returns a group: that grid plus the OSM ribbons, one material. The ripple map keeps its three long swells (the two finest went), at full anisotropy and a gentler normal scale (0.4). Checked headless on the mixed view and the 600 m 1 m view at Sognsvann.
+
 ## 2026-11-18 · A scrolling log under the progress bar on a PC
 
 Owner: "On pc browser, show more of the log when reading tiles and map overlays, make it a scrolling window so user can read log". On a wide screen without a touch-only pointer (`LOGPC`: ≥ 700 px, not `pointer: coarse`) `busy()` also writes every step into `#busylog` under the bar: the time, then the step; a new line per step and per tile, a line updated in place when only its percentage moves (`busyLog`), at most 400 lines, started afresh with each job. It is scrollable (the overlay is otherwise click-through) and follows the newest line only while it is scrolled to the bottom. The box widens to 620 px and sits above the side panel while the log shows. The terrain and surface-model fetch lines name their tile (`E255_N6655_1m.tif`, "(no data)" where the server has none; Norwegian "(ingen data)"). Phones unchanged. Checked headless at 1100 × 750 on a 16-tile 1 m view.

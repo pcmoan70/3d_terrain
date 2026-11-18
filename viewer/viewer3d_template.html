@@ -3993,7 +3993,7 @@ function objOff() {
   S.obj = null; setAttr($("basemap").value); repaint();
 }
 // water (owner, 2026-11-13: "Add water rendering for rivers, lakes etc."): AR5's fresh water and sea as a surface at the
-// water's level (the DTM is flat on water; no DTM = the sea at 0 m), merged into runs along each row; OpenStreetMap's rivers and
+// water's level (the DTM is flat on water; no DTM = the sea at 0 m), drawn as one grid of squares with shared corners; OpenStreetMap's rivers and
 // streams as ribbons on the ground, wide by kind (river 8 m, canal 6, stream 2.5, brook 2, ditch and drain 1.2).
 // The colour (owner, 2026-11-16: "show lakes and rivers in a nice water color"): turquoise at the shore deepening to blue
 // 40 m out (a chamfer distance over the AR5 water cells, per vertex), and a rippled normal map that breaks the sun's glint.
@@ -4002,7 +4002,7 @@ let waterNrm = null;
 function waterNormals() {   // a tileable ripple normal map: a few sine swells at whole-number frequencies, 256 px
   if (waterNrm) return waterNrm;
   const N = 256, cv = document.createElement("canvas"); cv.width = cv.height = N;
-  const cx = cv.getContext("2d"), im = cx.createImageData(N, N), W = [[3, 1, 1, 0.3], [-2, 5, 0.6, 1.7], [7, -4, 0.35, 4.1], [11, 9, 0.2, 2.2], [-17, 6, 0.12, 5.3]];
+  const cx = cv.getContext("2d"), im = cx.createImageData(N, N), W = [[3, 1, 1, 0.3], [-2, 5, 0.6, 1.7], [7, -4, 0.35, 4.1]];   // long swells only: finer ones shimmered into moiré at a distance
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     let gx = 0, gy = 0;
     for (const [fx, fy, a, ph] of W) { const q = Math.cos(2 * Math.PI * (fx * x + fy * y) / N + ph) * a; gx += q * fx; gy += q * fy; }
@@ -4010,7 +4010,7 @@ function waterNormals() {   // a tileable ripple normal map: a few sine swells a
     im.data[o] = 128 + 127 * nx / l; im.data[o + 1] = 128 + 127 * ny / l; im.data[o + 2] = 128 + 127 / l; im.data[o + 3] = 255;
   }
   cx.putImageData(im, 0, 0);
-  waterNrm = new THREE.CanvasTexture(cv); waterNrm.wrapS = waterNrm.wrapT = THREE.RepeatWrapping;
+  waterNrm = new THREE.CanvasTexture(cv); waterNrm.wrapS = waterNrm.wrapT = THREE.RepeatWrapping; waterNrm.anisotropy = renderer.capabilities.getMaxAnisotropy();
   return waterNrm;
 }
 function shoreDist(land, n) {   // metres-in-cells from the nearest non-water cell, for the water cells (two-pass chamfer)
@@ -4022,48 +4022,53 @@ function shoreDist(land, n) {   // metres-in-cells from the nearest non-water ce
     if (i < n - 1) v = Math.min(v, D[k + 1] + 1); if (j < n - 1) { v = Math.min(v, D[k + n] + 1); if (i < n - 1) v = Math.min(v, D[k + n + 1] + 1.414); if (i > 0) v = Math.min(v, D[k + n - 1] + 1.414); } D[k] = v; }
   return D;
 }
-function waterMesh(land, ww) {
-  const n = S.n, c = S.c, R = S.R, st = Math.max(1, Math.ceil(n / 700)), P = [], C = [], WW = { river: 8, canal: 6, stream: 2.5, brook: 2, ditch: 1.2, drain: 1.2 };
+function waterMesh(land, ww) {   // a THREE.Group: the lakes and sea as one grid mesh, the OSM ribbons as another, one material
+  const n = S.n, c = S.c, R = S.R, st = Math.max(1, Math.ceil(n / 700)), WW = { river: 8, canal: 6, stream: 2.5, brook: 2, ditch: 1.2, drain: 1.2 };
   const col = f => { f = Math.max(0, Math.min(1, f)); f = f * (2 - f); return [0, 1, 2].map(q => W_SHALLOW[q] + (W_DEEP[q] - W_SHALLOW[q]) * f); };
-  const quad = (ax, ay, bx, by, cx, cy, dx, dy, za, zb, zc, zd, fa, fb, fc, fd) => {
-    P.push(ax, za, -ay, bx, zb, -by, cx, zc, -cy, ax, za, -ay, cx, zc, -cy, dx, zd, -dy);
-    const A = col(fa), B = col(fb), Cc = col(fc), Dd = col(fd); C.push(...A, ...B, ...Cc, ...A, ...Cc, ...Dd);
+  const grp = new THREE.Group(), mat = new THREE.MeshPhongMaterial({ vertexColors: true, specular: 0xcfe6ff, shininess: 140, normalMap: waterNormals(), normalScale: new THREE.Vector2(0.4, 0.4),
+    side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
+  const mesh = (P, C, I) => {   // flat water: the normal straight up; the ripples repeat every 40 m
+    const g = new THREE.BufferGeometry(), N = new Float32Array(P.length), U = new Float32Array(P.length / 3 * 2);
+    for (let k = 0; k < P.length / 3; k++) { N[3 * k + 1] = 1; U[2 * k] = P[3 * k] / 40; U[2 * k + 1] = -P[3 * k + 2] / 40; }
+    g.setAttribute("position", new THREE.BufferAttribute(P, 3)); g.setAttribute("normal", new THREE.BufferAttribute(N, 3));
+    g.setAttribute("color", new THREE.BufferAttribute(C, 3)); g.setAttribute("uv", new THREE.BufferAttribute(U, 2)); if (I) g.setIndex(new THREE.BufferAttribute(I, 1));
+    const m = new THREE.Mesh(g, mat); m.receiveShadow = true; grp.add(m);
   };
+  // Lakes and sea (owner, 2026-11-18: "The rendering of water on 10m tiles seems to be off, creating moire patterns"): one grid
+  // of st-cell squares with SHARED corners, so the colour runs smoothly across rows — the row strips it was drawn in before
+  // each took their own colours and showed as bands on the coarser steps of a wide view.
   if (land) {
-    const D = shoreDist(land, n), far = W_FAR / c, fq = (i, j) => D[Math.min(n - 1, j) * n + Math.min(n - 1, i)] / far, CH = 8 * st;
-    for (let j = 0; j < n; j += st) {
-      let run = -1, lv = 0;   // each run is widened by 0.3 cell all round: no hairline seams where runs meet; cut every 8 steps so the colour can change along it
-      const lvl = i => { const k = j * n + i, h = S.h[k]; return (h === h ? h : 0) - S.h0 + 0.15; };
-      for (let i = 0; i <= n; i += st) {
-        const w = i < n && land[j * n + i] === 4, l = w ? lvl(i) : 0;
-        if (run >= 0 && (!w || Math.abs(l - lv) > 0.1 || i - run >= CH)) {
-          const ov = 0.3 * c, ie = Math.min(i, n), je = Math.min(j + st, n), x0 = run * c - R - ov, x1 = ie * c - R + ov, y0 = R - j * c + ov, y1 = R - je * c - ov, i1 = Math.max(run, ie - 1), j1 = Math.max(j, je - 1);
-          quad(x0, y0, x0, y1, x1, y1, x1, y0, lv, lv, lv, lv, fq(run, j), fq(run, j1), fq(i1, j1), fq(i1, j));
-          run = -1;
-        }
-        if (w && run < 0) { run = i; lv = l; }
-      }
+    const D = shoreDist(land, n), far = W_FAR / c, m = Math.ceil(n / st), V = new Int32Array((m + 1) * (m + 1)).fill(-1), P = [], C = [], I = [];
+    const wet = (I0, J0) => I0 >= 0 && J0 >= 0 && I0 < m && J0 < m && land[J0 * st * n + I0 * st] === 4;
+    const lvl = (I0, J0) => { const h = S.h[J0 * st * n + I0 * st]; return (h === h ? h : 0) - S.h0 + 0.15; };
+    const vert = (I0, J0) => {   // the corner's vertex: at the level of a water square beside it, coloured by the shore distance there
+      const q = J0 * (m + 1) + I0; if (V[q] >= 0) return V[q];
+      let L = 0; for (const [a, b] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) if (wet(I0 + a, J0 + b)) { L = lvl(I0 + a, J0 + b); break; }
+      const i = Math.min(I0 * st, n - 1), j = Math.min(J0 * st, n - 1), x = Math.min(I0 * st, n) * c - R, y = R - Math.min(J0 * st, n) * c;
+      P.push(x, L, -y); C.push(...col(D[j * n + i] / far)); return V[q] = P.length / 3 - 1;
+    };
+    for (let J = 0; J < m; J++) for (let K = 0; K < m; K++) if (wet(K, J)) {
+      const a = vert(K, J), b = vert(K, J + 1), cc = vert(K + 1, J + 1), d = vert(K + 1, J);
+      I.push(a, b, cc, a, cc, d);
     }
+    if (I.length) mesh(new Float32Array(P), new Float32Array(C), new Uint32Array(I));
   }
-  let nW = 0;
+  const P = [], C = []; let nW = 0;
   for (const wy of ww || []) {
-    const hw = (WW[wy.tags.waterway] || 1.5) / 2, L = wy.line, f = wy.tags.waterway === "river" || wy.tags.waterway === "canal" ? 0.45 : 0.15; let any = false;
+    const hw = (WW[wy.tags.waterway] || 1.5) / 2, L = wy.line, k = col(wy.tags.waterway === "river" || wy.tags.waterway === "canal" ? 0.45 : 0.15); let any = false;
     for (let q = 0; q + 1 < L.length; q++) {
       const a = L[q], b = L[q + 1]; if (!inView(a[0], a[1], R - 2) || !inView(b[0], b[1], R - 2)) continue;
       const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1, ux = dx / len * hw, uy = dy / len * hw, nx = -uy, ny = ux;
       const ax = a[0] - ux, ay = a[1] - uy, bx = b[0] + ux, by = b[1] + uy, za = sample(a[0], a[1]) - S.h0 + 0.3, zb = sample(b[0], b[1]) - S.h0 + 0.3;
-      quad(ax + nx, ay + ny, ax - nx, ay - ny, bx - nx, by - ny, bx + nx, by + ny, za, za, zb, zb, f, f, f, f); any = true;
+      P.push(ax + nx, za, -(ay + ny), ax - nx, za, -(ay - ny), bx - nx, zb, -(by - ny), ax + nx, za, -(ay + ny), bx - nx, zb, -(by - ny), bx + nx, zb, -(by + ny));
+      for (let r = 0; r < 6; r++) C.push(...k);
+      any = true;
     }
     if (any) nW++;
   }
-  if (!P.length) return null;
-  const g = new THREE.BufferGeometry(), N = new Float32Array(P.length), U = new Float32Array(P.length / 3 * 2);
-  for (let k = 0; k < P.length / 3; k++) { N[3 * k + 1] = 1; U[2 * k] = P[3 * k] / 40; U[2 * k + 1] = -P[3 * k + 2] / 40; }   // flat water, normal straight up; the ripples repeat every 40 m
-  g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3)); g.setAttribute("normal", new THREE.BufferAttribute(N, 3));
-  g.setAttribute("color", new THREE.Float32BufferAttribute(C, 3)); g.setAttribute("uv", new THREE.BufferAttribute(U, 2));
-  const m = new THREE.Mesh(g, new THREE.MeshPhongMaterial({ vertexColors: true, specular: 0xcfe6ff, shininess: 140, normalMap: waterNormals(), normalScale: new THREE.Vector2(0.45, 0.45),
-    side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 }));
-  m.receiveShadow = true; m.userData.nW = nW; return m;
+  if (P.length) mesh(new Float32Array(P), new Float32Array(C), null);
+  if (!grp.children.length) return null;
+  grp.userData.nW = nW; return grp;
 }
 function fieldPaint(d, land, n, c) {   // AR5 under the 3-D objects: cultivated land in rows, pasture greener, bog browner
   const TINT = [null, [201, 207, 122, 0.35], [150, 196, 104, 0.3], [184, 167, 122, 0.3]];
