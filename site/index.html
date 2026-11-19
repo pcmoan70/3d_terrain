@@ -29,40 +29,42 @@
   details:not([open])>summary.set::marker{color:#64b5f6}details:not([open])>summary.set::-webkit-details-marker{color:#64b5f6}
   details.nb{margin:2px 0}details.nb>summary{font-size:13px;cursor:pointer;padding:2px 0;color:#cfd8dc}details.nb .row{padding-left:16px}details.nb .lg img{background:#fff;border-radius:3px;padding:2px}
   .min .body{display:none}
-  #side{position:absolute;top:10px;left:10px;max-height:calc(100% - 20px);width:min(310px,calc(100% - 64px));display:flex;flex-direction:column;gap:8px;pointer-events:none;z-index:5}
+  #side{position:absolute;top:10px;left:10px;max-height:calc(100% - 20px - var(--logh,0px));width:min(310px,calc(100% - 64px));display:flex;flex-direction:column;gap:8px;pointer-events:none;z-index:5}
   #side>.panel{position:relative;top:auto;left:auto;bottom:auto;width:auto;max-width:none;pointer-events:auto}
   #side>#info{flex:0 1 auto;min-height:0;max-height:none}
   #sideX,#sideOpen{position:absolute;width:28px;height:44px;border:1px solid #667;border-radius:6px;background:rgba(20,24,28,.88);color:#eee;font-size:20px;padding:0;cursor:pointer;pointer-events:auto}
   #sideX{top:0;left:100%;margin-left:6px}
   #sideOpen{top:10px;left:10px;z-index:5}
   #rsideX,#rsideOpen{width:40px;height:28px;border:1px solid #667;border-radius:6px;background:rgba(20,24,28,.88);color:#eee;font-size:18px;padding:0;cursor:pointer}
-  #rsideOpen{position:absolute;right:10px;bottom:10px;z-index:5}
+  #rsideOpen{position:absolute;right:10px;bottom:calc(10px + var(--logh,0px));z-index:5}
   .minb{position:absolute;top:6px;right:6px;width:28px;height:28px;border:1px solid #667;border-radius:6px;background:#2a3038;color:#eee;font-size:18px;line-height:24px;padding:0;cursor:pointer}
   #tip{position:absolute;pointer-events:none;background:rgba(0,0,0,.85);padding:6px 8px;border-radius:6px;font-size:12px;max-width:320px;display:none;line-height:1.4}#tip.pin{border:1px solid #9fb3bf}
   button{background:#2e8b74;color:#fff;border:0;border-radius:5px;padding:4px 9px;cursor:pointer;font:inherit}
-  #rside{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:6px;align-items:center;z-index:5}
-  #zoom{display:flex;flex-direction:column;gap:6px}
+  #rside{position:absolute;right:10px;bottom:calc(10px + var(--logh,0px));max-height:calc(100% - 20px - var(--logh,0px));display:flex;flex-direction:column;flex-wrap:wrap-reverse;align-content:flex-start;gap:6px;align-items:center;z-index:5}
+  #zoom,#rot{display:contents}   /* their buttons are #rside's own items: a column that wraps leftward when the log leaves too little height */
   #zoom button{width:40px;height:40px;font-size:22px;padding:0}
-  #rot{display:flex;flex-direction:column;gap:6px}
   #rot button{width:40px;height:40px;font-size:18px;padding:0;background:#3d5a80}
   #rot button.on{background:#c77d12}
   #note{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:rgba(20,20,20,.86);color:#fff;padding:8px 14px;border-radius:8px;z-index:60;font-size:14px;max-width:80vw;text-align:center}
   #rot #v2d{font-size:14px;font-weight:bold}
-  #map2d{position:absolute;inset:0;z-index:1;background:#d6d8c8}#map2d[hidden]{display:none}   /* the flat map (2-D): under the panels, over the canvas */
+  #map2d{position:absolute;inset:0 0 var(--logh,0px) 0;z-index:1;background:#d6d8c8}#map2d[hidden]{display:none}   /* the flat map (2-D): under the panels, over the canvas */
   #meas{position:absolute;top:10px;right:10px;max-width:min(300px,calc(100% - 44px));font-size:13px;line-height:1.5}
   #meas[hidden]{display:none}
   #meas b{color:#ffd54f}
   #busy[hidden],#gate[hidden]{display:none!important}
-  #busy{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+  #busy{position:absolute;inset:0 0 var(--logh,0px) 0;display:flex;align-items:center;justify-content:center;pointer-events:none}
   #busy>div{background:rgba(0,0,0,.8);padding:12px 18px;border-radius:8px;min-width:240px;max-width:min(420px,90vw);text-align:center}
   #busyb{height:6px;background:#3a3f46;border-radius:3px;margin-top:9px;overflow:hidden}
   #busybi{display:block;height:100%;width:0;background:#ffd54f;transition:width .15s}
-  #busylog[hidden],#busyx[hidden]{display:none}
+  #busyx[hidden]{display:none}
   #busy>div{position:relative}#busyx{position:absolute;top:4px;right:6px;background:none;border:0;color:#cfd6de;font-size:20px;cursor:pointer;pointer-events:auto}
   #busy.fail #busyt{color:#ff8a80}
-  #busy.log{z-index:6}#busy.log>div{width:min(620px,92vw);max-width:min(620px,92vw);background:rgba(16,18,21,.95)}
-  #busylog{margin-top:9px;padding-top:6px;border-top:1px solid #3a3f46;max-height:13em;overflow-y:auto;text-align:left;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;color:#cfd6de;pointer-events:auto}
-  #busylog div{white-space:pre-wrap;overflow-wrap:anywhere}#busylog i{font-style:normal;color:#8a949e;margin-right:6px}
+  #logd{position:absolute;left:0;right:0;bottom:0;z-index:32;background:rgba(16,18,21,.94);border-top:1px solid #3a3f46;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;color:#cfd6de}#logd[hidden]{display:none}
+  #logh{display:flex;align-items:center;gap:8px;padding:3px 8px;min-height:24px}#logh button{background:none;border:1px solid #556;border-radius:4px;color:#cfd6de;font:inherit;padding:1px 7px;cursor:pointer}
+  #logl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#9aa4ae}#logn{color:#ffcc80}#logd:not(.col) #logl{visibility:hidden}
+  #logb{max-height:min(16em,35vh);overflow-y:auto;padding:2px 8px 6px;border-top:1px solid #2a2f36}#logd.col #logb{display:none}
+  #logb div{white-space:pre-wrap;overflow-wrap:anywhere}#logb i{font-style:normal;color:#8a949e;margin-right:6px}#logb b{font-weight:normal;color:#7fa7c9;margin-right:6px;display:inline-block;min-width:5em;text-align:right}#logb u{text-decoration:none;color:#8a949e;margin-left:6px}
+  #logb .w{color:#ffcc80}#logb .e{color:#ff8a80}#logb .j{color:#9fd3a8;margin-top:4px}
   label.file{display:inline-block;background:#3d5a80;color:#fff;border-radius:5px;padding:4px 9px;cursor:pointer}
   label.file input{display:none}
   label.ly{display:flex;align-items:center;gap:6px}
@@ -88,7 +90,7 @@
   #sunLegBox .mtrack{top:8px;height:10px;border-radius:3px}#sunCutM{background:rgba(20,24,28,.78)}#sunLegBox[hidden]{display:none}
   #pick{position:absolute;inset:0;z-index:30;background:#1d2228}
   #pickMap{position:absolute;inset:0;background:#c8d4dc}
-  #pickBar{position:absolute;left:10px;right:10px;bottom:10px;margin:auto;max-width:440px;z-index:1000;font-size:13px}
+  #pickBar{position:absolute;left:10px;right:10px;bottom:calc(10px + var(--logh,0px));margin:auto;max-width:440px;z-index:1000;font-size:13px}
   #pickBar .minb{top:6px}
   #pickQ{flex:1 1 auto;min-width:0}#pickQR{position:absolute;left:0;right:30px;bottom:100%;margin-bottom:4px;max-height:40vh;overflow:auto;z-index:1001;padding:2px 0}#pickQR div{padding:5px 8px;cursor:pointer}#pickQR div:hover{background:#39414b}
   .pk-c{width:18px;height:18px;border-radius:50%;background:#e64a19;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6);box-sizing:border-box}
@@ -239,7 +241,9 @@
   <div class="row w"><button id="pickGo" disabled>Build 3-D view</button></div>
   <div class="sub" id="pickS" style="margin:4px 0 0"></div>
 </div></div>
-<div id="busy" hidden><div><span id="busyt">Working…</span><div id="busyb" hidden><i id="busybi"></i></div><div id="busylog" hidden></div><button id="busyx" hidden title="Close">×</button></div></div>
+<div id="busy" hidden><div><span id="busyt">Working…</span><div id="busyb" hidden><i id="busybi"></i></div><button id="busyx" hidden title="Close">×</button></div></div>
+<!-- the log (owner, 2026-11-19: "At bottom of screen show a detailed log with all timings, skipped downloads etc w reasons. Make the log collapsible and scrollable") -->
+<div id="logd" class="col" hidden><div id="logh"><button id="logt" title="Show / hide the log">▸ Log</button><span id="logl"></span><span id="logn"></span><button id="logc" title="Copy the log">Copy</button><button id="logx" title="Clear the log">Clear</button></div><div id="logb"></div></div>
 <script>/**
  * @license
  * Copyright 2010-2021 Three.js Authors
@@ -1299,7 +1303,7 @@
 //# sourceMappingURL=geotiff.js.map
 </script>
 <script id="embed" type="application/json"></script>
-<script id="i18n-no" type="application/json">{"the stored copy is incomplete — fetching it again": "den lagrede kopien er ufullstendig — henter den på nytt", "sent an incomplete tile": "sendte en ufullstendig flis", "could not be read": "kunne ikke leses", "skipped": "hoppet over", "Stopped:": "Stoppet:", "not read in 60 s — skipped": "ikke lest på 60 s — hoppet over", "is searching…": "søker…", "MB received": "MB mottatt", "reading it": "leser det", "waterways": "vannveier", "trying": "prøver", "gave no answer in 90 s": "svarte ikke på 90 s", "failed": "feilet", "Raising the buildings…": "Reiser bygningene…", "buildings": "bygninger", "(no data)": "(ingen data)", 
+<script id="i18n-no" type="application/json">{"Log": "Logg", "tile": "flis", "Copy": "Kopier", "Show / hide the log": "Vis / skjul loggen", "Copy the log": "Kopier loggen", "Clear the log": "Tøm loggen", "The log is copied": "Loggen er kopiert", "Done in": "Ferdig på", "Stopped after": "Stoppet etter", "Terrain plan:": "Terrengplan:", "tile(s)": "flis(er)", "to fetch": "å hente", "already in hand": "allerede hentet", "no data, known from before": "ingen data, kjent fra før", "has no data there": "har ingen data der", "sea or abroad": "hav eller utland", "has no coverage there": "dekker ikke der", "the stored copy is incomplete — fetching it again": "den lagrede kopien er ufullstendig — henter den på nytt", "sent an incomplete tile": "sendte en ufullstendig flis", "could not be read": "kunne ikke leses", "skipped": "hoppet over", "Stopped:": "Stoppet:", "not read in 60 s — skipped": "ikke lest på 60 s — hoppet over", "is searching…": "søker…", "MB received": "MB mottatt", "reading it": "leser det", "waterways": "vannveier", "trying": "prøver", "gave no answer in 90 s": "svarte ikke på 90 s", "failed": "feilet", "Raising the buildings…": "Reiser bygningene…", "buildings": "bygninger", 
 "\" title=\"Click to hide or show this class\"><span class=\"sw\" style=\"background:": "\" title=\"Klikk for å skjule eller vise denne klassen\"><span class=\"sw\" style=\"background:",
 "\"><\/div><div class=\"row\"><textarea id=\"myNote\" rows=\"3\" placeholder=\"Note (optional)\" style=\"width:100%;box-sizing:border-box\"><\/textarea><\/div><div class=\"row w\"><button id=\"myOk\">Add<\/button><button id=\"myNo\">Cancel<\/button><\/div>": "\"><\/div><div class=\"row\"><textarea id=\"myNote\" rows=\"3\" placeholder=\"Note (optional)\" style=\"width:100%;box-sizing:border-box\"><\/textarea><\/div><div class=\"row w\"><button id=\"myOk\">Legg til<\/button><button id=\"myNo\">Avbryt<\/button><\/div>",
 "% of the view seen (": "% av visningen sett (",
@@ -2252,27 +2256,45 @@
 const PAGE_SRC = "<!doctype html>\n" + document.documentElement.outerHTML;
 // ======================================================================= helpers
 const $ = id => document.getElementById(id);
+const LOGPC = matchMedia("(min-width: 700px)").matches && !matchMedia("(pointer: coarse)").matches;   // a wide screen without a touch-only pointer: the log starts open
 let bSpan = null, bLast = 0;   // a multi-step job (the 3-D objects) maps each step's 0–1 onto its slice [from, width] of one bar
-// On a PC (owner, 2026-11-18: "show more of the log when reading tiles and map overlays, make it a scrolling window so
-// user can read log") every step also goes into a scrolling log under the bar, with the time: a new line per step and per
-// tile, a line updated in place while only its percentage, seconds or MB move; it starts afresh with each job. It stays where the reader
-// scrolled it, and follows the newest line while it is at the bottom.
-const LOGPC = matchMedia("(min-width: 700px)").matches && !matchMedia("(pointer: coarse)").matches;   // a wide screen without a touch-only pointer
-let bKey = "";
-function busyLog(t) {
-  const L = $("busylog"), atEnd = L.scrollTop + L.clientHeight >= L.scrollHeight - 4, key = t.replace(/\d+(\.\d+)?\s*(%|s\b|MB)/g, "#");   // a ticking percentage, seconds or MB updates its line
-  if ($("busy").hidden) { L.textContent = ""; bKey = ""; }
-  if (key === bKey && L.lastChild) L.lastChild.lastChild.textContent = t;
+// The log (owner, 2026-11-18: "show more of the log when reading tiles and map overlays, make it a scrolling window"; 2026-11-19:
+// "At bottom of screen show a detailed log with all timings, skipped downloads etc w reasons. Make the log collapsible and
+// scrollable"): a bar docked at the bottom, on every screen, kept for the session (newest 2000 lines). Each line: the clock,
+// the seconds since its job began (a job = one stretch of the busy overlay), the text, and once the next step comes, how long
+// it took. A line whose only change is its percentage, seconds or MB is updated in place. Skips, failures and every
+// console warning or error are amber / red and counted in the bar. Folded it shows the newest line; open / folded is kept.
+const LOG_KEY = "t3d_logopen", LOG_MAX = 2000, LOG_W = /skipped|failed|no data|incomplete|no answer|not respond|could not|not read|retry|unexpected|did not answer|has nothing|not loaded|no network|no surface|HTTP [45]\d\d/i;
+let bKey = "", jobT0 = 0, logLast = null, logWarn = 0;
+const logOpen = o => { $("logd").classList.toggle("col", !o); $("logt").textContent = (o ? "▾ " : "▸ ") + "Log"; try { localStorage.setItem(LOG_KEY, o ? "1" : "0"); } catch (e) {} };
+function logLine(t, cls) {
+  t = String(t); const L = $("logb"), atEnd = L.scrollTop + L.clientHeight >= L.scrollHeight - 4, now = performance.now(), key = t.replace(/\d+(\.\d+)?\s*(%|s\b|MB)/g, "#");
+  if (!cls && LOG_W.test(t)) cls = "w";
+  if (key === bKey && logLast && !cls) logLast.d.querySelector("span").textContent = t;
   else {
-    const d = document.createElement("div"), tm = document.createElement("i"); tm.textContent = new Date().toTimeString().slice(0, 8);
-    d.append(tm, document.createTextNode(t)); L.append(d); bKey = key;
-    while (L.childNodes.length > 400) L.firstChild.remove();
+    if (logLast && now - logLast.t >= 100) logLast.d.querySelector("u").textContent = "(" + ((now - logLast.t) / 1000).toFixed(1) + " s)";
+    const d = document.createElement("div"), tm = document.createElement("i"), el = document.createElement("b"), tx = document.createElement("span"), du = document.createElement("u");
+    tm.textContent = new Date().toTimeString().slice(0, 8); el.textContent = jobT0 ? "+" + ((now - jobT0) / 1000).toFixed(1) + " s" : ""; tx.textContent = t;
+    d.append(tm, el, tx, du); if (cls) d.className = cls; L.append(d); bKey = key; logLast = { d, t: now };
+    if (cls === "w" || cls === "e") { logWarn++; $("logn").textContent = "⚠ " + logWarn; }
+    while (L.childNodes.length > LOG_MAX) L.firstChild.remove();
   }
+  $("logl").textContent = t; $("logd").hidden = false;
   if (atEnd) L.scrollTop = L.scrollHeight;
 }
+const logEnd = how => { if (!jobT0) return; logLine(how + " " + ((performance.now() - jobT0) / 1000).toFixed(1) + " s", how === "Done in" ? "j" : "e"); jobT0 = 0; logLast = null; bKey = ""; };
+{ let o = LOGPC; try { const v = localStorage.getItem(LOG_KEY); if (v) o = v === "1"; } catch (e) {} logOpen(o); }
+$("logt").onclick = () => logOpen($("logd").classList.contains("col"));
+$("logx").onclick = () => { $("logb").textContent = ""; logLast = null; bKey = ""; logWarn = 0; $("logn").textContent = ""; };
+$("logc").onclick = () => { const txt = [...$("logb").children].map(d => [...d.children].map(n => n.textContent).filter(Boolean).join("  ")).join("\n"); navigator.clipboard.writeText(txt).then(() => note(T("The log is copied")), () => {}); };
+new ResizeObserver(() => document.documentElement.style.setProperty("--logh", ($("logd").hidden ? 0 : $("logd").offsetHeight) + "px")).observe($("logd"));
+// the status line under the panel (a layer's service not answering, what was fetched, a save) goes in too, in its English
+{ let last = ""; new MutationObserver(() => { const n = $("dsrc").firstChild, r = n && EN_OF.get(n), t = r && r.out === n.data ? r.en : $("dsrc").textContent; if (t && t !== last) { last = t; logLine(t); } }).observe($("dsrc"), { childList: true, characterData: true, subtree: true }); }
+for (const k of ["warn", "error"]) { const f = console[k].bind(console); console[k] = (...a) => { f(...a); try { logLine(a.map(x => x instanceof Error ? x.message : x && typeof x === "object" ? (x.message || JSON.stringify(x) || "").slice(0, 200) : String(x)).join(" "), k === "error" ? "e" : "w"); } catch (e) {} }; }
 const busy = (t, frac) => {
   if ($("busy").classList.contains("fail")) { if (!t) return; $("busy").classList.remove("fail"); $("busyx").hidden = true; }   // a stop message stays until closed or the next job
-  if (LOGPC && t) { busyLog(t); $("busylog").hidden = false; $("busy").classList.add("log"); }
+  if (t) { if ($("busy").hidden && !jobT0) { jobT0 = performance.now(); logLast = null; bKey = ""; logLine(t, "j"); } else logLine(t); }
+  else if (!$("busy").hidden) logEnd("Done in");
   if (bSpan && t) { frac = frac == null ? Math.max(bLast, bSpan[0]) : bSpan[0] + bSpan[1] * Math.max(0, Math.min(1, frac)); bLast = frac; }
   $("busy").hidden = !t; if (t) $("busyt").textContent = t; $("busyb").hidden = !(t && frac != null); if (frac != null) $("busybi").style.width = Math.round(100 * Math.max(0, Math.min(1, frac))) + "%";
 };
@@ -2281,7 +2303,7 @@ const busy = (t, frac) => {
 function busyFail(e) {
   if ($("busy").hidden) return;
   const m = (e && (e.message || e.reason && e.reason.message)) || String(e && e.reason || e || "error");
-  bSpan = null; busy("Stopped: " + m); $("busybi").parentNode.hidden = true;
+  bSpan = null; busy("Stopped: " + m); logEnd("Stopped after"); $("busybi").parentNode.hidden = true;
   $("busy").classList.add("fail"); $("busyx").hidden = false; $("dsrc").textContent = "Stopped: " + m;
 }
 addEventListener("unhandledrejection", e => { console.error(e.reason); busyFail(e.reason); });
@@ -4890,9 +4912,9 @@ async function wcsFetch(it, onBytes) {   // onBytes(n): the bytes in so far (the
           if (cache) { try { await cache.put(it.url, new Response(b, { headers: { "content-type": "image/tiff" } })); const ks = await cache.keys(); for (let i = 0; i < ks.length - DTM_CACHE_MAX; i++) await cache.delete(ks[i]); } catch (e) {} }
           return b;
         }
-        else if (head === "<?" || head === "<S" || head === "<o" || head === "<E") return null;   // an OGC exception: no data here (sea, abroad)
+        else if (head === "<?" || head === "<S" || head === "<o" || head === "<E") { logLine("Terrain tile " + it.name + ": skipped — " + SRV[srv] + " has no data there (sea or abroad)"); return null; }   // an OGC exception: no data here (sea, abroad)
         else why = SRV[srv] + " sent an unexpected reply (" + b.size + " bytes)";
-      } else if (srv === "geonorge" && r.status !== 429 && r.status >= 400 && r.status < 500) return null;   // the WCS: no coverage there
+      } else if (srv === "geonorge" && r.status !== 429 && r.status >= 400 && r.status < 500) { logLine("Terrain tile " + it.name + ": skipped — " + SRV[srv] + " has no coverage there (HTTP " + r.status + ")"); return null; }   // the WCS: no coverage there
       else why = SRV[srv] + " answers HTTP " + r.status;
     } catch (e) { why = SRV[srv] + " is not responding"; }   // a refused or broken reply (no CORS header on an error page): the browser says only "Failed to fetch"
     if (k >= waits.length) throw new Error(it.name + ": " + why + ". Kartverket's server may be down — try the other one under Map → Height server");
@@ -4918,8 +4940,10 @@ function linkPoints() {
 // Kartverket's surface model (NHM DOM, same services as the DTM) less the terrain is the height of whatever stands on the
 // ground, per cell: tree tops are its local maxima, SR16 names the species, OpenStreetMap gives the building outlines (raised
 // to the roof height measured inside them), AR5 shades the fields. The fine grid only, at 1–2 m cells (a 1 m view or centre of
-// ≤ 3 km radius); off unless Map → 3-D trees, buildings, fields and water is ticked (t3d_obj), since it fetches a second model.
-const OBJ_KEY = "t3d_obj", OBJ_MAX = 250000, OBJ_CMAX = 2;
+// ≤ 3 km radius); off unless Map → 3-D trees, buildings, fields and water is ticked, since it fetches a second model. Every visit
+// starts without them (owner, 2026-11-19: "Default in 3d viewer should not render trees etc just use dtm w overlay map"): the
+// tick lasts the session (a rebuild or Fetch more keeps it), it is no longer remembered.
+const OBJ_MAX = 250000, OBJ_CMAX = 2;
 const OVERPASS = ["https://overpass-api.de/api/interpreter", "https://maps.mail.ru/osm/tools/overpass/api/interpreter", "https://overpass.private.coffee/api/interpreter"];
 const domTiles = new Map();   // DOM tile name → decoded tile (null = no data there), kept for the session
 const osmCache = new Map();   // Overpass answer per bounding box, for the session
@@ -5186,8 +5210,8 @@ function fieldPaint(d, land, n, c) {   // AR5 under the 3-D objects: cultivated 
     for (let q = 0; q < 3; q++) d[o + q] = Math.min(255, (d[o + q] + (t[q] - d[o + q]) * t[3]) * f);
   }
 }
-try { $("lyObj").checked = localStorage.getItem(OBJ_KEY) === "1"; } catch (e) {}
-$("lyObj").onchange = () => { try { localStorage.setItem(OBJ_KEY, $("lyObj").checked ? "1" : "0"); } catch (e) {} if ($("lyObj").checked) objOn(); else objOff(); };
+try { localStorage.removeItem("t3d_obj"); } catch (e) {}   // the tick once remembered (until 2026-11-19)
+$("lyObj").onchange = () => { if ($("lyObj").checked) objOn(); else objOff(); };
 // ---- map-built views grow (owner, 2026-10-18: "user can add tiles at edges of the scene by clicking on a location …
 // 'fetch more' … fetches more tiles centered on that point (not re-fetching those existing) and expanding scene as the
 // union of all fetches done … also a 'fetch' option that only re-renders the tiles around the last point" + "an option
@@ -5197,11 +5221,12 @@ let WCSV = null;   // { R, R1, items: [{name, blob, wcs}], skip: Set(no-data til
 async function wcsGather(lat, lon, R, res, R1) {   // the plan's tiles: those not in hand are fetched; returns the ones that exist
   const plan = wcsPlan(lat, lon, R, res, R1), have = new Map(WCSV.items.map(it => [it.name, it]));
   const todo = plan.items.filter(it => !have.has(it.name) && !WCSV.skip.has(it.name)); let done = 0;
-  if (todo.length) busy("Fetching the terrain… 0 / " + todo.length, 0);
-  for (const it of todo) {
-    const b = await wcsFetch(it);
+  const known = plan.items.filter(it => WCSV.skip.has(it.name)).length, reuse = plan.items.length - todo.length - known;
+  logLine("Terrain plan: " + plan.items.length + " tile(s) — " + todo.length + " to fetch, " + reuse + " already in hand" + (known ? ", " + known + " skipped (no data, known from before)" : ""), "i");
+  for (const it of todo) {   // each tile named as it is asked for, so the log's time after its line is that tile's
+    busy("Fetching the terrain… " + (done + 1) + " / " + todo.length + " · " + it.name, done / todo.length);
+    const b = await wcsFetch(it); done++;
     if (b) { const t = { name: it.name, blob: b, wcs: true }; WCSV.items.push(t); have.set(it.name, t); } else WCSV.skip.add(it.name);
-    busy("Fetching the terrain… " + (++done) + " / " + todo.length + " · " + it.name + (b ? "" : " (no data)"), done / todo.length);
   }
   busy(false);
   const items = plan.items.filter(it => have.has(it.name)).map(it => have.get(it.name));
