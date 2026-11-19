@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-19 · Irregular water
+
+Owner: "The rendered water is too regular, make it more irregular but still a bit shiny". The water's normal map was three sine swells repeating every 40 m — a grid of identical glints toward the light. Now (`waterNormals`) a tileable fractal noise: value noise on wrapping lattices, five octaves, each stretched a little across the wind and some turned 90°, its slopes the normals, repeating every 90 m; the finest octave kept faint so it does not shimmer at a distance. The colour wanders in large faint patches (`wNoise`, two octaves ≈ 260 m and 90 m, ±14 %), on lakes, sea and the river ribbons. Shininess 140 → 110 with stronger ripples (0.4 → 0.55): the glint breaks into irregular glitter. Before/after compared headless on the Jæren coast.
+
 ## 2026-11-19 · Birch bark
 
 Owner: "birch should have black dots (non-regular) on the stem. look at some images to make this right. just white is no good." After silver birch (Woodland Trust, first-nature: white papery bark with black diamond-shaped marks and horizontal lenticels, black and rugged at the base) the broadleaf trunks get a bark texture painted once on a 256 × 1024 canvas (`birchBark`, fixed seed, wrapped round the trunk without a seam): off-white with faint peeling bands, 260 short dark horizontal lenticels, irregular black diamonds and patches, branch-scar chevrons over a dark eye, and a black fissured foot (its upper edge a random walk, grey plates between the furrows). Birch trunks are their own instanced mesh (8 sides), the spruce and pine trunks keep their colours. Help (EN/NO), README.

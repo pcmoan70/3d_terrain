@@ -4224,22 +4224,39 @@ function objOff() {
 // water's level (the DTM is flat on water; no DTM = the sea at 0 m), drawn as one grid of squares with shared corners; OpenStreetMap's rivers and
 // streams as ribbons on the ground, wide by kind (river 8 m, canal 6, stream 2.5, brook 2, ditch and drain 1.2).
 // The colour (owner, 2026-11-16: "show lakes and rivers in a nice water color"): turquoise at the shore deepening to blue
-// 40 m out (a chamfer distance over the AR5 water cells, per vertex), and a rippled normal map that breaks the sun's glint.
+// 40 m out (a chamfer distance over the AR5 water cells, per vertex), and a rippled normal map that breaks the sun's glint (irregular since 2026-11-19, below).
 const W_SHALLOW = [0.29, 0.62, 0.68], W_DEEP = [0.08, 0.30, 0.50], W_FAR = 40;
 let waterNrm = null;
-function waterNormals() {   // a tileable ripple normal map: a few sine swells at whole-number frequencies, 256 px
+// Irregular water (owner, 2026-11-19: "The rendered water is too regular, make it more irregular but still a bit shiny"): the ripples
+// were three sine swells repeating every 40 m. Now a tileable fractal noise — value noise on wrapping lattices, five octaves, each
+// twice as fine and a little stretched across the wind (ripples longer than wide), the octaves turned against one another — its
+// slopes the normal map, repeating every 90 m; and the colour wanders in large faint patches (wNoise: the wind's slicks and gusts).
+function waterNormals() {   // the tileable ripple normal map, 512 px
   if (waterNrm) return waterNrm;
-  const N = 256, cv = document.createElement("canvas"); cv.width = cv.height = N;
-  const cx = cv.getContext("2d"), im = cx.createImageData(N, N), W = [[3, 1, 1, 0.3], [-2, 5, 0.6, 1.7], [7, -4, 0.35, 4.1]];   // long swells only: finer ones shimmered into moiré at a distance
+  const N = 512, cv = document.createElement("canvas"); cv.width = cv.height = N;
+  let sd = 11; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const Hh = new Float32Array(N * N), sm = t => t * t * (3 - 2 * t);
+  for (const [fx, fy, amp] of [[5, 3, 1], [9, 6, 0.6], [19, 11, 0.38], [36, 23, 0.18], [70, 45, 0.06]]) {   // lattice cells across x and y (whole numbers: it tiles)
+    const L = Array.from({ length: fx * fy }, rnd), sw = rnd() < 0.5;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const u = (sw ? y : x) / N * fx, v = (sw ? x : y) / N * fy, i = Math.floor(u), j = Math.floor(v), a = sm(u - i), b = sm(v - j);
+      const g = (I, J) => L[((J % fy) * fx) + (I % fx)];
+      Hh[y * N + x] += amp * ((g(i, j) * (1 - a) + g(i + 1, j) * a) * (1 - b) + (g(i, j + 1) * (1 - a) + g(i + 1, j + 1) * a) * b);
+    }
+  }
+  const cx = cv.getContext("2d"), im = cx.createImageData(N, N), k = 9;
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    let gx = 0, gy = 0;
-    for (const [fx, fy, a, ph] of W) { const q = Math.cos(2 * Math.PI * (fx * x + fy * y) / N + ph) * a; gx += q * fx; gy += q * fy; }
-    const nx = -gx * 0.08, ny = -gy * 0.08, l = Math.hypot(nx, ny, 1), o = 4 * (y * N + x);
+    const nx = -(Hh[y * N + (x + 1) % N] - Hh[y * N + (x + N - 1) % N]) * k, ny = -(Hh[((y + 1) % N) * N + x] - Hh[((y + N - 1) % N) * N + x]) * k, l = Math.hypot(nx, ny, 1), o = 4 * (y * N + x);
     im.data[o] = 128 + 127 * nx / l; im.data[o + 1] = 128 + 127 * ny / l; im.data[o + 2] = 128 + 127 / l; im.data[o + 3] = 255;
   }
   cx.putImageData(im, 0, 0);
   waterNrm = new THREE.CanvasTexture(cv); waterNrm.wrapS = waterNrm.wrapT = THREE.RepeatWrapping; waterNrm.anisotropy = renderer.capabilities.getMaxAnisotropy();
   return waterNrm;
+}
+function wNoise(x, y) {   // smooth value noise, 0 … 1, two octaves (≈ 260 m and 90 m), for the colour's large patches
+  const h = (i, j) => { const v = Math.sin(i * 127.1 + j * 311.7) * 43758.5453; return v - Math.floor(v); }, sm = t => t * t * (3 - 2 * t);
+  const o = (X, Y) => { const i = Math.floor(X), j = Math.floor(Y), a = sm(X - i), b = sm(Y - j); return (h(i, j) * (1 - a) + h(i + 1, j) * a) * (1 - b) + (h(i, j + 1) * (1 - a) + h(i + 1, j + 1) * a) * b; };
+  return 0.65 * o(x / 260, y / 260) + 0.35 * o(x / 90 + 17, y / 90 + 5);
 }
 function shoreDist(land, n) {   // metres-in-cells from the nearest non-water cell, for the water cells (two-pass chamfer)
   const D = new Float32Array(n * n), BIG = 1e9;
@@ -4253,11 +4270,11 @@ function shoreDist(land, n) {   // metres-in-cells from the nearest non-water ce
 function waterMesh(land, ww, known) {   // a THREE.Group: the lakes and sea as one grid mesh, the OSM ribbons as another, one material; known: cells a photo shows (left to it)
   const n = S.n, c = S.c, R = S.R, st = Math.max(1, Math.ceil(n / 700)), WW = { river: 8, canal: 6, stream: 2.5, brook: 2, ditch: 1.2, drain: 1.2 };
   const col = f => { f = Math.max(0, Math.min(1, f)); f = f * (2 - f); return [0, 1, 2].map(q => W_SHALLOW[q] + (W_DEEP[q] - W_SHALLOW[q]) * f); };
-  const grp = new THREE.Group(), mat = new THREE.MeshPhongMaterial({ vertexColors: true, specular: 0xcfe6ff, shininess: 140, normalMap: waterNormals(), normalScale: new THREE.Vector2(0.4, 0.4),
+  const grp = new THREE.Group(), mat = new THREE.MeshPhongMaterial({ vertexColors: true, specular: 0xcfe6ff, shininess: 110, normalMap: waterNormals(), normalScale: new THREE.Vector2(0.55, 0.55),
     side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
-  const mesh = (P, C, I) => {   // flat water: the normal straight up; the ripples repeat every 40 m
+  const mesh = (P, C, I) => {   // flat water: the normal straight up; the ripples repeat every 90 m
     const g = new THREE.BufferGeometry(), N = new Float32Array(P.length), U = new Float32Array(P.length / 3 * 2);
-    for (let k = 0; k < P.length / 3; k++) { N[3 * k + 1] = 1; U[2 * k] = P[3 * k] / 40; U[2 * k + 1] = -P[3 * k + 2] / 40; }
+    for (let k = 0; k < P.length / 3; k++) { N[3 * k + 1] = 1; U[2 * k] = P[3 * k] / 90; U[2 * k + 1] = -P[3 * k + 2] / 90; }
     g.setAttribute("position", new THREE.BufferAttribute(P, 3)); g.setAttribute("normal", new THREE.BufferAttribute(N, 3));
     g.setAttribute("color", new THREE.BufferAttribute(C, 3)); g.setAttribute("uv", new THREE.BufferAttribute(U, 2)); if (I) g.setIndex(new THREE.BufferAttribute(I, 1));
     const m = new THREE.Mesh(g, mat); m.receiveShadow = true; grp.add(m);
@@ -4273,7 +4290,7 @@ function waterMesh(land, ww, known) {   // a THREE.Group: the lakes and sea as o
       const q = J0 * (m + 1) + I0; if (V[q] >= 0) return V[q];
       let L = 0; for (const [a, b] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) if (wet(I0 + a, J0 + b)) { L = lvl(I0 + a, J0 + b); break; }
       const i = Math.min(I0 * st, n - 1), j = Math.min(J0 * st, n - 1), x = Math.min(I0 * st, n) * c - R, y = R - Math.min(J0 * st, n) * c;
-      P.push(x, L, -y); C.push(...col(D[j * n + i] / far)); return V[q] = P.length / 3 - 1;
+      const f = 0.86 + 0.28 * wNoise(x, y); P.push(x, L, -y); C.push(...col(D[j * n + i] / far).map(v => Math.min(1, v * f))); return V[q] = P.length / 3 - 1;
     };
     for (let J = 0; J < m; J++) for (let K = 0; K < m; K++) if (wet(K, J)) {
       const a = vert(K, J), b = vert(K, J + 1), cc = vert(K + 1, J + 1), d = vert(K + 1, J);
@@ -4289,7 +4306,7 @@ function waterMesh(land, ww, known) {   // a THREE.Group: the lakes and sea as o
       const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1, ux = dx / len * hw, uy = dy / len * hw, nx = -uy, ny = ux;
       const ax = a[0] - ux, ay = a[1] - uy, bx = b[0] + ux, by = b[1] + uy, za = sample(a[0], a[1]) - S.h0 + 0.3, zb = sample(b[0], b[1]) - S.h0 + 0.3;
       P.push(ax + nx, za, -(ay + ny), ax - nx, za, -(ay - ny), bx - nx, zb, -(by - ny), ax + nx, za, -(ay + ny), bx - nx, zb, -(by - ny), bx + nx, zb, -(by + ny));
-      for (let r = 0; r < 6; r++) C.push(...k);
+      for (let r = 0; r < 6; r++) { const f = 0.88 + 0.24 * wNoise(P[P.length - 18 + 3 * r], -P[P.length - 16 + 3 * r]); C.push(...k.map(v => Math.min(1, v * f))); }
       any = true;
     }
     if (any) nW++;
