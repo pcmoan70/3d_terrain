@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-19 · Fly-through
+
+Owner: "in 3d viewer add flythrough mode (w s a d control, +- changes height)". A ✈ button in the control column: the orbit controls rest and the camera flies at a height above the ground, following it (smoothed, never below 1 m). W S forward/back, A D sideways (W A S D by key position, any layout), + − (also = _, PageUp/PageDown, the wheel) climb and sink at 0.9 × the height per second, ← → turn, ↑ ↓ look up/down, a drag looks round, Shift ×4. Speed 0.7 × the height per second, at least 6 m/s. It starts at the camera (above 300 m it drops to 120 m, looking a little down); a HUD on top gives the height. The orbit point is kept 100 m ahead, so the address bar and links carry the flown view; Esc, ✈ again, any other control button, Ground view or a new terrain lands it as an ordinary orbit view. Help (EN/NO), README. Tested headless (W, +, −, ←, D, Esc).
+
 ## 2026-11-19 · Log folded by default
 
 Owner: "By default the log area at the bottom of screen should be minimized." The Log bar starts folded on every screen (it opened on a PC before); a hand-made open or fold is remembered under a new key, `t3d_log` — the old `t3d_logopen` was written at every start and so held the old default, it is removed. README.
