@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-20 · Less black at the birch foot
+
+Owner: "There should be less dark at the foot of the birch trees". The black fissured foot of the birch bark covered the lowest 12–34 % of the trunk; now 4–13 % (its ragged edge a gentler random walk), with fewer and smaller grey plates and shorter fissures kept to that band, and the lenticels reaching down to it. README.
+
 ## 2026-11-19 · Fly-through
 
 Owner: "in 3d viewer add flythrough mode (w s a d control, +- changes height)". A ✈ button in the control column: the orbit controls rest and the camera flies at a height above the ground, following it (smoothed, never below 1 m). W S forward/back, A D sideways (W A S D by key position, any layout), + − (also = _, PageUp/PageDown, the wheel) climb and sink at 0.9 × the height per second, ← → turn, ↑ ↓ look up/down, a drag looks round, Shift ×4. Speed 0.7 × the height per second, at least 6 m/s. It starts at the camera (above 300 m it drops to 120 m, looking a little down); a HUD on top gives the height. The orbit point is kept 100 m ahead, so the address bar and links carry the flown view; Esc, ✈ again, any other control button, Ground view or a new terrain lands it as an ordinary orbit view. Help (EN/NO), README. Tested headless (W, +, −, ←, D, Esc).

@@ -4180,17 +4180,17 @@ function birchBark() {
   x.fillStyle = "#dedad0"; x.fillRect(0, 0, W, H);
   for (let i = 0; i < 70; i++) { const y = rnd() * H, h = 2 + rnd() * 10; x.fillStyle = rnd() < 0.5 ? "rgba(255,255,255,0.5)" : "rgba(200,185,165," + (0.12 + 0.15 * rnd()) + ")"; x.fillRect(0, y, W, h); }   // papery bands
   x.fillStyle = "#3a3632";
-  for (let i = 0; i < 260; i++) { const cx = rnd() * W, cy = rnd() * H * 0.85, w = 4 + rnd() * rnd() * 34, h = 1 + rnd() * 2.2; x.globalAlpha = 0.45 + 0.5 * rnd(); wrap(dx => { x.beginPath(); x.ellipse(cx + dx, cy, w / 2, h / 2, 0, 0, 6.283); x.fill(); }); }   // lenticels
+  for (let i = 0; i < 260; i++) { const cx = rnd() * W, cy = rnd() * H * 0.94, w = 4 + rnd() * rnd() * 34, h = 1 + rnd() * 2.2; x.globalAlpha = 0.45 + 0.5 * rnd(); wrap(dx => { x.beginPath(); x.ellipse(cx + dx, cy, w / 2, h / 2, 0, 0, 6.283); x.fill(); }); }   // lenticels
   x.globalAlpha = 1; x.fillStyle = "#151413";
   const blob = (cx, cy, w, h) => { const n = 7 + Math.floor(rnd() * 5), pts = []; for (let k = 0; k < n; k++) { const a = k / n * 6.283, f = 0.55 + 0.6 * rnd(); pts.push([Math.cos(a) * w / 2 * f, Math.sin(a) * h / 2 * f]); }
     wrap(dx => { x.beginPath(); pts.forEach(([px, py], k) => k ? x.lineTo(cx + dx + px, cy + py) : x.moveTo(cx + dx + px, cy + py)); x.closePath(); x.fill(); }); };
   for (let i = 0; i < 34; i++) { const cy = H * (0.05 + 0.72 * rnd()), w = 8 + rnd() * 46; blob(rnd() * W, cy, w, w * (0.25 + 0.45 * rnd())); if (rnd() < 0.5) blob(rnd() * W, cy + (rnd() - 0.5) * 30, w * 0.4, w * 0.2); }   // diamonds, patches
   for (let i = 0; i < 9; i++) { const cx = rnd() * W, cy = H * (0.08 + 0.62 * rnd()), w = 16 + rnd() * 30; x.strokeStyle = "#1d1b19"; x.lineWidth = 2 + rnd() * 3; x.lineCap = "round";   // a branch scar: a black chevron over a dark eye
     wrap(dx => { x.beginPath(); x.moveTo(cx + dx - w, cy + w * 0.35); x.quadraticCurveTo(cx + dx - w * 0.3, cy - w * 0.15, cx + dx, cy - w * 0.08); x.quadraticCurveTo(cx + dx + w * 0.3, cy - w * 0.15, cx + dx + w, cy + w * 0.35); x.stroke(); }); blob(cx, cy + w * 0.12, w * 0.35, w * 0.22); }
-  let top = [], yy = H * 0.8; for (let u = 0; u < W; u += 8) { yy = Math.max(H * 0.66, Math.min(H * 0.88, yy + (rnd() - 0.5) * 50)); top.push(yy); } top.push(top[0]);   // the black foot, its edge a random walk (closing on itself round the trunk)
+  let top = [], yy = H * 0.92; for (let u = 0; u < W; u += 8) { yy = Math.max(H * 0.87, Math.min(H * 0.96, yy + (rnd() - 0.5) * 30)); top.push(yy); } top.push(top[0]);   // the black foot, its edge a random walk (closing on itself round the trunk)
   x.fillStyle = "#1b1917"; x.beginPath(); x.moveTo(0, H); top.forEach((y, k) => x.lineTo(k * 8, y)); x.lineTo(W, H); x.closePath(); x.fill();
-  for (let i = 0; i < 55; i++) { const cx = rnd() * W, cy = H * (0.7 + 0.3 * rnd()), w = 6 + rnd() * 22; const f = 0.5 + 0.6 * rnd(); x.fillStyle = "rgba(" + [150, 143, 134].map(v => Math.round(v * f)).join(",") + ",0.85)"; blob(cx, cy, w, w * (1.2 + rnd())); }   // grey plates between the furrows, a few up into the white
-  for (let i = 0; i < 40; i++) { const u = rnd() * W, y0 = H * (0.8 + 0.2 * rnd()), y1 = y0 - 20 - rnd() * 90; x.strokeStyle = "rgba(95,88,80," + (0.4 + 0.4 * rnd()) + ")"; x.lineWidth = 1 + rnd() * 2.5; wrap(dx => { x.beginPath(); x.moveTo(u + dx, y0); x.lineTo(u + dx + (rnd() - 0.5) * 12, (y0 + y1) / 2); x.lineTo(u + dx + (rnd() - 0.5) * 8, y1); x.stroke(); }); }   // fissures in the foot
+  for (let i = 0; i < 30; i++) { const cx = rnd() * W, cy = H * (0.84 + 0.16 * rnd()), w = 6 + rnd() * 18; const f = 0.5 + 0.6 * rnd(); x.fillStyle = "rgba(" + [150, 143, 134].map(v => Math.round(v * f)).join(",") + ",0.85)"; blob(cx, cy, w, w * (1.2 + rnd())); }   // grey plates between the furrows, a few up into the white
+  for (let i = 0; i < 25; i++) { const u = rnd() * W, y0 = H * (0.9 + 0.1 * rnd()), y1 = y0 - 10 - rnd() * 45; x.strokeStyle = "rgba(95,88,80," + (0.4 + 0.4 * rnd()) + ")"; x.lineWidth = 1 + rnd() * 2.5; wrap(dx => { x.beginPath(); x.moveTo(u + dx, y0); x.lineTo(u + dx + (rnd() - 0.5) * 12, (y0 + y1) / 2); x.lineTo(u + dx + (rnd() - 0.5) * 8, y1); x.stroke(); }); }   // fissures in the foot
   const t = new THREE.CanvasTexture(cv); t.wrapS = THREE.RepeatWrapping; t.anisotropy = 4;
   return (birchBark.t = t);
 }
