@@ -2260,7 +2260,6 @@
 const PAGE_SRC = "<!doctype html>\n" + document.documentElement.outerHTML;
 // ======================================================================= helpers
 const $ = id => document.getElementById(id);
-const LOGPC = matchMedia("(min-width: 700px)").matches && !matchMedia("(pointer: coarse)").matches;   // a wide screen without a touch-only pointer: the log starts open
 let bSpan = null, bLast = 0;   // a multi-step job (the 3-D objects) maps each step's 0–1 onto its slice [from, width] of one bar
 // The log (owner, 2026-11-18: "show more of the log when reading tiles and map overlays, make it a scrolling window"; 2026-11-19:
 // "At bottom of screen show a detailed log with all timings, skipped downloads etc w reasons. Make the log collapsible and
@@ -2268,9 +2267,9 @@ let bSpan = null, bLast = 0;   // a multi-step job (the 3-D objects) maps each s
 // the seconds since its job began (a job = one stretch of the busy overlay), the text, and once the next step comes, how long
 // it took. A line whose only change is its percentage, seconds or MB is updated in place. Skips, failures and every
 // console warning or error are amber / red and counted in the bar. Folded it shows the newest line; open / folded is kept.
-const LOG_KEY = "t3d_logopen", LOG_MAX = 2000, LOG_W = /skipped|failed|no data|incomplete|no answer|not respond|could not|not read|retry|unexpected|did not answer|has nothing|not loaded|no network|no surface|HTTP [45]\d\d/i;
+const LOG_KEY = "t3d_log", LOG_MAX = 2000, LOG_W = /skipped|failed|no data|incomplete|no answer|not respond|could not|not read|retry|unexpected|did not answer|has nothing|not loaded|no network|no surface|HTTP [45]\d\d/i;
 let bKey = "", jobT0 = 0, logLast = null, logWarn = 0;
-const logOpen = o => { $("logd").classList.toggle("col", !o); $("logt").textContent = (o ? "▾ " : "▸ ") + "Log"; try { localStorage.setItem(LOG_KEY, o ? "1" : "0"); } catch (e) {} };
+const logOpen = (o, save) => { $("logd").classList.toggle("col", !o); $("logt").textContent = (o ? "▾ " : "▸ ") + "Log"; if (save) try { localStorage.setItem(LOG_KEY, o ? "1" : "0"); } catch (e) {} };
 function logLine(t, cls) {
   t = String(t); const L = $("logb"), atEnd = L.scrollTop + L.clientHeight >= L.scrollHeight - 4, now = performance.now(), key = t.replace(/\d+(\.\d+)?\s*(%|s\b|MB)/g, "#");
   if (!cls && LOG_W.test(t)) cls = "w";
@@ -2287,8 +2286,10 @@ function logLine(t, cls) {
   if (atEnd) L.scrollTop = L.scrollHeight;
 }
 const logEnd = how => { if (!jobT0) return; logLine(how + " " + ((performance.now() - jobT0) / 1000).toFixed(1) + " s", how === "Done in" ? "j" : "e"); jobT0 = 0; logLast = null; bKey = ""; };
-{ let o = LOGPC; try { const v = localStorage.getItem(LOG_KEY); if (v) o = v === "1"; } catch (e) {} logOpen(o); }
-$("logt").onclick = () => logOpen($("logd").classList.contains("col"));
+// folded to begin with, on every screen (owner, 2026-11-19: "By default the log area at the bottom of screen should be minimized"); opened or
+// folded by hand it stays so. A new key: the old one (t3d_logopen) was written at every start, so it held the old default.
+{ let o = false; try { localStorage.removeItem("t3d_logopen"); o = localStorage.getItem(LOG_KEY) === "1"; } catch (e) {} logOpen(o); }
+$("logt").onclick = () => logOpen($("logd").classList.contains("col"), true);
 $("logx").onclick = () => { $("logb").textContent = ""; logLast = null; bKey = ""; logWarn = 0; $("logn").textContent = ""; };
 $("logc").onclick = () => { const txt = [...$("logb").children].map(d => [...d.children].map(n => n.textContent).filter(Boolean).join("  ")).join("\n"); navigator.clipboard.writeText(txt).then(() => note(T("The log is copied")), () => {}); };
 new ResizeObserver(() => document.documentElement.style.setProperty("--logh", ($("logd").hidden ? 0 : $("logd").offsetHeight) + "px")).observe($("logd"));

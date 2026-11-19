@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-19 · Log folded by default
+
+Owner: "By default the log area at the bottom of screen should be minimized." The Log bar starts folded on every screen (it opened on a PC before); a hand-made open or fold is remembered under a new key, `t3d_log` — the old `t3d_logopen` was written at every start and so held the old default, it is removed. README.
+
 ## 2026-11-19 · Irregular water
 
 Owner: "The rendered water is too regular, make it more irregular but still a bit shiny". The water's normal map was three sine swells repeating every 40 m — a grid of identical glints toward the light. Now (`waterNormals`) a tileable fractal noise: value noise on wrapping lattices, five octaves, each stretched a little across the wind and some turned 90°, its slopes the normals, repeating every 90 m; the finest octave kept faint so it does not shimmer at a distance. The colour wanders in large faint patches (`wNoise`, two octaves ≈ 260 m and 90 m, ±14 %), on lakes, sea and the river ribbons. Shininess 140 → 110 with stronger ripples (0.4 → 0.55): the glint breaks into irregular glitter. Before/after compared headless on the Jæren coast.
