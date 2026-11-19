@@ -248,7 +248,7 @@
 <script>/*ORBIT*/</script>
 <script>/*GEOTIFF*/</script>
 <script id="embed" type="application/json">/*EMBED*/</script>
-<script id="i18n-no" type="application/json">{"Log": "Logg", "tile": "flis", "Copy": "Kopier", "Show / hide the log": "Vis / skjul loggen", "Copy the log": "Kopier loggen", "Clear the log": "Tøm loggen", "The log is copied": "Loggen er kopiert", "Done in": "Ferdig på", "Stopped after": "Stoppet etter", "Terrain plan:": "Terrengplan:", "tile(s)": "flis(er)", "to fetch": "å hente", "already in hand": "allerede hentet", "no data, known from before": "ingen data, kjent fra før", "has no data there": "har ingen data der", "sea or abroad": "hav eller utland", "has no coverage there": "dekker ikke der", "the stored copy is incomplete — fetching it again": "den lagrede kopien er ufullstendig — henter den på nytt", "sent an incomplete tile": "sendte en ufullstendig flis", "could not be read": "kunne ikke leses", "skipped": "hoppet over", "Stopped:": "Stoppet:", "not read in 60 s — skipped": "ikke lest på 60 s — hoppet over", "is searching…": "søker…", "MB received": "MB mottatt", "reading it": "leser det", "waterways": "vannveier", "trying": "prøver", "gave no answer in 90 s": "svarte ikke på 90 s", "failed": "feilet", "Raising the buildings…": "Reiser bygningene…", "buildings": "bygninger", 
+<script id="i18n-no" type="application/json">{"3-D trees and buildings need cells of at most": "3D-trær og bygninger trenger celler på høyst", "this view has": "denne visningen har", "the 1 m centre is rebuilt at 3 km radius": "1 m-sentrumet bygges på nytt med 3 km radius", "Log": "Logg", "tile": "flis", "Copy": "Kopier", "Show / hide the log": "Vis / skjul loggen", "Copy the log": "Kopier loggen", "Clear the log": "Tøm loggen", "The log is copied": "Loggen er kopiert", "Done in": "Ferdig på", "Stopped after": "Stoppet etter", "Terrain plan:": "Terrengplan:", "tile(s)": "flis(er)", "to fetch": "å hente", "already in hand": "allerede hentet", "no data, known from before": "ingen data, kjent fra før", "has no data there": "har ingen data der", "sea or abroad": "hav eller utland", "has no coverage there": "dekker ikke der", "the stored copy is incomplete — fetching it again": "den lagrede kopien er ufullstendig — henter den på nytt", "sent an incomplete tile": "sendte en ufullstendig flis", "could not be read": "kunne ikke leses", "skipped": "hoppet over", "Stopped:": "Stoppet:", "not read in 60 s — skipped": "ikke lest på 60 s — hoppet over", "is searching…": "søker…", "MB received": "MB mottatt", "reading it": "leser det", "waterways": "vannveier", "trying": "prøver", "gave no answer in 90 s": "svarte ikke på 90 s", "failed": "feilet", "Raising the buildings…": "Reiser bygningene…", "buildings": "bygninger", 
 "\" title=\"Click to hide or show this class\"><span class=\"sw\" style=\"background:": "\" title=\"Klikk for å skjule eller vise denne klassen\"><span class=\"sw\" style=\"background:",
 "\"><\/div><div class=\"row\"><textarea id=\"myNote\" rows=\"3\" placeholder=\"Note (optional)\" style=\"width:100%;box-sizing:border-box\"><\/textarea><\/div><div class=\"row w\"><button id=\"myOk\">Add<\/button><button id=\"myNo\">Cancel<\/button><\/div>": "\"><\/div><div class=\"row\"><textarea id=\"myNote\" rows=\"3\" placeholder=\"Note (optional)\" style=\"width:100%;box-sizing:border-box\"><\/textarea><\/div><div class=\"row w\"><button id=\"myOk\">Legg til<\/button><button id=\"myNo\">Avbryt<\/button><\/div>",
 "% of the view seen (": "% av visningen sett (",
@@ -3816,13 +3816,16 @@ function wcsPlan(lat, lon, R, res, R1) {   // the tiles covering the ±R square,
 }
 // A WCS tile is a SPARSE GeoTIFF: blocks that are all sea are left out (offset 0, 0 bytes), which geotiff.js cannot
 // read. The whole file plus one zero-filled block is loaded instead, and every missing block is pointed at that block —
-// the model's sea is 0 m anyway (uncompressed Float32, so zero bytes are 0.0).
+// the model's sea is 0 m anyway (uncompressed Float32, so zero bytes are 0.0). The block is the full raw size, not the
+// largest stored block: a tile that is all sea stores none (owner, 2026-11-19, Lofoten: "Offset is outside the bounds of the
+// DataView" on every such tile, the padding having been 0 bytes).
 async function sparseFix(blob) {
   const buf = await blob.arrayBuffer();
   let tif = await GeoTIFF.fromArrayBuffer(buf), img = await tif.getImage(), fd = img.fileDirectory;
   let bc = fd.TileByteCounts || fd.StripByteCounts;
   if (!bc || !Array.from(bc).some(v => v === 0)) return { tif, img };
-  const blk = Math.max.apply(null, Array.from(bc)), big = new Uint8Array(buf.byteLength + blk); big.set(new Uint8Array(buf));
+  const raw = (fd.TileWidth || fd.ImageWidth) * (fd.TileLength || fd.RowsPerStrip || fd.ImageLength) * (fd.SamplesPerPixel || 1) * (fd.BitsPerSample[0] / 8);
+  const blk = Math.max(raw, ...Array.from(bc)), big = new Uint8Array(buf.byteLength + blk); big.set(new Uint8Array(buf));
   tif = await GeoTIFF.fromArrayBuffer(big.buffer); img = await tif.getImage(); fd = img.fileDirectory;
   bc = fd.TileByteCounts || fd.StripByteCounts; const off = fd.TileOffsets || fd.StripOffsets;
   for (let i = 0; i < bc.length; i++) if (bc[i] === 0) { off[i] = buf.byteLength; bc[i] = blk; }
@@ -4030,7 +4033,11 @@ function treeMeshes(tops, sp) {   // one instanced mesh per crown shape plus the
 async function objOn() {   // fetch, compute and show; the data stay with the view (S.obj), the meshes are rebuilt with the world
   if (!S || !$("lyObj").checked) return;
   if (S.obj && S.obj.group && S.obj.group.parent === world) return;
-  if (S.c > OBJ_CMAX) { $("dsrc").textContent = "3-D trees and buildings need a 1 m view or centre of at most 3 km radius (this one has " + S.c + " m cells)."; return; }
+  if (S.c > OBJ_CMAX) {   // too coarse (owner, 2026-11-19: a 3.6 km 1 m centre, 3 m cells, "fails"): a view built from the map is rebuilt with a 3 km 1 m centre, which then makes them
+    const q = new URL(location.href).searchParams, lat = +q.get("lat"), lon = +q.get("lon"), R = +q.get("r");
+    if (WCSV && WCSV.src === SRC && lat && lon && R) { $("dsrc").textContent = "3-D trees and buildings need cells of at most " + OBJ_CMAX + " m (this view has " + S.c + " m): the 1 m centre is rebuilt at 3 km radius"; buildAt(lat, lon, R, "n", 3000); return; }
+    $("dsrc").textContent = "3-D trees and buildings need a 1 m view or centre of at most 3 km radius (this one has " + S.c + " m cells)."; return;
+  }
   if (SRC.zone !== 33) { $("dsrc").textContent = "3-D trees and buildings: the surface model is served in UTM zone 33 only."; return; }
   const run = ++objRun, s0 = S, live = () => run === objRun && S === s0 && $("lyObj").checked, step = (a, b) => { bSpan = [a, b - a, run]; bLast = a; }, unstep = () => { if (bSpan && bSpan[2] === run) bSpan = null; };
   const fresh = !S.obj;
@@ -4185,7 +4192,7 @@ async function wcsShow(items, lat, lon, R, R1, nFetch, missing, fetched) {
     source: "Kartverket NHM DTM " + (res === "n" ? "1 + 10" : res) + " m (CC BY 4.0), fetched from " + SRV[srvOf()] + (nFetch > 1 ? " in " + nFetch + " fetches (" + fetched + " tile" + (fetched === 1 ? "" : "s") + " new this time, " + (items.length - fetched) + " reused)" : "") + (missing ? "; " + missing + " tile(s) have no data" : "") };
   const all = items.slice(), lp = linkPoints(); if (lp) { all.push({ name: "points.geojson", blob: lp }); scene.layers = { "points.geojson": { title: "Points from the link" } }; }
   all.push({ name: "scene.json", blob: new Blob([JSON.stringify(scene)], { type: "application/json" }) });
-  SRC = null; await loadFolder(all);
+  SRC = null; await loadFolder(all); WCSV.src = SRC;   // the view shown is this one (not a folder opened since)
   const q = new URL(location.href); ["folder", "drive", "res", "r1"].forEach(k => q.searchParams.delete(k));
   q.searchParams.set("lat", lat.toFixed(5)); q.searchParams.set("lon", lon.toFixed(5)); q.searchParams.set("r", R); if (res !== 1) q.searchParams.set("res", res); if (res === "n") q.searchParams.set("r1", R1);
   history.replaceState(null, "", q);
