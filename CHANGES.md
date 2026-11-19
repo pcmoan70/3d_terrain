@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-19 · A photo's own sea is left to the photo
+
+Owner: "Do not fill ocean cells when areal/satelite cells are available". Two things still covered a photo base map's real pixels over water: the 3-D objects' water surface (lakes and sea from AR5, coloured shallow → deep) and the grey hatch of cells without DTM. `drapeTiles` now keeps which cells the photo really shows (`known`, before `photoFill`); `waterMesh` leaves those cells out and `waterSync` rebuilds the water when the base map changes (back to the full surface on a map); the hatch skips them. The OSM river ribbons stay. Tested on a Jæren beach with 3-D objects: water 692,540 triangles on the topo map, 0 on Esri aerial (the photo covers the whole view), the sea shows the photo.
+
 ## 2026-11-19 · Photo gaps filled smoothly, the sea included
 
 Owner: "when using satelige imagery as overlay do so for ocean as well. Missing tiles should be 2d bezzier interpolated from the known ones outward". Sentinel-2 / Landsat (HLS) leave the open sea and what lies outside the pass empty — no tile or a transparent one — and the mosaic's grey fill showed through (45 % of a Jæren coast view). For a photo base map (satellite, Esri aerial, Wayback) the mosaic now starts transparent, the drape keeps the alpha, and `photoFill` fills every uncovered pixel by pull-push: a pyramid of weighted 2 × 2 averages, then back down, each level's missing share sampled from the coarser one with a cubic B-spline — colour flows smoothly outward from the coast and the pass's edge, known pixels untouched. The log reports the share filled. Synthetic check: known pixels unchanged, no gap left, largest step 1–4 levels; 35 ms at 400², 1.1 s at 3000². In-app help (EN/NO) and README.

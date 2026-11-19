@@ -1747,11 +1747,12 @@ function paintBase(G, base, noCont) {   // G: the fine grid S or the coarse surr
     const t_ = String(Math.round(hs[k] / CB) * CB), w = cx.measureText(t_).width;
     cx.fillStyle = "#faf8eb"; cx.fillRect(i - w / 2 - 3, j - 9, w + 6, 18); cx.fillStyle = "#5a2d0f"; cx.fillText(t_, i, j + 1); placed.push([i, j]);
   }
-  // where the DTM is missing (filled), everything is greyed and hatched — the shape there is made up
+  // where the DTM is missing (filled), everything is greyed and hatched — the shape there is made up; not where a photo shows
+  // the ground itself (the sea off a coast, mostly)
   if (G.nMiss) {
-    const g = cx.getImageData(0, 0, n, n), q = g.data;
+    const g = cx.getImageData(0, 0, n, n), q = g.data, known = base && base.known;
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-      const k = j * n + i; if (!bad[k]) continue;
+      const k = j * n + i; if (!bad[k] || (known && known[k])) continue;
       const o = 4 * k, hatch = ((i + j) % 12) < 2 ? 0.55 : 1, gy = (0.3 * q[o] + 0.59 * q[o + 1] + 0.11 * q[o + 2]) * 0.35 + 150 * 0.65;
       q[o] = q[o + 1] = q[o + 2] = gy * hatch;
     }
@@ -2795,8 +2796,10 @@ async function drapeTiles(G, B, fill) {   // fill: a photo — its gaps interpol
       d[k] = md[q]; d[k + 1] = md[q + 1]; d[k + 2] = md[q + 2]; d[k + 3] = md[q + 3];
     }
   }
-  if (fill) { busy("Filling the photo's gaps…"); await tick(); const f = photoFill(d, n); if (f) logLine("The photo leaves " + (100 * f).toFixed(1) + " % uncovered (sea, outside the pass) — filled smoothly outward from what it shows (" + (failed ? failed + " tile(s) missing" : "no tile missing") + ")", "i"); }
-  cx.putImageData(im, 0, 0);
+  let known = null;   // the cells the photo really shows (owner, 2026-11-19: "Do not fill ocean cells when areal/satelite cells are available")
+  if (fill) { known = new Uint8Array(n * n); for (let k = 0; k < n * n; k++) known[k] = d[4 * k + 3] === 255 ? 1 : 0; }
+  if (known && known.includes(0)) { busy("Filling the photo's gaps…"); await tick(); const f = photoFill(d, n); if (f) logLine("The photo leaves " + (100 * f).toFixed(1) + " % uncovered (sea, outside the pass) — filled smoothly outward from what it shows (" + (failed ? failed + " tile(s) missing" : "no tile missing") + ")", "i"); }
+  cx.putImageData(im, 0, 0); cv.known = known;
   return cv;
 }
 // ---- side walls of the block (owner, 2026-10-13: "sidewalls (color the sides so that colors are
@@ -2849,7 +2852,7 @@ async function repaint() {
     const mesh = G === S ? terrain : S.out.mesh, old = mesh.material.map; mesh.material.map = new THREE.CanvasTexture(G.tex); mesh.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
     mesh.material.needsUpdate = true; if (old) old.dispose();
   }
-  S.baseId = id; draw(); if (v2d) paint2d();
+  S.baseId = id; waterSync(); draw(); if (v2d) paint2d();
 }
 function paintNormals(gx, gyN, n) {
   // object-space normals (x east, y up, z south): (−dh/dE, 1, dh/dN), so the 1 m relief shades under any light
@@ -4134,7 +4137,7 @@ async function objOn() {   // fetch, compute and show; the data stay with the vi
     }
     if (fresh) step(0.96, 1); busy("Building the 3-D objects…", fresh ? 0 : null); await tick();
     const o = S.obj, tm = treeMeshes(o.tops, o.sp), grp = new THREE.Group(), L = S.out ? 1 : 0;
-    const wm = waterMesh(o.land, o.ww);
+    const kn = baseKnown(), wm = waterMesh(o.land, o.ww, kn); o.wm = wm; o.wmFor = kn;
     tm.meshes.forEach(m => grp.add(m)); if (o.bmesh) grp.add(o.bmesh); if (wm) grp.add(wm);
     grp.traverse(q => q.layers.set(L)); world.add(grp); o.group = grp; o.cnt = tm.cnt;
     busy(false); unstep();
@@ -4142,6 +4145,14 @@ async function objOn() {   // fetch, compute and show; the data stay with the vi
     setAttr($("basemap").value); await repaint();
   } catch (e) { busy(false); $("dsrc").textContent = "3-D trees and buildings: " + e.message; }
   finally { unstep(); }
+}
+const baseKnown = () => { const b = S && S.bases && S.bases[S.baseId]; return (b && b.known) || null; };   // the photo's real cells on the fine grid, or null
+function waterSync() {   // after the base map changed: the water surface again, leaving a photo's own cells to the photo
+  const o = S && S.obj; if (!o || !o.group) return;
+  const kn = baseKnown(); if (kn === o.wmFor) return;
+  if (o.wm) { o.group.remove(o.wm); o.wm.traverse(q => { if (q.geometry) q.geometry.dispose(); if (q.material) { if (q.material.normalMap) q.material.normalMap.dispose(); q.material.dispose(); } }); }
+  o.wm = waterMesh(o.land, o.ww, kn); o.wmFor = kn;
+  if (o.wm) { const L = S.out ? 1 : 0; o.wm.traverse(q => q.layers.set(L)); o.group.add(o.wm); }
 }
 function objOff() {
   objRun++; if (!S || !S.obj) return;
@@ -4178,7 +4189,7 @@ function shoreDist(land, n) {   // metres-in-cells from the nearest non-water ce
     if (i < n - 1) v = Math.min(v, D[k + 1] + 1); if (j < n - 1) { v = Math.min(v, D[k + n] + 1); if (i < n - 1) v = Math.min(v, D[k + n + 1] + 1.414); if (i > 0) v = Math.min(v, D[k + n - 1] + 1.414); } D[k] = v; }
   return D;
 }
-function waterMesh(land, ww) {   // a THREE.Group: the lakes and sea as one grid mesh, the OSM ribbons as another, one material
+function waterMesh(land, ww, known) {   // a THREE.Group: the lakes and sea as one grid mesh, the OSM ribbons as another, one material; known: cells a photo shows (left to it)
   const n = S.n, c = S.c, R = S.R, st = Math.max(1, Math.ceil(n / 700)), WW = { river: 8, canal: 6, stream: 2.5, brook: 2, ditch: 1.2, drain: 1.2 };
   const col = f => { f = Math.max(0, Math.min(1, f)); f = f * (2 - f); return [0, 1, 2].map(q => W_SHALLOW[q] + (W_DEEP[q] - W_SHALLOW[q]) * f); };
   const grp = new THREE.Group(), mat = new THREE.MeshPhongMaterial({ vertexColors: true, specular: 0xcfe6ff, shininess: 140, normalMap: waterNormals(), normalScale: new THREE.Vector2(0.4, 0.4),
@@ -4195,7 +4206,7 @@ function waterMesh(land, ww) {   // a THREE.Group: the lakes and sea as one grid
   // each took their own colours and showed as bands on the coarser steps of a wide view.
   if (land) {
     const D = shoreDist(land, n), far = W_FAR / c, m = Math.ceil(n / st), V = new Int32Array((m + 1) * (m + 1)).fill(-1), P = [], C = [], I = [];
-    const wet = (I0, J0) => I0 >= 0 && J0 >= 0 && I0 < m && J0 < m && land[J0 * st * n + I0 * st] === 4;
+    const wet = (I0, J0) => I0 >= 0 && J0 >= 0 && I0 < m && J0 < m && land[J0 * st * n + I0 * st] === 4 && !(known && known[J0 * st * n + I0 * st]);
     const lvl = (I0, J0) => { const h = S.h[J0 * st * n + I0 * st]; return (h === h ? h : 0) - S.h0 + 0.15; };
     const vert = (I0, J0) => {   // the corner's vertex: at the level of a water square beside it, coloured by the shore distance there
       const q = J0 * (m + 1) + I0; if (V[q] >= 0) return V[q];
