@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-19 · Photo gaps filled smoothly, the sea included
+
+Owner: "when using satelige imagery as overlay do so for ocean as well. Missing tiles should be 2d bezzier interpolated from the known ones outward". Sentinel-2 / Landsat (HLS) leave the open sea and what lies outside the pass empty — no tile or a transparent one — and the mosaic's grey fill showed through (45 % of a Jæren coast view). For a photo base map (satellite, Esri aerial, Wayback) the mosaic now starts transparent, the drape keeps the alpha, and `photoFill` fills every uncovered pixel by pull-push: a pyramid of weighted 2 × 2 averages, then back down, each level's missing share sampled from the coarser one with a cubic B-spline — colour flows smoothly outward from the coast and the pass's edge, known pixels untouched. The log reports the share filled. Synthetic check: known pixels unchanged, no gap left, largest step 1–4 levels; 35 ms at 400², 1.1 s at 3000². In-app help (EN/NO) and README.
+
 ## 2026-11-19 · The camera always in the link
 
 Owner: "Also the viewpoint and zoom level should be params". `c=` (camera position and target, metres from the centre — viewpoint, direction and zoom in one) was written only once the camera had left its start position, and that start is framed to the screen's shape, so a phone opened a PC's link at another view; now it is always written. A link that ticks the 3-D objects on a view coarser than 2 m kept its camera only until the rebuild: the link's camera is now put back before the layers start, and objOn carries it into the rebuild. Tested: wheel zoom + rotate → address bar → a fresh browser at the same camera; `?…r1=3500&v=1=lyObj;c=900,2500,1800,0,20,0` → rebuilt at 2 m with the same camera.
