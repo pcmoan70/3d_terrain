@@ -3651,12 +3651,16 @@ function wbFill(S) {   // the photo list as known so far (newest first); keeps t
   const sel = $("wbSel"), cur = sel.value;
   sel.innerHTML = S.wb.map(p => '<option value="' + p.rel + '">' + esc(p.label) + "</option>").join("") + (S.wbBusy ? '<option disabled>… finding older photos</option>' : "");
   if (cur && S.wb.some(p => p.rel === cur)) sel.value = cur;
+  if (wantWb && S.wb.some(p => p.rel === wantWb)) { sel.value = wantWb; wantWb = null; if (sel.value !== cur) setTimeout(repaint, 0); }   // a link's photo, maybe one of the older ones found later
 }
+let wantWb = null, wantSat = null;   // the photo a link asks for, until the list holds it
 // The NEWEST photo at once (owner, 2026-10-13: "Fetch the last photo"); the older ones are found meanwhile.
 async function wbStart(S) {
   if (!wbCfg) wbCfg = await (await fetch(WB_CFG)).json();
   const rel = Object.keys(wbCfg).sort((a, b) => wbDate(b).localeCompare(wbDate(a)));
-  S.wb = [{ rel: rel[0], label: "Newest photo" }]; S.wbBusy = true; wbFill(S);
+  S.wb = [{ rel: rel[0], label: "Newest photo" }]; S.wbBusy = true;
+  if (wantWb && wantWb !== rel[0] && wbCfg[wantWb]) S.wb.push({ rel: wantWb, label: "Release " + wbDate(wantWb) });   // a link's photo at once, not after the search for the older ones
+  wbFill(S);
   wbOlder(S, rel).catch(() => {}).then(() => { S.wbBusy = false; wbFill(S); });
 }
 async function wbOlder(S, rel) {
@@ -3742,7 +3746,7 @@ async function satUI(S) {
   if (!S.satP) { sel.innerHTML = "<option>Looking for photos…</option>"; S.satP = satStart(S).catch(() => { S.sat = []; }); }
   await S.satP;
   if (!S.sat.length) { sel.innerHTML = '<option value="">No photos here</option>'; return null; }
-  const cur = sel.value, ids = S.sat.map(p => p.k + ":" + p.day);
+  const cur = wantSat || sel.value, ids = S.sat.map(p => p.k + ":" + p.day); wantSat = null;
   sel.innerHTML = S.sat.map(p => '<option value="' + p.k + ":" + p.day + '">' + p.day + " · " + SAT[p.k][4] + "</option>").join(""); if (ids.includes(cur)) sel.value = cur;
   const [k, day] = sel.value.split(":"), id = "sat:" + sel.value;
   BASEMAPS[id] = { url: satUrl(k, day), max: SAT[k][2], attr: "Imagery: NASA GIBS — " + SAT[k][4] + ", " + day + (k === "MOD" ? "" : " (HLS v2.0, NASA / USGS)") };
@@ -4045,6 +4049,7 @@ function build(s) {
   if ($("lyClc").checked) setTimeout(() => $("lyClc").onchange(), 0);
   if (nbOn().length) setTimeout(nbRefresh, 0);
   if ($("lyObj").checked) setTimeout(objOn, 0);
+  urlSync();   // the address bar: this view
   if (pendingCam) { const c = pendingCam; pendingCam = null; setTimeout(() => { camera.position.set(c[0], c[1], c[2]); controls.target.set(c[3], c[4], c[5]); controls.update(); draw(); }, 0); }   // a shared view's camera
   for (const sk of snowOn()) setTimeout(() => $(SNOWL[sk].ly).onchange(), 0);
   if (pendingVs) { S.vs = pendingVs; pendingVs = null; }
@@ -4760,13 +4765,8 @@ async function catalog() {   // scenes/index.json next to the viewer: the scenes
 // same folder for someone else — a Drive folder (they sign in with their own Google account; the folder
 // must be shared with it in Drive) or a folder URL — at the same date and time
 $("share").onclick = async () => {
-  const u = new URL(location.href.split("?")[0]), drv = new URL(location.href).searchParams.get("drive"), fol = new URL(location.href).searchParams.get("folder");
-  const sp0 = new URL(location.href).searchParams;
-  if (drv) u.searchParams.set("drive", drv); else if (fol) u.searchParams.set("folder", fol);
-  else if (sp0.get("lat") && sp0.get("lon")) { ["lat", "lon", "r", "res", "r1"].forEach(k => { if (sp0.get(k)) u.searchParams.set(k, sp0.get(k)); }); u.hash = location.hash; }   // the link's points go along
-  else { $("shr").hidden = false; $("shr").textContent = "Only a terrain opened from Google Drive, a web folder or a place on the map can be shared as a link — files from this device stay here (Save them and send the file)."; return; }
-  u.searchParams.set("day", $("day").value); u.searchParams.set("tod", $("tod").value);
-  const link = u.href; let how = "";
+  const link = viewLink(true), drv = new URL(location.href).searchParams.get("drive"); let how = "";   // the whole view (viewLink, below)
+  if (!link) { $("shr").hidden = false; $("shr").textContent = "Only a terrain opened from Google Drive, a web folder or a place on the map can be shared as a link — files from this device stay here (Save them and send the file)."; return; }
   try { if (navigator.share) { await navigator.share({ title: "Terrain 3D", url: link }); how = "Shared."; } } catch (e) {}
   if (!how) { try { await navigator.clipboard.writeText(link); how = "Link copied."; } catch (e) { how = "Copy this link:"; } }
   $("shr").hidden = false;
@@ -4796,6 +4796,10 @@ function viewState() {
   for (const el of CK_ALL()) if (el.checked !== CK_DEF.has(el.id)) (el.checked ? on : off).push(el.id);
   for (const id of VW_IDS) if ($(id).value !== VW_DEF[id] && !(id === "lmode" && $("lySun").checked)) sv.push(id + ":" + $(id).value);   // the average sun forces fixed light: not a choice
   if ($("lyWind").checked) sv.push("windDir:" + $("windDir").value);
+  if ($("basemap").value === "wayback" && S.wb && S.wb.some(p => p.rel === $("wbSel").value)) sv.push("wbSel:" + $("wbSel").value);
+  if ($("basemap").value === "sat" && S.sat && S.sat.some(p => p.k + ":" + p.day === $("satSel").value)) sv.push("satSel:" + $("satSel").value);
+  if ($("lyRr7").checked || $("lyTg7").checked) sv.push("wxDay:" + $("wxDay").value);
+  if (levelsList().length) sv.push("levels:" + levelsList().join("/"));
   if ($("lySnow").checked) sv.push("snowDay:" + $("snowDay").value);
   if ($("lySnowD").checked) sv.push("snowYear:" + $("snowYear").value);
   if ($("lySun").checked) { sv.push("mFrom:" + $("mFrom").value, "mTo:" + $("mTo").value); if (sunCut !== 1) sv.push("scut:" + sunCut.toFixed(2)); }
@@ -4804,8 +4808,9 @@ function viewState() {
   if (clsOff.slope.size) hid.push("slope~" + [...clsOff.slope].join("."));   // kept even with the layer off: the classes picked survive a toggle off / on
   if (clsOff.face.size) hid.push("face~" + [...clsOff.face].join("."));
   for (const k in nbOff) if (nbOff[k].size) hid.push(k + "~" + [...nbOff[k]].join("."));
+  const fl = []; for (const f in fileOn) { const def = !(SRC && ((SRC.scene.layers || {})[f] || {}).group === "birds"); if ((fileOn[f] !== false) !== def) fl.push(encodeURIComponent(f) + "~" + (fileOn[f] !== false ? 1 : 0)); }   // overlay files switched from their default
   const cam = camNow(), moved = !homeCam || cam.some((v, i) => Math.abs(v - homeCam[i]) >= 1);
-  return [on.length && "1=" + on.join(","), off.length && "0=" + off.join(","), sv.length && "s=" + sv.join(","), hid.length && "h=" + hid.join("|"), moved && "c=" + cam.join(",")].filter(Boolean).join(";");
+  return [on.length && "1=" + on.join(","), off.length && "0=" + off.join(","), sv.length && "s=" + sv.join(","), hid.length && "h=" + hid.join("|"), moved && "c=" + cam.join(","), fl.length && "f=" + fl.join("|")].filter(Boolean).join(";");
 }
 function parseView(str) {   // the short form (or the first day's JSON) → {c1, c0, v, off, cam}
   if (str[0] === "{") return JSON.parse(str);
@@ -4816,6 +4821,7 @@ function parseView(str) {   // the short form (or the first day's JSON) → {c1,
     else if (k === "s=") for (const it of val.split(",")) { const c = it.indexOf(":"); st.v[it.slice(0, c)] = it.slice(c + 1); }
     else if (k === "h=") for (const it of val.split("|")) { const c = it.lastIndexOf("~"), key = it.slice(0, c), idx = it.slice(c + 1).split(".").map(Number); if (key === "slope" || key === "face") st.off[key] = idx; else st.off.nb[key] = idx; }
     else if (k === "c=") st.cam = val.split(",").map(Number);
+    else if (k === "f=") { st.files = {}; for (const it of val.split("|")) { const c = it.lastIndexOf("~"); try { st.files[decodeURIComponent(it.slice(0, c))] = it.slice(c + 1) === "1"; } catch (e) {} } }
   }
   return st;
 }
@@ -4825,6 +4831,9 @@ function applyViewState(st) {   // before the terrain is built: the panel's choi
     for (const id of st.c1 || []) if ($(id)) $(id).checked = true;
     for (const id of st.c0 || []) if ($(id)) $(id).checked = false;
     for (const id in st.v || {}) if ($(id)) $(id).value = st.v[id];
+    if (st.v && st.v.levels) $("levels").value = st.v.levels.split("/").join(", ");
+    if (st.v && st.v.wbSel) wantWb = st.v.wbSel; if (st.v && st.v.satSel) wantSat = st.v.satSel;
+    for (const f in st.files || {}) fileOn[f] = st.files[f];
     if (st.off) {
       clsOff.slope = new Set(st.off.slope || []); clsOff.face = new Set(st.off.face || []); for (const k in st.off.nb || {}) nbOff[k] = new Set(st.off.nb[k]);
       for (const el of document.querySelectorAll("#lgSlope .tg, #lgFacing .tg")) el.classList.toggle("off", clsOff[el.dataset.k].has(+el.dataset.i));
@@ -4838,12 +4847,33 @@ function applyViewState(st) {   // before the terrain is built: the panel's choi
     if (st.v && st.v.v2) { const p = st.v.v2.split("/").map(Number); if (p.length === 3 && p.every(isFinite)) pending2d = p; }
   } catch (e) {}
 }
+// The whole view in one link (owner, 2026-11-19: "Make sure the full selection of settings, params in the 3d viewer are coded in the
+// URL params so that sharing links generate the same view at the receiving end"): the terrain, the date and time, ?v= with
+// every choice, and the points in view — the link's own and My points while that layer is on — in #pts. Share… and ⧉ both
+// give it, and the address bar follows the view (a second after a change), so a copied address is the same link.
+// The language stays the receiver's own. My points go only into Share… and ⧉, not the address bar (from there they would come
+// back as the link's own points).
+function viewLink(mine) {
+  const u = linkBase(); if (!u) return null;
+  u.searchParams.delete("v"); u.searchParams.set("day", $("day").value); u.searchParams.set("tod", $("tod").value);
+  const mineIn = mine && S && fileOn.__mine !== false ? myPts.filter(p => myView(p)) : [], lpOff = fileOn["points.geojson"] === false;
+  if (mineIn.length) {   // they travel among the link's points (one layer there): the link's own only if shown here
+    let pts = []; const m = /[#&]pts=([^&]+)/.exec(u.hash); if (m && !lpOff) try { pts = JSON.parse(decodeURIComponent(m[1])); } catch (e) { pts = []; }
+    const key = p => (+p[0]).toFixed(6) + "," + (+p[1]).toFixed(6) + "," + p[2], have = new Set(pts.map(key));
+    for (const p of mineIn) { const q = [+p.lat.toFixed(6), +p.lon.toFixed(6), p.name || "", p.note || "", MY_COL]; if (!have.has(key(q))) pts.push(q); }
+    u.hash = "pts=" + encodeURIComponent(JSON.stringify(pts));
+    if (lpOff) delete fileOn["points.geojson"];
+  }
+  const st = S ? viewState() : ""; if (mineIn.length && lpOff) fileOn["points.geojson"] = false;
+  return u.href.replace(/#.*$/, "") + (st ? "&v=" + encodeURIComponent(st).replace(/%2C/g, ",").replace(/%3A/g, ":").replace(/%3B/g, ";").replace(/%3D/g, "=").replace(/%7C/g, "|") : "") + u.hash;   // the separators may stay as they are in a query
+}
+let urlT = 0;
+function urlSync() { clearTimeout(urlT); urlT = setTimeout(() => { if (!S) return; if (!$("busy").hidden) return urlSync(); try { const l = viewLink(false); if (l && l !== location.href) history.replaceState(null, "", l); } catch (e) {} }, 1000); }
+for (const ev of ["change", "input", "click"]) $("info").addEventListener(ev, urlSync);
+controls.addEventListener("change", urlSync); $("rside").addEventListener("click", urlSync);
 $("linkB").onclick = async () => {
-  const u = linkBase();
-  if (!u) { $("dataSec").open = true; $("shr").hidden = false; $("shr").textContent = "Only a terrain opened from Google Drive, a web folder or a place on the map can be shared as a link — files from this device stay here (Save them and send the file)."; return; }
-  u.searchParams.set("day", $("day").value); u.searchParams.set("tod", $("tod").value);
-  const st = S ? viewState() : "";
-  const link = u.href + (st ? "&v=" + encodeURIComponent(st).replace(/%2C/g, ",").replace(/%3A/g, ":").replace(/%3B/g, ";").replace(/%3D/g, "=").replace(/%7C/g, "|") : "");   // the separators may stay as they are in a query
+  const link = viewLink(true);
+  if (!link) { $("dataSec").open = true; $("shr").hidden = false; $("shr").textContent = "Only a terrain opened from Google Drive, a web folder or a place on the map can be shared as a link — files from this device stay here (Save them and send the file)."; return; }
   let ok = false;
   try { await navigator.clipboard.writeText(link); ok = true; } catch (e) {}
   if (ok) { $("linkB").textContent = "✓"; setTimeout(() => { $("linkB").textContent = "⧉"; }, 1500); }
