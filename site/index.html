@@ -4044,13 +4044,14 @@ function build(s) {
   const km = v => (v >= 1000 ? (v / 1000).toFixed(v % 1000 ? 1 : 0) + " km" : v + " m"), native = Math.max(1, Math.round(Math.min.apply(null, SRC.tiles.map(t => t.res[0]))));
   $("radTxt").textContent = "Terrain model: " + (O ? "1 m centre + 10 m around" : native + " m" + (S.c > native ? " (shown on a " + S.c + " m grid)" : "")) + " · view radius " + km(R) + (O ? " · 1 m detail within " + km(S.R) : "");
   fileLayersUI(); restoreScroll();   // the panel's content is in place: back to where it was scrolled
+  // the link's camera before the layers: a rebuild the 3-D objects ask for (objOn) starts from it
+  if (pendingCam) { const c = pendingCam; pendingCam = null; setTimeout(() => { camera.position.set(c[0], c[1], c[2]); controls.target.set(c[3], c[4], c[5]); controls.update(); draw(); }, 0); }   // a shared view's camera
   if ($("lySun").checked) setTimeout(() => $("lySun").onchange(), 0);
   if ($("lyWind").checked) setTimeout(windOn, 0);
   if ($("lyClc").checked) setTimeout(() => $("lyClc").onchange(), 0);
   if (nbOn().length) setTimeout(nbRefresh, 0);
   if ($("lyObj").checked) setTimeout(objOn, 0);
   urlSync();   // the address bar: this view
-  if (pendingCam) { const c = pendingCam; pendingCam = null; setTimeout(() => { camera.position.set(c[0], c[1], c[2]); controls.target.set(c[3], c[4], c[5]); controls.update(); draw(); }, 0); }   // a shared view's camera
   for (const sk of snowOn()) setTimeout(() => $(SNOWL[sk].ly).onchange(), 0);
   if (pendingVs) { S.vs = pendingVs; pendingVs = null; }
   if (FEATURES.some(f => $("ft_" + f.id).checked) || GRADED.some(g => $("ft_" + g.id).checked)) setTimeout(async () => { await featuresOn(); repaint(); }, 0);
@@ -4074,7 +4075,7 @@ function shadowFrame() {
 const ex = $("ex");
 function setEx() { if (!world) return; world.scale.y = +ex.value; $("exv").textContent = (+ex.value).toFixed(1); letters.forEach(sp => sp.position.set(sp.userData.x, (sp.userData.z - 9) * world.scale.y + 9, -sp.userData.y)); draw(); }
 ex.oninput = setEx;
-function home() { const k = Math.max(1, 1.0 / camera.aspect), R = S.RB, cz0 = (sample(0, 0) - S.h0) * world.scale.y; camera.position.set(0, cz0 + R * 1.9 * k, R * 0.9 * k); controls.target.set(0, (sample(0, 0) - S.h0) * world.scale.y, 0); controls.update(); draw(); homeCam = camNow(); }
+function home() { const k = Math.max(1, 1.0 / camera.aspect), R = S.RB, cz0 = (sample(0, 0) - S.h0) * world.scale.y; camera.position.set(0, cz0 + R * 1.9 * k, R * 0.9 * k); controls.target.set(0, (sample(0, 0) - S.h0) * world.scale.y, 0); controls.update(); draw(); }
 $("reset").onclick = () => S && home();
 // ---- ground view (owner, 2026-10-19: "a mode where view is from 175m above ground [1.75 m] viewing the horizon supporting all overlays
 // etc. 'Ground view'"): the camera 1.75 m (in the model's vertical scale) over the ground at a point, looking level in the current
@@ -4786,10 +4787,9 @@ function linkBase() {   // the terrain's link, or null for files from this devic
 }
 // Only departures from the defaults go into the link, in a short text form (owner, 2026-10-19: "keep link as short as
 // possible"): 1=boxes switched on; 0=boxes switched off; s=settings that differ (and the wind, snow and month choices of
-// layers that are on); h=hidden legend classes; c=the camera when it has left the home position.
+// layers that are on); h=hidden legend classes; c=the camera (always).
 const CK_ALL = () => document.querySelectorAll('#info input[type="checkbox"][id]');
 const CK_DEF = new Set([...CK_ALL()].filter(e => e.checked).map(e => e.id)), VW_IDS = ["lmode", "basemap", "ex", "csig"], VW_DEF = {}; for (const id of VW_IDS) VW_DEF[id] = $(id).value;
-let homeCam = null;   // where home() put the camera; a link carries the camera only when it has moved from there
 const camNow = () => [camera.position.x, camera.position.y, camera.position.z, controls.target.x, controls.target.y, controls.target.z].map(Math.round);
 function viewState() {
   const on = [], off = [], sv = [], hid = [];
@@ -4809,8 +4809,10 @@ function viewState() {
   if (clsOff.face.size) hid.push("face~" + [...clsOff.face].join("."));
   for (const k in nbOff) if (nbOff[k].size) hid.push(k + "~" + [...nbOff[k]].join("."));
   const fl = []; for (const f in fileOn) { const def = !(SRC && ((SRC.scene.layers || {})[f] || {}).group === "birds"); if ((fileOn[f] !== false) !== def) fl.push(encodeURIComponent(f) + "~" + (fileOn[f] !== false ? 1 : 0)); }   // overlay files switched from their default
-  const cam = camNow(), moved = !homeCam || cam.some((v, i) => Math.abs(v - homeCam[i]) >= 1);
-  return [on.length && "1=" + on.join(","), off.length && "0=" + off.join(","), sv.length && "s=" + sv.join(","), hid.length && "h=" + hid.join("|"), moved && "c=" + cam.join(","), fl.length && "f=" + fl.join("|")].filter(Boolean).join(";");
+  // the camera always (owner, 2026-11-19: "Also the viewpoint and zoom level should be params"): the start position is framed
+  // to the screen's shape, so a phone would otherwise open a PC's link at another view
+  const cam = camNow();
+  return [on.length && "1=" + on.join(","), off.length && "0=" + off.join(","), sv.length && "s=" + sv.join(","), hid.length && "h=" + hid.join("|"), "c=" + cam.join(","), fl.length && "f=" + fl.join("|")].filter(Boolean).join(";");
 }
 function parseView(str) {   // the short form (or the first day's JSON) → {c1, c0, v, off, cam}
   if (str[0] === "{") return JSON.parse(str);
@@ -5120,7 +5122,7 @@ async function objOn() {   // fetch, compute and show; the data stay with the vi
   if (S.obj && S.obj.group && S.obj.group.parent === world) return;
   if (S.c > OBJ_CMAX) {   // too coarse (owner, 2026-11-19: a 3.6 km 1 m centre, 3 m cells, "fails"): a view built from the map is rebuilt with a 3 km 1 m centre, which then makes them
     const q = new URL(location.href).searchParams, lat = +q.get("lat"), lon = +q.get("lon"), R = +q.get("r");
-    if (WCSV && WCSV.src === SRC && lat && lon && R) { $("dsrc").textContent = "3-D trees and buildings need cells of at most " + OBJ_CMAX + " m (this view has " + S.c + " m): the 1 m centre is rebuilt at 3 km radius"; buildAt(lat, lon, R, "n", 3000); return; }
+    if (WCSV && WCSV.src === SRC && lat && lon && R) { $("dsrc").textContent = "3-D trees and buildings need cells of at most " + OBJ_CMAX + " m (this view has " + S.c + " m): the 1 m centre is rebuilt at 3 km radius"; pendingCam = camNow(); buildAt(lat, lon, R, "n", 3000); return; }   // the same viewpoint after the rebuild
     $("dsrc").textContent = "3-D trees and buildings need a 1 m view or centre of at most 3 km radius (this one has " + S.c + " m cells)."; return;
   }
   if (SRC.zone !== 33) { $("dsrc").textContent = "3-D trees and buildings: the surface model is served in UTM zone 33 only."; return; }

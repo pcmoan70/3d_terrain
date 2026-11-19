@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-19 · The camera always in the link
+
+Owner: "Also the viewpoint and zoom level should be params". `c=` (camera position and target, metres from the centre — viewpoint, direction and zoom in one) was written only once the camera had left its start position, and that start is framed to the screen's shape, so a phone opened a PC's link at another view; now it is always written. A link that ticks the 3-D objects on a view coarser than 2 m kept its camera only until the rebuild: the link's camera is now put back before the layers start, and objOn carries it into the rebuild. Tested: wheel zoom + rotate → address bar → a fresh browser at the same camera; `?…r1=3500&v=1=lyObj;c=900,2500,1800,0,20,0` → rebuilt at 2 m with the same camera.
+
 ## 2026-11-19 · One link for the whole view
 
 Owner: "Make sure the full selection of settings, params in the 3d viewer are coded in the URL params so that sharing links generate the same view at the receiving end". ⧉ already carried `v=` (ticks, base map, height ×, smoothing, wind / snow / sun choices, hidden classes, viewshed, flat map, camera); **Share…** carried only the terrain and the time. Now both use one `viewLink()`, and `v=` also holds the Wayback photo (`wbSel`, shown at once on the receiving side instead of after its ~3 min search for older photos), the satellite photo (`satSel`), the weather-map date (`wxDay`), the red levels (`levels`, `/`-separated) and overlay files switched from their default (`f=name~0|1`). My points in view go into `#pts` when that layer is shown (Share… and ⧉ only; the link's own points only if shown). The address bar follows the view (`urlSync`, 1 s after a change, after the busy overlay). Tested headless: sender → link → a fresh browser profile gives the same `viewState()`, camera, photo and points; a link with `1=lyObj` builds the 3-D objects.
