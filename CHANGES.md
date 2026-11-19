@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-19 · Birch bark
+
+Owner: "birch should have black dots (non-regular) on the stem. look at some images to make this right. just white is no good." After silver birch (Woodland Trust, first-nature: white papery bark with black diamond-shaped marks and horizontal lenticels, black and rugged at the base) the broadleaf trunks get a bark texture painted once on a 256 × 1024 canvas (`birchBark`, fixed seed, wrapped round the trunk without a seam): off-white with faint peeling bands, 260 short dark horizontal lenticels, irregular black diamonds and patches, branch-scar chevrons over a dark eye, and a black fissured foot (its upper edge a random walk, grey plates between the furrows). Birch trunks are their own instanced mesh (8 sides), the spruce and pine trunks keep their colours. Help (EN/NO), README.
+
 ## 2026-11-19 · More realistic trees
 
 Owner: "in the 3d view make the trees more realistic". The crowns were a 7-sided cone, a 20-face blob and an 80-face ball in one flat colour each. Now (`treeGeos`, made once): spruce a narrow cone of four drooping tiers, flat-shaded, dark under each tier; pine a long orange-barked trunk under a flat crown of two or three bumped, squashed lumps (the umbrella of an old pine); broadleaf — in Norway mostly birch — a white trunk under a lumpy ovoid (a noise-bumped sphere and two side lumps). Pine and broadleaf come in two variants; every tree varies in width (±15 %), hue, saturation and lightness, and leans up to 2° (pine 4°); a vertex shade darkens each crown low and inside. Every tree has a trunk now, coloured by species. About 120 triangles a spruce or birch, 60 a pine (was 14 / 20 / 80). Help (EN/NO), README.
