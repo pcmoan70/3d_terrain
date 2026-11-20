@@ -3,11 +3,13 @@
 <title>Terrain 3D</title>
 <meta name="robots" content="noindex">
 <style>
-  html,body{margin:0;height:100%;overflow:hidden;background:#1d2228;font:14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#eee}
+  html,body{margin:0;height:100%;overflow:hidden;background:#1d2228;font:14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#eee;-webkit-text-size-adjust:100%}
+  body{position:fixed;left:0;top:0;right:0;bottom:0;overscroll-behavior:none}   /* iOS Safari: the page is exactly the visible area (it neither scrolls nor slides under the toolbar) */
+  @supports (-webkit-touch-callout:none){input,select,textarea{font-size:16px}}   /* iOS Safari zooms the page into a field with smaller text, and the controls end up off screen */
   #c{display:block;width:100%;height:100%;-webkit-touch-callout:none;user-select:none}   /* a long press opens the point popup, not the browser’s menu */
   [hidden]{display:none!important}   /* a row hidden in the page stays hidden whatever its display (the Photo row showed) */
   .panel{position:absolute;background:rgba(20,24,28,.88);border-radius:8px;padding:10px 12px;box-shadow:0 2px 10px rgba(0,0,0,.4)}
-  #info{top:10px;left:10px;width:min(360px,calc(100% - 44px));max-height:calc(100% - 30vh - 110px);overflow:auto;box-sizing:border-box}
+  #info{top:10px;left:10px;width:min(360px,calc(100% - 44px));max-height:calc(100% - calc(30 * var(--vh, 1vh)) - 110px);overflow:auto;box-sizing:border-box}
   #info h1{font-size:15px;margin:0 0 4px;padding-right:36px}
   #ttlPos{color:#ffd54f;text-decoration:underline dotted;cursor:pointer}
   #ttlPin{text-decoration:none;cursor:pointer;margin-left:4px;font-size:15px}
@@ -62,7 +64,7 @@
   #logd{position:absolute;left:0;right:0;bottom:0;z-index:32;background:rgba(16,18,21,.94);border-top:1px solid #3a3f46;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;color:#cfd6de}#logd[hidden]{display:none}
   #logh{display:flex;align-items:center;gap:8px;padding:3px 8px;min-height:24px}#logh button{background:none;border:1px solid #556;border-radius:4px;color:#cfd6de;font:inherit;padding:1px 7px;cursor:pointer}
   #logl{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#9aa4ae}#logn{color:#ffcc80}#logd:not(.col) #logl{visibility:hidden}
-  #logb{max-height:min(16em,35vh);overflow-y:auto;padding:2px 8px 6px;border-top:1px solid #2a2f36}#logd.col #logb{display:none}
+  #logb{max-height:min(16em,calc(35 * var(--vh, 1vh)));overflow-y:auto;padding:2px 8px 6px;border-top:1px solid #2a2f36}#logd.col #logb{display:none}
   #logb div{white-space:pre-wrap;overflow-wrap:anywhere}#logb i{font-style:normal;color:#8a949e;margin-right:6px}#logb b{font-weight:normal;color:#7fa7c9;margin-right:6px;display:inline-block;min-width:5em;text-align:right}#logb u{text-decoration:none;color:#8a949e;margin-left:6px}
   #logb .w{color:#ffcc80}#logb .e{color:#ff8a80}#logb .j{color:#9fd3a8;margin-top:4px}
   label.file{display:inline-block;background:#3d5a80;color:#fff;border-radius:5px;padding:4px 9px;cursor:pointer}
@@ -70,9 +72,9 @@
   label.ly{display:flex;align-items:center;gap:6px}
   button:disabled,select:disabled,input:disabled{opacity:.45;cursor:not-allowed}
   .langs{width:30px;height:22px;padding:2px 3px;border:1px solid #667;border-radius:4px;background:#2a3038;cursor:pointer;vertical-align:middle}.langs svg{display:none;width:100%;height:100%}.langs.no #flagEn,.langs.en #flagNo{display:block}   /* one flag: the language a click switches to (owner, 2026-10-29) */
-  #qpop{position:fixed;z-index:31;width:min(440px,calc(100vw - 24px));max-height:70vh;overflow:auto;box-sizing:border-box;font-size:13px;line-height:1.45;padding-right:36px}#qpop h3{margin:0 0 6px;font-size:14px}#qpop p{margin:0 0 8px}#qpop.big{left:50%;top:50%;transform:translate(-50%,-50%);width:min(720px,calc(100vw - 24px));max-height:88vh}#qpop.big h2{margin:0 0 8px;font-size:16px}#qpop.big h3{margin:14px 0 4px;padding-top:8px;border-top:1px solid #445}
+  #qpop{position:fixed;z-index:31;width:min(440px,calc(100vw - 24px));max-height:calc(70 * var(--vh, 1vh));overflow:auto;box-sizing:border-box;font-size:13px;line-height:1.45;padding-right:36px}#qpop h3{margin:0 0 6px;font-size:14px}#qpop p{margin:0 0 8px}#qpop.big{left:50%;top:50%;transform:translate(-50%,-50%);width:min(720px,calc(100vw - 24px));max-height:calc(88 * var(--vh, 1vh))}#qpop.big h2{margin:0 0 8px;font-size:16px}#qpop.big h3{margin:14px 0 4px;padding-top:8px;border-top:1px solid #445}
   .qb{width:18px;height:18px;border-radius:50%;border:1px solid #889;background:#2a3038;color:#cde;font-size:12px;line-height:16px;padding:0;cursor:pointer;flex:none}
-  #help{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:25;width:min(600px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;box-sizing:border-box;font-size:13px;line-height:1.45}
+  #help{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:25;width:min(600px,calc(100vw - 24px));max-height:calc(calc(100 * var(--vh, 1vh)) - 24px);overflow:auto;box-sizing:border-box;font-size:13px;line-height:1.45}
   #help h2{font-size:14px;margin:14px 0 4px;color:#ffd54f}#help h2:first-child{margin-top:0}#help h3{font-size:13px;margin:10px 0 2px;color:#fff}#help p{margin:3px 0 6px;color:#dde}#help .as{color:#aab;font-size:12px}#help kbd{background:#2a3038;border:1px solid #556;border-radius:3px;padding:0 4px;font-size:12px}
   #pmenu{position:fixed;z-index:20;max-width:min(250px,calc(100vw - 24px));padding:8px 10px;font-size:13px}
   .row.lg{flex-wrap:wrap;gap:4px 10px;padding-left:24px;font-size:12px;color:#ccd}
@@ -92,7 +94,7 @@
   #pickMap{position:absolute;inset:0;background:#c8d4dc}
   #pickBar{position:absolute;left:10px;right:10px;bottom:calc(10px + var(--logh,0px));margin:auto;max-width:440px;z-index:1000;font-size:13px}
   #pickBar .minb{top:6px}
-  #pickQ{flex:1 1 auto;min-width:0}#pickQR{position:absolute;left:0;right:30px;bottom:100%;margin-bottom:4px;max-height:40vh;overflow:auto;z-index:1001;padding:2px 0}#pickQR div{padding:5px 8px;cursor:pointer}#pickQR div:hover{background:#39414b}
+  #pickQ{flex:1 1 auto;min-width:0}#pickQR{position:absolute;left:0;right:30px;bottom:100%;margin-bottom:4px;max-height:calc(40 * var(--vh, 1vh));overflow:auto;z-index:1001;padding:2px 0}#pickQR div{padding:5px 8px;cursor:pointer}#pickQR div:hover{background:#39414b}
   .pk-c{width:18px;height:18px;border-radius:50%;background:#e64a19;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6);box-sizing:border-box}
   .pk-h{width:26px;height:26px;border-radius:5px;background:#ff6d00;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.6);box-sizing:border-box;cursor:nwse-resize}
   .pk-h1{background:#fff;border-color:#444;cursor:nesw-resize}
@@ -1568,6 +1570,7 @@ async function render() {
   const [la2, lo2] = UTM.inv(X, Y, SRC.zone), [x2, y2] = UTM.fwd(la2 + 0.01, lo2, SRC.zone), gam = Math.atan2(x2 - X, y2 - Y) / RAD;
   const comp = placeCompass(areas, pts, G.R, gam);
   busy("Painting…"); await tick();
+  if (S) for (const g of S.out ? [S, S.out] : [S]) cvFree(g.tex, g.nrm, ...Object.values(g.bases || {}));   // the last view's pictures (on the GPU already) go before the new ones are painted
   G.nrm = paintNormals(G.gx, G.gyN, n); if (O) { O.nrm = paintNormals(O.gx, O.gyN, O.n); O.bases = {}; }
   S = Object.assign({ lat, lon, X, Y, RB: R, out: O, gam, areas, pts, comp, zone: SRC.zone, bases: {},
                       title: SRC.scene.title || (lat.toFixed(5) + ", " + lon.toFixed(5)) }, G);
@@ -2323,7 +2326,7 @@ async function clcImage(G) {   // the overlay for one grid as ImageData at the g
   try {
     const r = await fetch(CLC_WMS + "&request=GetMap&bbox=" + bb + "&width=" + px + "&height=" + px + "&format=image/png&transparent=true"); if (!r.ok) throw new Error("HTTP " + r.status);
     const bm = await createImageBitmap(await r.blob()), cv = document.createElement("canvas"); cv.width = cv.height = G.n; const cx = cv.getContext("2d"); cx.imageSmoothingEnabled = false; cx.drawImage(bm, 0, 0, G.n, G.n);
-    G.clc = cx.getImageData(0, 0, G.n, G.n);
+    G.clc = cx.getImageData(0, 0, G.n, G.n); cvFree(cv);
   } catch (e) { G.clc = null; $("dsrc").textContent = "CORINE: NIBIO's map service did not answer (" + e.message + ")."; }
   return G.clc;
 }
@@ -2400,7 +2403,7 @@ async function nbImage(G, g, L) {   // one layer for one grid as ImageData at th
   try {
     const r = await fetch(nbUrl(g) + "&request=GetMap&layers=" + L + "&bbox=" + bb + "&width=" + px + "&height=" + px + "&format=image/png&transparent=true"); if (!r.ok) throw new Error("HTTP " + r.status);
     const bm = await createImageBitmap(await r.blob()), cv = document.createElement("canvas"); cv.width = cv.height = G.n; const cx = cv.getContext("2d"); cx.imageSmoothingEnabled = false; cx.drawImage(bm, 0, 0, G.n, G.n);
-    G.nb[key] = cx.getImageData(0, 0, G.n, G.n);
+    G.nb[key] = cx.getImageData(0, 0, G.n, G.n); cvFree(cv);
   } catch (e) { G.nb[key] = null; $("dsrc").textContent = nbName(g) + ": NIBIO's map service did not answer (" + e.message + ")."; }
   return G.nb[key];
 }
@@ -2544,7 +2547,7 @@ async function snowImage(G, k) {   // the layer for one grid at its day / year a
   try {
     const r = await fetch((L.wms || SNOW_WMS) + "&layers=" + L.layer + "&time=" + encodeURIComponent(when) + "&bbox=" + bb + "&width=" + px + "&height=" + px); if (!r.ok) throw new Error("HTTP " + r.status);
     const bm = await createImageBitmap(await r.blob()), cv = document.createElement("canvas"); cv.width = cv.height = G.n; const cx = cv.getContext("2d"); cx.imageSmoothingEnabled = false; cx.drawImage(bm, 0, 0, G.n, G.n);
-    const img = cx.getImageData(0, 0, G.n, G.n); let any = false; for (let o = 3; o < img.data.length && !any; o += 4 * 37) any = img.data[o] >= 128;
+    const img = cx.getImageData(0, 0, G.n, G.n); cvFree(cv); let any = false; for (let o = 3; o < img.data.length && !any; o += 4 * 37) any = img.data[o] >= 128;
     if (any) G[k].img = img; else $("dsrc").textContent = L.title + ": seNorge has nothing for " + when + " here.";
   } catch (e) { $("dsrc").textContent = L.title + ": " + (L.src || "NVE") + "'s map service did not answer (" + e.message + ")."; }
   return G[k].img;
@@ -2774,7 +2777,7 @@ async function drapeTiles(G, B, fill) {   // fill: a photo — its gaps interpol
   for (;;) {
     tx0 = Math.floor(Math.min(...cs.map(p => mx(p[1], z))) / 256); tx1 = Math.floor(Math.max(...cs.map(p => mx(p[1], z))) / 256);
     ty0 = Math.floor(Math.min(...cs.map(p => my(p[0], z))) / 256); ty1 = Math.floor(Math.max(...cs.map(p => my(p[0], z))) / 256);
-    if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) <= 300 || z <= 1) break;
+    if ((tx1 - tx0 + 1) * (ty1 - ty0 + 1) <= 256 || z <= 1) break;   // ≤ 4096² px: iOS Safari's largest canvas
     z--;
   }
   const tw = tx1 - tx0 + 1, th = ty1 - ty0 + 1, mos = document.createElement("canvas"); mos.width = tw * 256; mos.height = th * 256;
@@ -2789,7 +2792,7 @@ async function drapeTiles(G, B, fill) {   // fill: a photo — its gaps interpol
   })));
   if (failed === jobs.length) throw new Error("no tiles could be fetched");
   busy("Draping the map…"); await tick();
-  const md = mc.getImageData(0, 0, mos.width, mos.height).data, MW = mos.width, MH = mos.height;
+  const md = mc.getImageData(0, 0, mos.width, mos.height).data, MW = mos.width, MH = mos.height; cvFree(mos);
   // exact UTM → Mercator on a lattice every L cells, bilinear in between (the mapping is smooth)
   const L = 16, gn = Math.ceil(n / L) + 1, gxm = new Float64Array(gn * gn), gym = new Float64Array(gn * gn);
   for (let J = 0; J < gn; J++) for (let I = 0; I < gn; I++) { const [la, lo] = ll(I * L, J * L); gxm[J * gn + I] = mx(lo, z) - tx0 * 256; gym[J * gn + I] = my(la, z) - ty0 * 256; }
@@ -2858,10 +2861,11 @@ async function repaint() {
   for (const G of S.out ? [S, S.out] : [S]) {
     G.tex = paintBase(G, await getBase(G, id));
     const mesh = G === S ? terrain : S.out.mesh, old = mesh.material.map; mesh.material.map = new THREE.CanvasTexture(G.tex); mesh.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    mesh.material.needsUpdate = true; if (old) old.dispose();
+    mesh.material.needsUpdate = true; if (old) { old.dispose(); if (old.image !== G.tex) cvFree(old.image); }
   }
   S.baseId = id; waterSync(); draw(); if (v2d) paint2d();
 }
+const cvFree = (...cs) => cs.forEach(cv => { if (cv) cv.width = cv.height = 0; });   // let a throw-away canvas go now: iOS Safari caps all canvases together and frees them only when collected
 function paintNormals(gx, gyN, n) {
   // object-space normals (x east, y up, z south): (−dh/dE, 1, dh/dN), so the 1 m relief shades under any light
   const cv = document.createElement("canvas"); cv.width = cv.height = n; const cx = cv.getContext("2d"), im = cx.createImageData(n, n), d = im.data;
@@ -3499,7 +3503,7 @@ const MERC = { x: lon => lon / 360 + 0.5, y: lat => 0.5 - Math.log(Math.tan(Math
 const llOf = (x, y) => UTM.inv(S.X + x, S.Y + y, S.zone), xyOf = ll => { const [X, Y] = UTM.fwd(ll.lat, ll.lng, S.zone); return [X - S.X, Y - S.Y]; };
 function overlayRGBA(G) {   // the painted layers with transparency, without touching paintBase: painted on white and on black, and every blend it does is
   const n = G.n, flat = col => { const cv = document.createElement("canvas"); cv.width = cv.height = n; const c2 = cv.getContext("2d"); c2.fillStyle = col; c2.fillRect(0, 0, n, n); return cv; };   // affine in the base, so a = 1 − (white − black) / 255
-  const w = paintBase(G, flat("#fff"), true).getContext("2d").getImageData(0, 0, n, n).data, b = paintBase(G, flat("#000"), true).getContext("2d").getImageData(0, 0, n, n);
+  const fw = flat("#fff"), fb = flat("#000"), pw = paintBase(G, fw, true), pb = paintBase(G, fb, true), w = pw.getContext("2d").getImageData(0, 0, n, n).data, b = pb.getContext("2d").getImageData(0, 0, n, n); cvFree(fw, fb, pw, pb);
   const d = b.data;
   for (let o = 0; o < d.length; o += 4) {
     const a = 1 - (w[o] - d[o]) / 255;
@@ -3630,8 +3634,8 @@ $("measure").onclick = () => {
   if (measOn) { $("meas").hidden = false; $("measT").innerHTML = "📏 Tap the first point on the terrain."; } else measClear();
 };
 $("measX").onclick = () => { measOn = false; $("measure").classList.remove("on"); measClear(); };
-function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); draw(); }
-addEventListener("resize", resize);
+function resize() { document.documentElement.style.setProperty("--vh", innerHeight / 100 + "px"); renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); draw(); }
+addEventListener("resize", resize); addEventListener("orientationchange", () => setTimeout(resize, 300));   // iOS reports the new size a moment after turning
 let pending = false;
 function draw() { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; renderPasses(); }); }
 function renderPasses() {
