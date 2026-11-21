@@ -133,12 +133,12 @@
       <div class="row" title="Trees found in Kartverket's surface model (species from SR16), buildings from OpenStreetMap raised to their measured height, fields shaded and water drawn from AR5 and OpenStreetMap — 1 m views up to 3 km radius; fetches the surface model too"><label class="ly"><input type="checkbox" id="lyObj"> 3-D trees, buildings, fields and water</label><button id="render">Render</button></div>
       <!-- the model's shape (owner, 2026-10-20: "move Height x and smooth terrain into the collapsible Map sub pane") -->
       <div class="row">Height ×<input id="ex" type="range" min="1" max="3" step="0.1" value="1"><span id="exv">1.0</span></div>
-      <div class="row"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="csmooth" checked> Smooth terrain, σ</label><input id="csig" type="number" min="0.5" max="5" step="0.5" value="1.5" style="width:56px"> m</div>
+      <div class="row"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="csmooth"> Smooth terrain, σ</label><input id="csig" type="number" min="0.5" max="5" step="0.5" value="1.5" style="width:56px"> m</div>
       <div class="row"><label class="ly"><input type="checkbox" id="lyContours" checked> Contours (5 m, labelled every 25 m)</label></div>
       <!-- owner, 2026-10-26: "allow user to set a list of height levels which are drawn by clear red level curves" -->
       <div class="row" title="Elevations in metres, separated by spaces or commas: each is drawn as a red curve on the terrain and the flat map">Red levels (m) <input id="levels" type="text" placeholder="e.g. 400, 450 500" style="width:150px"></div>
       <div id="lyFiles"></div>
-      <div class="row"><label class="ly"><input type="checkbox" id="lyMarkers" checked> Centre &amp; circles</label></div>
+      <div class="row"><label class="ly"><input type="checkbox" id="lyMarkers"> Centre &amp; circles</label></div>
       <!-- owner, 2026-10-15: "Add an option to make point, pins and other map objects show better on 3d face" -->
       <div class="row"><label class="ly"><input type="checkbox" id="lyBold"> Bold markers: bigger, seen through hills; areas outlined</label></div>
     </details>
@@ -2525,8 +2525,10 @@ async function loadFolder(items) {
   if (scene.radius_1m) $("crad1").value = scene.radius_1m;
   if (scene.sigma != null) { $("csig").value = scene.sigma || 1.5; $("csmooth").checked = scene.sigma > 0; }
   else if (scene.smoothed_sigma != null) { $("csmooth").checked = scene.smoothed_sigma > 0; if (scene.smoothed_sigma > 0) $("csig").value = scene.smoothed_sigma; }   // older folders: 0 = the DTM is already smoothed
+  if (scene.sigma != null || scene.smoothed_sigma != null) {   // a view made from the map has none: the box keeps its default (off) or the link's tick
   $("csmooth").defaultChecked = $("csmooth").checked;   // the scene's own smoothing is this view's default, not a toggle set by the user (markSecs)
   if (typeof CK_DEF !== "undefined") { CK_DEF[$("csmooth").checked ? "add" : "delete"]("csmooth"); VW_DEF.csig = $("csig").value; }   // the scene's own smoothing is the default a view link measures from
+  }
   $("dsrc").textContent = tiles.length + " DTM tile(s), UTM zone " + SRC.zone + ", " + overlays.length + " overlay feature(s)" + (scene.source ? " · " + scene.source : "");
   await render();
 }
@@ -5465,7 +5467,7 @@ const tileCell = it => +(/_(\d+)m\.tif$/.exec(it.name) || [0, 10])[1];   // the 
 async function wcsShow(items, lat, lon, R, R1, nFetch, missing, fetched) {
   if (!items.length) { $("dsrc").textContent = "No terrain there: Kartverket's model has nothing within " + R + " m of " + lat.toFixed(5) + ", " + lon.toFixed(5) + "."; return; }
   const fine = items.some(it => tileCell(it) < 5), coarse = items.some(it => tileCell(it) >= 5), res = fine && coarse ? "n" : fine ? 1 : 10;
-  const scene = { title: lat.toFixed(5) + ", " + lon.toFixed(5), lat, lon, radius: R, radius_1m: res === "n" ? R1 : undefined, sigma: fine ? 1.5 : 0, res,
+  const scene = { title: lat.toFixed(5) + ", " + lon.toFixed(5), lat, lon, radius: R, radius_1m: res === "n" ? R1 : undefined, res,
     source: "Kartverket NHM DTM " + (res === "n" ? "1 + 10" : res) + " m (CC BY 4.0), fetched from " + SRV[srvOf()] + (nFetch > 1 ? " in " + nFetch + " fetches (" + fetched + " tile" + (fetched === 1 ? "" : "s") + " new this time, " + (items.length - fetched) + " reused)" : "") + (missing ? "; " + missing + " tile(s) have no data" : "") };
   const all = items.slice(), lp = linkPoints(); if (lp) { all.push({ name: "points.geojson", blob: lp }); scene.layers = { "points.geojson": { title: "Points from the link" } }; }
   all.push({ name: "scene.json", blob: new Blob([JSON.stringify(scene)], { type: "application/json" }) });

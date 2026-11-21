@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-22 · Quieter defaults
+
+Owner: "Let smooth terrain, centre & circles, Bold markers and 3d trees.. be off by default." *Smooth terrain* and *Centre & circles* start unticked (a view built from the map no longer sets σ 1.5 m for 1 m data; a scene folder's own `sigma` still does). *Bold markers* and *3-D trees, buildings, fields and water* were off already and stay so. Links record only what differs from the defaults, so an older link made with these on by default now opens with them off. README.
+
 ## 2026-11-20 · iPhone (Safari)
 
 Owner: "3d viewer does not work well on iPhone (safari) please fix it so it behaves like on chrome in android" (iOS 15/16: controls beyond the screen, building a view not quite working). Layout: the page is pinned to the visible area (`body` fixed to the viewport, so iOS neither scrolls it nor lets it slide under the toolbar), `vh` heights use the real visible height (`--vh` from `innerHeight`, set on resize and after turning the phone — iOS counts `vh` with its toolbar hidden), no text inflation in landscape, and on iOS only the fields get 16 px text so Safari does not zoom the page into them (which left the controls off screen). Building: the map mosaic is kept to 256 tiles (4096² px, iOS Safari's largest canvas; it was up to 300), and throw-away full-size canvases (the NIBIO/CORINE/snow layer reads, the tile mosaic, the overlay passes, the replaced terrain picture and the last view's pictures) are emptied at once — iOS caps all canvases together and frees them only when collected, after which a new canvas silently fails. Chrome unchanged (compared headless at 390 × 664, before/after identical; four base maps repainted in a row). Not tested on a real iPhone.
