@@ -128,7 +128,7 @@
       <!-- owner, 2026-11-19: "when user selects 1m in center that part should be 1m tiles not eg 2 or 3m tiles … maybe make an adaptive tiling mode as well" -->
       <div class="row" title="Off: 1 m is always 1 m cells and 10 m always 10 m — a 1 m area then reaches 1.5 km radius (3000 cells across, what a phone holds). On: the 1 m model reaches 5 km, a wider view asked at 2, 3 … m cells (Kartverket resamples the 1 m model), the 10 m surround of a wide view at 20 m"><label class="ly"><input type="checkbox" id="resAd"> Adaptive cells (1 m up to 5 km, coarser when wide)</label></div>
       <!-- owner, 2026-11-12: "give user choice to use the hoydedata.no server" (Geonorge's WCS was down) -->
-      <div class="row w" title="Where the terrain tiles are fetched from: both serve Kartverket's same model; switch when one does not answer"><label>Height server <select id="srvSel" style="width:auto"><option value="geonorge">Geonorge WCS</option><option value="hoydedata">hoydedata.no</option></select></label></div>
+      <div class="row w" title="Where the terrain tiles are fetched from first: both serve Kartverket's same model, and a tile the chosen one does not deliver is fetched from the other (which is then used for the rest of the session)"><label>Height server <select id="srvSel" style="width:auto"><option value="geonorge">Geonorge WCS</option><option value="hoydedata">hoydedata.no</option></select></label></div>
       <!-- owner, 2026-11-13: "introduce a true 3d rendering mode of the terrain … trees, their height and types … buildings … fields" -->
       <div class="row" title="Trees found in Kartverket's surface model (species from SR16), buildings from OpenStreetMap raised to their measured height, fields shaded and water drawn from AR5 and OpenStreetMap — 1 m views up to 3 km radius; fetches the surface model too"><label class="ly"><input type="checkbox" id="lyObj"> 3-D trees, buildings, fields and water</label><button id="render">Render</button></div>
       <!-- the model's shape (owner, 2026-10-20: "move Height x and smooth terrain into the collapsible Map sub pane") -->
@@ -2247,7 +2247,7 @@
 "answers HTTP": "svarer HTTP",
 "sent an unexpected reply": "sendte et uventet svar",
 "(or switch Map → Height server)": "(eller bytt Kart → Høydeserver)",
-"Kartverket's server may be down — try the other one under Map → Height server": "Kartverkets server kan være nede — prøv den andre under Kart → Høydeserver",
+"Kartverket's server may be down — try the other one under Map → Height server": "Kartverkets server kan være nede — prøv den andre under Kart → Høydeserver", "Both of Kartverket's height servers fail — try again later": "Begge Kartverkets høydeservere svikter — prøv igjen senere", "failed — switched to": "svikter — byttet til", "for this session": "for denne økten",
 "fetched from": "hentet fra",
 "— the sign-in did not grant Drive read access": "— innloggingen ga ikke lesetilgang til Drive",
 "— the surface is a smooth fill ·": "— overflaten er en glatt utfylling ·",
@@ -5000,6 +5000,12 @@ $("linkB").onclick = async () => {
 const SRV = { geonorge: "Geonorge WCS", hoydedata: "hoydedata.no" };
 const HDS = "https://hoydedata.no/arcgis/rest/services/NHM_DTM_25833/ImageServer/exportImage?bbox={x0},{y0},{x1},{y1}&bboxSR=25833&imageSR=25833&size={w},{w}&format=tiff&pixelType=F32&noData=0&interpolation=RSP_BilinearInterpolation&f=image";
 const srvOf = () => $("srvSel").value === "hoydedata" ? "hoydedata" : "geonorge";
+const srvOther = s => s === "hoydedata" ? "geonorge" : "hoydedata";
+// a tile's address on a server: q = { x0, y0, x1, y1, w, dom } (dom: the surface model instead of the terrain)
+function tileUrl(srv, q) {
+  let u = srv === "hoydedata" ? HDS : WCS; if (q.dom) u = u.replace(/DTM/g, "DOM").replace(/-dtm-/g, "-dom-");
+  return u.replace("{x0}", q.x0).replace("{y0}", q.y0).replace("{x1}", q.x1).replace("{y1}", q.y1).replace(/\{w\}/g, q.w);
+}
 const WCS = "https://wcs.geonorge.no/skwms1/wcs.hoyde-dtm-nhm-25833?service=WCS&version=1.0.0&request=GetCoverage&coverage=NHM_DTM_25833&CRS=EPSG:25833&RESPONSE_CRS=EPSG:25833&FORMAT=GeoTIFF&BBOX={x0},{y0},{x1},{y1}&WIDTH={w}&HEIGHT={w}";
 // the 1 m reach: 1.5 km at true 1 m cells (3000² — what a phone holds), 5 km with Map → Adaptive cells (coarser cells for a wide view)
 const adaptive = () => $("resAd").checked;
@@ -5010,7 +5016,7 @@ function wcsPlan(lat, lon, R, res, R1) {   // the tiles covering the ±R square,
   const T = res * 1000, cell = Math.max(res, Math.ceil(2 * R / 3000)), w = Math.round(T / cell), [X, Y] = UTM.fwd(lat, lon, 33), items = [];
   for (let e = Math.floor((X - R) / T); e <= Math.floor((X + R - 1e-6) / T); e++)
     for (let n = Math.floor((Y - R) / T); n <= Math.floor((Y + R - 1e-6) / T); n++)
-      items.push({ name: "E" + e + "_N" + n + "_" + cell + "m.tif", url: (srvOf() === "hoydedata" ? HDS : WCS).replace("{x0}", e * T).replace("{y0}", n * T).replace("{x1}", (e + 1) * T).replace("{y1}", (n + 1) * T).replace(/\{w\}/g, w) });
+      items.push({ name: "E" + e + "_N" + n + "_" + cell + "m.tif", q: { x0: e * T, y0: n * T, x1: (e + 1) * T, y1: (n + 1) * T, w } });
   return { items, cell, mb: items.length * w * w * 4 / 1e6 };
 }
 // A WCS tile is a SPARSE GeoTIFF: blocks that are all sea are left out (offset 0, 0 bytes), which geotiff.js cannot
@@ -5041,31 +5047,53 @@ async function tiffWhole(b) {
     return true;
   } catch (e) { return false; }
 }
+// Automatic fallback (owner, 2026-11-24: "fall back automatically to other tile server, høydeserver"): a tile the chosen
+// server does not deliver is asked from the other one at once; a server that delivers where the chosen one failed becomes
+// the Height server for the rest of the session (the saved choice is kept for the next visit). Only when both fail does
+// it wait (1 … 60 s) and try the pair again. "No data here" from one server is checked with the other too, since
+// Geonorge answered its outage with HTTP 404.
 async function wcsFetch(it, onBytes) {   // onBytes(n): the bytes in so far (the servers send no length, so the caller knows the size)
   let cache = null; try { cache = await caches.open(DTM_CACHE); } catch (e) {}
-  if (cache) { const c = await cache.match(it.url); if (c) { const b = await c.blob(); if (await tiffWhole(b)) return b; busy("Terrain tile " + it.name + ": the stored copy is incomplete — fetching it again"); try { await cache.delete(it.url); } catch (e) {} } }
-  const waits = [1, 2, 4, 8, 16, 32, 60], srv = it.url.indexOf("hoydedata.no") > 0 ? "hoydedata" : "geonorge";
-  for (let k = 0; ; k++) {
-    let why;
+  if (cache) for (const s of [srvOf(), srvOther(srvOf())]) {
+    const u = tileUrl(s, it.q), c = await cache.match(u); if (!c) continue;
+    const b = await c.blob(); if (await tiffWhole(b)) return b;
+    busy("Terrain tile " + it.name + ": the stored copy is incomplete — fetching it again"); try { await cache.delete(u); } catch (e) {}
+  }
+  const waits = [1, 2, 4, 8, 16, 32, 60];
+  async function ask(srv) {   // → { b } a tile, { none } no data there, or { why } failed
+    const url = tileUrl(srv, it.q);
     try {
-      const r = await fetch(it.url);
+      const r = await fetch(url);
       if (r.ok) {
         let b;
         if (onBytes && r.body) { const rd = r.body.getReader(), parts = []; let got = 0; for (;;) { const { done, value } = await rd.read(); if (done) break; parts.push(value); onBytes(got += value.length); } b = new Blob(parts); }
         else b = await r.blob();
         const head = await b.slice(0, 2).text();
-        if ((head === "II" || head === "MM") && !(await tiffWhole(b))) why = SRV[srv] + " sent an incomplete tile (" + b.size + " bytes)";
-        else if (head === "II" || head === "MM") {
-          if (cache) { try { await cache.put(it.url, new Response(b, { headers: { "content-type": "image/tiff" } })); const ks = await cache.keys(); for (let i = 0; i < ks.length - DTM_CACHE_MAX; i++) await cache.delete(ks[i]); } catch (e) {} }
-          return b;
+        if ((head === "II" || head === "MM") && !(await tiffWhole(b))) return { why: SRV[srv] + " sent an incomplete tile (" + b.size + " bytes)" };
+        if (head === "II" || head === "MM") {
+          if (cache) { try { await cache.put(url, new Response(b, { headers: { "content-type": "image/tiff" } })); const ks = await cache.keys(); for (let i = 0; i < ks.length - DTM_CACHE_MAX; i++) await cache.delete(ks[i]); } catch (e) {} }
+          return { b };
         }
-        else if (head === "<?" || head === "<S" || head === "<o" || head === "<E") { logLine("Terrain tile " + it.name + ": skipped — " + SRV[srv] + " has no data there (sea or abroad)"); return null; }   // an OGC exception: no data here (sea, abroad)
-        else why = SRV[srv] + " sent an unexpected reply (" + b.size + " bytes)";
-      } else if (srv === "geonorge" && r.status !== 429 && r.status >= 400 && r.status < 500) { logLine("Terrain tile " + it.name + ": skipped — " + SRV[srv] + " has no coverage there (HTTP " + r.status + ")"); return null; }   // the WCS: no coverage there
-      else why = SRV[srv] + " answers HTTP " + r.status;
-    } catch (e) { why = SRV[srv] + " is not responding"; }   // a refused or broken reply (no CORS header on an error page): the browser says only "Failed to fetch"
-    if (k >= waits.length) throw new Error(it.name + ": " + why + ". Kartverket's server may be down — try the other one under Map → Height server");
-    busy("Terrain tile " + it.name + ": " + why + " — retry in " + waits[k] + " s (or switch Map → Height server)"); await new Promise(r => setTimeout(r, waits[k] * 1000));
+        if (head === "<?" || head === "<S" || head === "<o" || head === "<E") return { none: SRV[srv] + " has no data there (sea or abroad)" };   // an OGC exception: no data here (sea, abroad)
+        return { why: SRV[srv] + " sent an unexpected reply (" + b.size + " bytes)" };
+      }
+      if (srv === "geonorge" && r.status !== 429 && r.status >= 400 && r.status < 500) return { none: SRV[srv] + " has no coverage there (HTTP " + r.status + ")" };   // the WCS: no coverage there
+      return { why: SRV[srv] + " answers HTTP " + r.status };
+    } catch (e) { return { why: SRV[srv] + " is not responding" }; }   // a refused or broken reply (no CORS header on an error page): the browser says only "Failed to fetch"
+  }
+  for (let k = 0; ; k++) {
+    const first = srvOf(), a = await ask(first);
+    if (a.b) return a.b;
+    const second = srvOther(first);
+    busy("Terrain tile " + it.name + ": " + (a.why || a.none) + " — trying " + SRV[second]);
+    const b = await ask(second);
+    if (b.b) {
+      if (srvOf() === first) { $("srvSel").value = second; logLine("Height server: " + SRV[first] + " failed — switched to " + SRV[second] + " for this session"); }
+      return b.b;
+    }
+    if (a.none || b.none) { logLine("Terrain tile " + it.name + ": skipped — " + (a.none || b.none)); return null; }   // one says no data, the other has none either
+    if (k >= waits.length) throw new Error(it.name + ": " + a.why + "; " + b.why + ". Both of Kartverket's height servers fail — try again later");
+    busy("Terrain tile " + it.name + ": " + a.why + "; " + b.why + " — retry in " + waits[k] + " s"); await new Promise(r => setTimeout(r, waits[k] * 1000));
   }
 }
 // Points sent along in the link (owner, 2026-10-18: "rich params allowing … to specify dots with descriptive text
@@ -5096,12 +5124,12 @@ const domTiles = new Map();   // DOM tile name → decoded tile (null = no data 
 const osmCache = new Map();   // Overpass answer per bounding box, for the session
 let objRun = 0;
 async function domGrid(reading) {   // the surface model on the fine grid: { h } raw, or null; reading(): called when the fetching is done
-  const T = 1000, c = S.c, w = Math.round(T / c), tmpl = (srvOf() === "hoydedata" ? HDS : WCS).replace(/DTM/g, "DOM").replace(/-dtm-/g, "-dom-"), todo = [], tiles = [];
+  const T = 1000, c = S.c, w = Math.round(T / c), todo = [], tiles = [];
   for (let e = Math.floor((S.X - S.R) / T); e <= Math.floor((S.X + S.R - 1e-6) / T); e++)
     for (let n = Math.floor((S.Y - S.R) / T); n <= Math.floor((S.Y + S.R - 1e-6) / T); n++) {
       const name = "dom_E" + e + "_N" + n + "_" + c + "m.tif";
       if (domTiles.has(name)) { if (domTiles.get(name)) tiles.push(domTiles.get(name)); continue; }
-      todo.push({ name, url: tmpl.replace("{x0}", e * T).replace("{y0}", n * T).replace("{x1}", (e + 1) * T).replace("{y1}", (n + 1) * T).replace(/\{w\}/g, w) });
+      todo.push({ name, q: { x0: e * T, y0: n * T, x1: (e + 1) * T, y1: (n + 1) * T, w, dom: true } });
     }
   let done = 0;
   for (const it of todo) {

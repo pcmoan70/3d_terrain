@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-24 · Height server: automatic fallback
+
+Owner: "3d viewer: fall back automatically to other tile server, høydeserver". A terrain or surface-model tile that the chosen **Map → Height server** does not deliver (no answer, an HTTP error, an incomplete or unexpected reply) is asked from the other server at once — Geonorge WCS ⇄ hoydedata.no — and the server that delivered becomes the Height server for the rest of the session (logged; the saved choice `t3d_srv` stays for the next visit). Only when both fail does the 1 … 60 s backoff wait and try the pair again; the final error says both servers fail. "No data here" from one server is checked with the other (Geonorge answered its 2026-11-12 outage with HTTP 404), and a tile cached from either server is reused. Plan and surface-model tiles now carry their box (`q`) and the URL is built per server (`tileUrl`). Tested headless with each host blocked in turn: the tile arrived from the other server and the selector followed.
+
 ## 2026-11-22 · Quieter defaults
 
 Owner: "Let smooth terrain, centre & circles, Bold markers and 3d trees.. be off by default." *Smooth terrain* and *Centre & circles* start unticked (a view built from the map no longer sets σ 1.5 m for 1 m data; a scene folder's own `sigma` still does). *Bold markers* and *3-D trees, buildings, fields and water* were off already and stay so. Links record only what differs from the defaults, so an older link made with these on by default now opens with them off. README.
