@@ -48,6 +48,9 @@
   #rot button{width:40px;height:40px;font-size:18px;padding:0;background:#3d5a80}
   #rot button.on{background:#c77d12}
   #note{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:rgba(20,20,20,.86);color:#fff;padding:8px 14px;border-radius:8px;z-index:60;font-size:14px;max-width:80vw;text-align:center}
+  #gpuw{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:#2b2416;color:#fff;border:1px solid #e0a030;padding:10px 34px 10px 14px;border-radius:8px;z-index:70;font-size:14px;width:min(460px,calc(100vw - 32px));box-sizing:border-box;line-height:1.4}
+  #gpuw[hidden]{display:none}#gpuw b{display:block;color:#ffc861;margin-bottom:4px}#gpuw small{display:block;margin-top:6px;color:#b9b1a0;word-break:break-word}
+  #gpuwx{position:absolute;top:4px;right:6px;background:none;border:0;color:#e8dcc4;font-size:20px;cursor:pointer}
   #rot #v2d{font-size:14px;font-weight:bold}
   #map2d{position:absolute;inset:0 0 var(--logh,0px) 0;z-index:1;background:#d6d8c8}#map2d[hidden]{display:none}   /* the flat map (2-D): under the panels, over the canvas */
   #meas{position:absolute;top:10px;right:10px;max-width:min(300px,calc(100% - 44px));font-size:13px;line-height:1.5}
@@ -220,6 +223,8 @@
 </div><button id="sideOpen" title="Show the panels" hidden>›</button>
 <div id="tip"></div>
 <div id="note" hidden></div>
+<!-- owner, 2026-11-25: "if no GPU accelerated web browser render is not available show a warning message when page opens" -->
+<div id="gpuw" hidden role="alert"><button id="gpuwx" title="Close">×</button><b id="gpuwt"></b><span id="gpuwm"></span><small id="gpuwr"></small></div>
 <div id="help" class="panel" hidden><button class="minb" id="helpX" title="Close">×</button><div id="helpT" translate="no" style="padding-right:30px"></div></div>
 <div id="qpop" class="panel" hidden><button class="minb" id="qpopX" title="Close">×</button><div id="qpopT" translate="no"></div></div>
 <div id="pmenu" class="panel" hidden><button class="minb" id="pmenuX" title="Close">×</button><div id="pmenuT" style="padding-right:30px"></div></div>
@@ -1160,7 +1165,7 @@
 "— enclosed": "— innelukket",
 "— not found, or not shared with this Google account": "— ikke funnet, eller ikke delt med denne Google-kontoen",
 "— retry in": "— prøv igjen om",
-"Height server": "Høydeserver",
+"Height server": "Høydeserver", "No graphics acceleration": "Ingen grafikkakselerasjon", "No 3-D in this browser": "Ingen 3D i denne nettleseren", "This browser draws 3-D without the graphics card, so the 3-D view will be slow. Turn on hardware acceleration in the browser's settings (Chrome and Edge: Settings → System → Use graphics acceleration) and restart the browser.": "Denne nettleseren tegner 3D uten grafikkortet, så 3D-visningen blir treg. Slå på maskinvareakselerasjon i nettleserens innstillinger (Chrome og Edge: Innstillinger → System → Bruk grafikkakselerasjon) og start nettleseren på nytt.", "WebGL is off or missing, so the 3-D view cannot be drawn. Turn on hardware acceleration in the browser's settings, or try another browser.": "WebGL er slått av eller mangler, så 3D-visningen kan ikke tegnes. Slå på maskinvareakselerasjon i nettleserens innstillinger, eller prøv en annen nettleser.", "No graphics acceleration:": "Ingen grafikkakselerasjon:", "No WebGL in this browser": "Ingen WebGL i denne nettleseren",
 "streams and rivers": "bekker og elver",
 "Water (AR5)": "Vann (AR5)",
 "Surface model": "Overflatemodell",
@@ -2877,6 +2882,27 @@ function paintNormals(gx, gyN, n) {
   }
   cx.putImageData(im, 0, 0); return cv;
 }
+
+// ---- no graphics card for the browser (owner, 2026-11-25): a warning at open when WebGL is missing, or drawn in software
+// (SwiftShader, llvmpipe, Microsoft Basic Render — or a context refused with failIfMajorPerformanceCaveat).
+(function gpuCheck() {
+  const ctx = o => { const c = document.createElement("canvas"); try { return c.getContext("webgl2", o) || c.getContext("webgl", o); } catch (e) { return null; } };
+  const drop = g => { try { const x = g && g.getExtension("WEBGL_lose_context"); if (x) x.loseContext(); } catch (e) {} };   // iOS caps the contexts
+  const gl = ctx(); let r = "", soft = false;
+  if (gl) {
+    try { const x = gl.getExtension("WEBGL_debug_renderer_info"); r = String(gl.getParameter(x ? x.UNMASKED_RENDERER_WEBGL : gl.RENDERER) || ""); } catch (e) {}
+    soft = /swiftshader|llvmpipe|softpipe|software|basic render/i.test(r);
+    if (!soft) { const g2 = ctx({ failIfMajorPerformanceCaveat: true }); soft = !g2; drop(g2); }
+    drop(gl);
+  }
+  if (gl && !soft) return;
+  $("gpuwt").textContent = gl ? "No graphics acceleration" : "No 3-D in this browser";
+  $("gpuwm").textContent = gl ? "This browser draws 3-D without the graphics card, so the 3-D view will be slow. Turn on hardware acceleration in the browser's settings (Chrome and Edge: Settings → System → Use graphics acceleration) and restart the browser."
+    : "WebGL is off or missing, so the 3-D view cannot be drawn. Turn on hardware acceleration in the browser's settings, or try another browser.";
+  $("gpuwr").textContent = r ? "Renderer: " + r : "";
+  $("gpuw").hidden = false; $("gpuwx").onclick = () => { $("gpuw").hidden = true; };
+  logLine(gl ? "No graphics acceleration: " + r : "No WebGL in this browser");
+})();
 
 // ======================================================================= three.js scene
 const canvas = $("c"), renderer = new THREE.WebGLRenderer({ canvas, antialias: true });

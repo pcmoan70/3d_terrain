@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-25 · Warning without graphics acceleration
+
+Owner: "if no GPU accelerated web browser render is not available show a warning message when page opens". At open the viewer tries a WebGL context: none → *No 3-D in this browser* (WebGL off or missing); a software renderer (SwiftShader, llvmpipe, Microsoft Basic Render, or a context refused with `failIfMajorPerformanceCaveat`) → *No graphics acceleration* — the view will be slow, with how to turn hardware acceleration on (Chrome/Edge: Settings → System) and the renderer's name. An amber box at the top with ×, also written to the log; Norwegian in i18n-no; the test contexts are released at once (iOS caps them). Checked headless (SwiftShader): the box shows, in Norwegian, within a phone-width screen.
+
 ## 2026-11-24 · Height server: automatic fallback
 
 Owner: "3d viewer: fall back automatically to other tile server, høydeserver". A terrain or surface-model tile that the chosen **Map → Height server** does not deliver (no answer, an HTTP error, an incomplete or unexpected reply) is asked from the other server at once — Geonorge WCS ⇄ hoydedata.no — and the server that delivered becomes the Height server for the rest of the session (logged; the saved choice `t3d_srv` stays for the next visit). Only when both fail does the 1 … 60 s backoff wait and try the pair again; the final error says both servers fail. "No data here" from one server is checked with the other (Geonorge answered its 2026-11-12 outage with HTTP 404), and a tile cached from either server is reused. Plan and surface-model tiles now carry their box (`q`) and the URL is built per server (`tileUrl`). Tested headless with each host blocked in turn: the tile arrived from the other server and the selector followed.
