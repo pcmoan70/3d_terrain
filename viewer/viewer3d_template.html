@@ -2912,6 +2912,10 @@ function paintNormals(gx, gyN, n) {
 const canvas = $("c"), renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// The sun's shadow maps (4096², the whole terrain drawn from the sun, twice with a fine centre) depend on the scene, not on the
+// camera, yet three.js redrew them for every frame of an orbit or a fly-through. Now they are drawn only when the scene changed:
+// draw(true) is a camera-only frame, every other draw() marks them stale (2026-11-26, a performance review).
+renderer.shadowMap.autoUpdate = false;
 const scene = new THREE.Scene(); scene.background = new THREE.Color(0x1d2228);
 const camera = new THREE.PerspectiveCamera(45, 1, 1, 30000);
 const controls = new THREE.MapControls(camera, canvas);   // map-style (owner, 2026-10-12: "like the app"): drag = pan, right-drag / two fingers = rotate & tilt, wheel / pinch = zoom
@@ -3158,7 +3162,7 @@ function flyStep(t) {
   const g = sample(p.x, -p.z) - S.h0, want = (g + fly.agl) * ey;
   fly.y = fly.y == null ? want : fly.y + (want - fly.y) * (1 - Math.exp(-dt * 3)); p.y = Math.max((g + 1) * ey, fly.y);
   const cp = Math.cos(fly.pitch), dx = cp * sy, dy = Math.sin(fly.pitch), dz = -cp * cy;
-  camera.lookAt(p.x + dx, p.y + dy, p.z + dz); controls.target.set(p.x + dx * 100, p.y + dy * 100, p.z + dz * 100); draw();
+  camera.lookAt(p.x + dx, p.y + dy, p.z + dz); controls.target.set(p.x + dx * 100, p.y + dy * 100, p.z + dz * 100); draw(true);
   if (t - fly.hudT > 200) { fly.hudT = t; $("flyAgl").textContent = Math.round(p.y / ey - g); }
 }
 $("fly").onclick = () => fly ? flyStop() : flyStart();
@@ -3669,15 +3673,18 @@ $("measX").onclick = () => { measOn = false; $("measure").classList.remove("on")
 function resize() { document.documentElement.style.setProperty("--vh", innerHeight / 100 + "px"); renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); draw(); }
 addEventListener("resize", resize); addEventListener("orientationchange", () => setTimeout(resize, 300));   // iOS reports the new size a moment after turning
 let pending = false;
-function draw() { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; renderPasses(); }); }
+let shadowStale = true;
+function draw(camOnly) { if (camOnly !== true) shadowStale = true; if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; renderPasses(); }); }
 function renderPasses() {
+  const sh = shadowStale; shadowStale = false; renderer.shadowMap.needsUpdate = sh;
   if (!(S && S.out)) { camera.layers.set(0); renderer.render(scene, camera); return; }
   camera.layers.set(0); renderer.autoClear = true; renderer.render(scene, camera);
+  renderer.shadowMap.needsUpdate = sh;   // three.js clears it after a render: the fine centre's light (layer 1) is drawn in the second pass
   // the second pass must not clear: with a colour background three.js clears whatever autoClear says, so the background goes for the pass
   camera.layers.set(1); renderer.autoClear = false; const bg = scene.background; scene.background = null; renderer.render(scene, camera); scene.background = bg; renderer.autoClear = true;
 }
-controls.addEventListener("change", draw);
-(function loop() { requestAnimationFrame(loop); if (!fly && controls.update()) draw(); })();   // flying: flyStep moves the camera
+controls.addEventListener("change", () => draw(true));
+(function loop() { requestAnimationFrame(loop); if (!fly && controls.update()) draw(true); })();   // flying: flyStep moves the camera
 resize();
 
 // ---- folders on a web server (GitHub Pages): <folder>/index.json = {"files": [...]} — a server cannot list a directory

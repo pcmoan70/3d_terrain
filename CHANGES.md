@@ -1,5 +1,15 @@
 # Changes
 
+## 2026-11-26 · Performance review: shadows drawn only when the scene changes
+
+Owner asked to check four common terrain-rendering costs against the viewer:
+- *Per-frame grid rebuilds* — not the case: each grid's mesh (indexed `BufferGeometry`, ≤ 1000² vertices, a normal map carries the finer detail) is built once per view; exaggeration is the world's `scale.y`; nothing rebuilds geometry per frame.
+- *Procedural noise on the main thread* — only at build time (the water ripple map, 512², once per session and cached; the colour patches and tree lumps once per build), never per frame; the terrain itself is measured data, not noise.
+- *One dense mesh / LOD* — already two levels: a fine centre and a coarse surround, each capped at ~1000² vertices, a handful of draw calls (trees are instanced). Chunking with frustum culling would help a little in the ground and fly views only; not worth the rewrite.
+- *Garbage in the render loop* — rendering is on demand (a frame only when something changed); the orbit and fly steps allocate nothing worth mentioning.
+
+The real per-frame waste found: three.js redrew the sun's shadow maps (4096², the whole terrain, a second light for the fine centre) on **every** frame of an orbit or a fly-through, though they depend only on the scene. `renderer.shadowMap.autoUpdate` is now off: camera-only frames (`draw(true)`: the orbit controls, the fly step) reuse the maps, every other `draw()` marks them stale, and both passes redraw them when stale. Checked headless (Preikestolen): screenshots identical before and after orbiting with reused maps; software rendering is fill-bound, so the saving barely shows there (1780 → 1758 ms a frame) — on a graphics card it removes one or two whole-terrain passes (and the trees') per frame.
+
 ## 2026-11-26 · Log: the ⚠ count filters
 
 Owner: "on the log-bar: make the \"!\" errors clickable thus showing only the messages that produced them". The ⚠ count in the log bar is a button: a tap opens the log showing only the amber and red lines (skips, failures, errors), lit while it filters; a second tap shows every line again; Clear resets it. The no-graphics-acceleration warning now counts as one of them. Checked headless: 4 lines → 1 shown → 4 again.
