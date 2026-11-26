@@ -4186,8 +4186,12 @@ function shadowFrame() {
     L.shadow.mapSize.set(px, px); L.shadow.bias = -0.0004; L.shadow.normalBias = 0.5;
     if (L.shadow.map) { L.shadow.map.dispose(); L.shadow.map = null; }
   };
-  frame(sun, B.R * 1.15, O ? 2048 : 4096);   // the whole block (the coarse surround: 2048² is plenty)
-  if (O) frame(sun2, S.R * 1.15, 4096);      // the fine centre: ≈ 0.8 m per shadow pixel; the surround's ridges still fall inside it along the sun's rays
+  // the map's size from the view (the review, 2026-11-26): a shadow pixel as fine as the terrain mesh's vertex spacing (finer
+  // shows nothing more — the mesh is what casts; the normal map's detail casts none), 1024² … 4096²; 4096² over the 3-D trees,
+  // whose crowns are a few metres across. A 4096² map is 128 MB of GPU memory with its depth buffer, and redrawing it costs in proportion.
+  const trees = !!(S.obj && S.obj.group), px = (G, R, t) => t ? 4096 : Math.max(1024, Math.min(4096, 2 ** Math.ceil(Math.log2(2 * R / (G.c * Math.ceil(G.n / 1000))))));
+  frame(sun, B.R * 1.15, px(B, B.R * 1.15, trees && !O));   // the whole block
+  if (O) frame(sun2, S.R * 1.15, px(S, S.R * 1.15, trees)); // the fine centre; the surround's ridges still fall inside it along the sun's rays
 }
 const ex = $("ex");
 function setEx() { if (!world) return; world.scale.y = +ex.value; $("exv").textContent = (+ex.value).toFixed(1); letters.forEach(sp => sp.position.set(sp.userData.x, (sp.userData.z - 9) * world.scale.y + 9, -sp.userData.y)); draw(); }
@@ -5355,17 +5359,30 @@ function birchBark() {
   const t = new THREE.CanvasTexture(cv); t.wrapS = THREE.RepeatWrapping; t.anisotropy = 4;
   return (birchBark.t = t);
 }
-function treeMeshes(tops, sp) {   // one instanced mesh per crown shape and variant plus the trunks; sp: SR16 species per cell (0 spruce, 1 pine, 2 broadleaf, 255 none → broadleaf)
+// The trees come in a 4 × 4 grid of chunks (the review, 2026-11-26): each chunk's meshes get a bounding sphere of their own
+// trees, so three.js skips the chunks out of sight (r128 culls an instanced mesh by its geometry's bounds — one tree's shape
+// alone — which is why culling was off). Matters in the ground view and fly mode, where most of the forest is behind or
+// beside the camera; at most 16 × 7 draw calls.
+function treeMeshes(tops, sp) {   // sp: SR16 species per cell (0 spruce, 1 pine, 2 broadleaf, 255 none → broadleaf)
   const n = S.n, c = S.c, R = S.R; let idx = []; for (let q = 0; q < tops.length; q += 3) idx.push(q);
   if (idx.length > OBJ_MAX) { const d = q => ((tops[q] + 0.5) * c - R) ** 2 + (R - (tops[q + 1] + 0.5) * c) ** 2; idx.sort((a, b) => d(a) - d(b)); idx = idx.slice(0, OBJ_MAX); }
+  const NC = 4, chunkOf = q => Math.min(NC - 1, Math.floor(tops[q + 1] * NC / n)) * NC + Math.min(NC - 1, Math.floor(tops[q] * NC / n)), byChunk = [];
+  for (const q of idx) (byChunk[chunkOf(q)] = byChunk[chunkOf(q)] || []).push(q);
+  const out = [], cnt = [0, 0, 0], M = { crown: new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true }), trunk: new THREE.MeshLambertMaterial({ color: 0xffffff }), btrunk: new THREE.MeshLambertMaterial({ color: 0xffffff, map: birchBark() }),
+    trunkG: new THREE.CylinderGeometry(0.7, 1, 1, 5, 1, true).translate(0, 0.5, 0), btrunkG: new THREE.CylinderGeometry(0.75, 1, 1, 8, 1, true).translate(0, 0.5, 0) };   // shared by the chunks
+  for (const part of byChunk) if (part) { const t = treeChunk(part, tops, sp, M); out.push(...t.meshes); t.cnt.forEach((v, s) => cnt[s] += v); }
+  return { meshes: out, cnt };
+}
+function treeChunk(idx, tops, sp, M) {   // one instanced mesh per crown shape and variant plus the trunks, for these trees
+  const n = S.n, c = S.c, R = S.R, box = new THREE.Box3(), corner = new THREE.Vector3();
   const kind = q => { const v = sp ? sp[tops[q + 1] * n + tops[q]] : 255; return v === 0 || v === 1 ? v : 2; };
   const rn = (q, k) => (((q + k * 7919) * 2654435761) >>> 0) / 4294967296;   // per tree, per purpose
   const GEO = treeGeos(), COL = [0x2c4b2e, 0x4c6c35, 0x6b9442], TRC = [0x4a3d33, 0x9a5f3c];   // crowns; trunks: spruce grey-brown, pine's orange bark (birch: birchBark)
   const cnt = [0, 0, 0], per = GEO.map(v => v.map(() => 0)); for (const q of idx) { const s = kind(q); cnt[s]++; per[s][Math.floor(rn(q, 1) * GEO[s].length)]++; }
-  const mat = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true });
-  const meshes = GEO.map((v, s) => v.map((g, k) => per[s][k] ? new THREE.InstancedMesh(g, mat, per[s][k]) : null));
-  const nTr = cnt[0] + cnt[1], trunk = nTr ? new THREE.InstancedMesh(new THREE.CylinderGeometry(0.7, 1, 1, 5, 1, true).translate(0, 0.5, 0), new THREE.MeshLambertMaterial({ color: 0xffffff }), nTr) : null;
-  const btrunk = cnt[2] ? new THREE.InstancedMesh(new THREE.CylinderGeometry(0.75, 1, 1, 8, 1, true).translate(0, 0.5, 0), new THREE.MeshLambertMaterial({ color: 0xffffff, map: birchBark() }), cnt[2]) : null; let bi = 0;   // birch: its bark painted on
+  const own = g => { const o = new THREE.BufferGeometry(); o.index = g.index; for (const a in g.attributes) o.setAttribute(a, g.attributes[a]); return o; };   // the shape's buffers, a bounding sphere of its own
+  const meshes = GEO.map((v, s) => v.map((g, k) => per[s][k] ? new THREE.InstancedMesh(own(g), M.crown, per[s][k]) : null));
+  const nTr = cnt[0] + cnt[1], trunk = nTr ? new THREE.InstancedMesh(own(M.trunkG), M.trunk, nTr) : null;
+  const btrunk = cnt[2] ? new THREE.InstancedMesh(own(M.btrunkG), M.btrunk, cnt[2]) : null; let bi = 0;   // birch: its bark painted on
   const at = GEO.map(v => v.map(() => 0)), m4 = new THREE.Matrix4(), qt = new THREE.Quaternion(), tilt = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), ax = new THREE.Vector3(), pos = new THREE.Vector3(), scl = new THREE.Vector3(), col = new THREE.Color(); let ti = 0;
   for (const q of idx) {
     const s = kind(q), h = tops[q + 2], x = (tops[q] + 0.5) * c - R, y = R - (tops[q + 1] + 0.5) * c, g = sample(x, y) - S.h0, rnd = rn(q, 0), w = 0.85 + 0.3 * rn(q, 2), v = Math.floor(rn(q, 1) * GEO[s].length);
@@ -5375,13 +5392,15 @@ function treeMeshes(tops, sp) {   // one instanced mesh per crown shape and vari
     else if (s === 1) { r = Math.max(0.8, Math.min(5, 0.2 * h + 0.5)); base = 0.6 * h; ch = 0.42 * h; }
     else { r = Math.max(1, Math.min(7, 0.25 * h + 0.6)); base = 0.3 * h; ch = 0.72 * h; }
     pos.set(x, g + base, -y); scl.set(r * w, ch, r * w); m4.compose(pos, qt, scl); meshes[s][v].setMatrixAt(at[s][v], m4);
+    box.expandByPoint(corner.set(x - r, g - 0.3, -y - r)); box.expandByPoint(corner.set(x + r, g + base + ch, -y + r));   // the crown leans a few degrees: r covers it
     col.setHex(COL[s]).offsetHSL((rn(q, 5) - 0.5) * 0.04, (rn(q, 6) - 0.5) * 0.12, (rnd - 0.5) * 0.07); meshes[s][v].setColorAt(at[s][v]++, col);
     const th = base + 0.25 * ch, tr = Math.min(0.5, 0.012 * h + 0.08); pos.set(x, g - 0.3, -y); scl.set(tr, th + 0.3, tr); m4.compose(pos, qt, scl);
     if (s === 2) { btrunk.setMatrixAt(bi, m4); col.setHex(0xffffff).multiplyScalar(0.88 + 0.12 * rn(q, 7)); btrunk.setColorAt(bi++, col); }
     else { trunk.setMatrixAt(ti, m4); col.setHex(TRC[s]).offsetHSL(0, 0, (rn(q, 7) - 0.5) * 0.08); trunk.setColorAt(ti++, col); }
   }
   const out = [].concat(...meshes).filter(Boolean); if (trunk) out.push(trunk); if (btrunk) out.push(btrunk);
-  out.forEach(o => { o.castShadow = o.receiveShadow = true; o.frustumCulled = false; });   // r128 culls an instanced mesh by its one shape's bounds
+  const sph = box.getBoundingSphere(new THREE.Sphere());
+  out.forEach(o => { o.castShadow = o.receiveShadow = true; o.geometry.boundingSphere = sph; o.geometry.boundingBox = box; o.frustumCulled = true; });   // r128's InstancedMesh starts with culling off
   return { meshes: out, cnt };
 }
 async function objOn() {   // fetch, compute and show; the data stay with the view (S.obj), the meshes are rebuilt with the world
@@ -5418,7 +5437,7 @@ async function objOn() {   // fetch, compute and show; the data stay with the vi
     const o = S.obj, tm = treeMeshes(o.tops, o.sp), grp = new THREE.Group(), L = S.out ? 1 : 0;
     const kn = baseKnown(), wm = waterMesh(o.land, o.ww, kn); o.wm = wm; o.wmFor = kn;
     tm.meshes.forEach(m => grp.add(m)); if (o.bmesh) grp.add(o.bmesh); if (wm) grp.add(wm);
-    grp.traverse(q => q.layers.set(L)); world.add(grp); o.group = grp; o.cnt = tm.cnt;
+    grp.traverse(q => q.layers.set(L)); world.add(grp); o.group = grp; o.cnt = tm.cnt; shadowFrame();
     busy(false); unstep();
     $("dsrc").textContent = "3-D objects: " + (tm.cnt[0] + tm.cnt[1] + tm.cnt[2]) + " trees (spruce " + tm.cnt[0] + ", pine " + tm.cnt[1] + ", broadleaf " + tm.cnt[2] + ")" + (o.tops.length / 3 > OBJ_MAX ? ", the " + OBJ_MAX + " nearest the centre" : "") + " · " + (o.osm ? o.nB + " buildings (OpenStreetMap)" : "no buildings: OpenStreetMap did not answer") + (wm ? " · water" + (wm.userData.nW ? ", " + wm.userData.nW + " streams and rivers" : "") : "");
     setAttr($("basemap").value); await repaint();
@@ -5436,7 +5455,7 @@ function waterSync() {   // after the base map changed: the water surface again,
 function objOff() {
   objRun++; if (!S || !S.obj) return;
   if (S.obj.group) { world.remove(S.obj.group); S.obj.group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); }
-  S.obj = null; setAttr($("basemap").value); repaint();
+  S.obj = null; shadowFrame(); setAttr($("basemap").value); repaint();
 }
 // water (owner, 2026-11-13: "Add water rendering for rivers, lakes etc."): AR5's fresh water and sea as a surface at the
 // water's level (the DTM is flat on water; no DTM = the sea at 0 m), drawn as one grid of squares with shared corners; OpenStreetMap's rivers and

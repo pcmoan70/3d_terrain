@@ -1,5 +1,11 @@
 # Changes
 
+## 2026-11-26 · Speed, stage 2: drawing what is in sight
+
+- **3-D trees in chunks:** the forest is built as a 4 × 4 grid of chunks, each with a bounding sphere of its own trees, and frustum culling is on again (r128's `InstancedMesh` turns it off in its constructor, and culls by one tree's shape alone, which is why it was off). At most 16 × 7 draw calls. Checked headless with 150 000 synthetic trees on Preikestolen (1000 m): from the overview everything is drawn as before (screenshot identical but for 38 anti-aliased pixels); in the ground view 30 of 48 chunks are in sight, 22.8 → 15.1 M triangles a frame, 9.1 → 6.3 s a camera-only frame in software rendering.
+- **Shadow-map size from the view:** a shadow pixel as fine as the terrain mesh's vertex spacing (the mesh is what casts; the normal map's detail casts none), 1024² … 4096²; still 4096² over the 3-D trees (recomputed when they come or go). The usual 1 m views now use 2048² instead of 4096² — a quarter of the GPU memory (4096² was 128 MB with its depth buffer) and of the fill cost when shadows are redrawn. Screenshot with the sun on: 0.27 % of pixels differ slightly along shadow edges, not visible side by side.
+- *Not done:* chunks far from the camera dropping their shadows — that would tie the shadow maps to the camera and undo the shadow caching (they are drawn only when the scene changes).
+
 ## 2026-11-26 · Speed, stage 1: same output, less waiting
 
 From the second review and the plan (owner: "make a plan to improve the code, focusing on efficient clean implementation and speed" → "execute stages in order"). Every change gives identical results, checked headless (Preikestolen at 500 / 1000 / 1500 m and a fetched 1 m + 10 m view at 5 km): the height grids, the cliff classes and the percentiles have the same checksums before and after, the screenshots are identical, also after the cliff layers are painted.
