@@ -1,5 +1,16 @@
 # Changes
 
+## 2026-11-27 · Ground view: eyes at 2 m, look anywhere
+
+Owner: "the groundlevel view does not allow to look upwards: eyes (viewpoint) should be 2m above ground and tilt of view not restricted". The ground view orbited a point 60 m ahead with the map's tilt limit, so the camera could not go below that point and the view could not turn upward. Now, while standing:
+- the eye is 2 m above the ground (was 1.75 m);
+- the orbit point sits 5 cm ahead at eye height, so rotating and tilting (drag, ⟲ ⟳ ▲ ▼) turn the head about the eyes, from straight down to straight up;
+- dragging still walks as far as before (pan speed scaled), and the eyes are kept 2 m over the ground as you walk;
+- the wheel does nothing (the distance is fixed);
+- Reset view, Top view, fly, 2D or a link's camera end it, with the orbit point put back 60 m along the gaze. A view link records that point too, since the real one would round onto the eye.
+
+Checked headless (Preikestolen): pitch −85° to +89° by dragging, eye height 2.00 m after looking round and walking, and Reset restores the map limits. Tooltips, help, Norwegian and README updated.
+
 ## 2026-11-26 · Raptor nesting sites: the sun per day again
 
 Owner: "sol strålingen skal være snitt per dag". The sun term is the direct sun averaged per day over January–April (kWh/m² per day, day-weighted by month), not the January–April total. The 50 % point of 2 now falls inside the range seen (at Preikestolen the 5th–95th percentile is 0.23–3.44 kWh/m² per day, median 1.94). The panel's unit is kWh/m²/d, in steps of 0.1; the help, the Norwegian text and README are updated. Checked headless: 12.8 % of Preikestolen scores ≥ 50 % with the defaults, 10.3 % with the sun at 2.5.
