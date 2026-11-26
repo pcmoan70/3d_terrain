@@ -22,6 +22,7 @@
   .sw{width:14px;height:14px;border-radius:3px;border:1px solid #111;flex:none;display:inline-block;vertical-align:middle}
   .ftx{color:#9fb3bf;font-size:12px}
   #cliffRows .row{padding-left:32px}
+  #raptorBox .row{padding-left:28px;gap:3px;flex-wrap:wrap;margin:2px 0}#raptorBox .rpn{flex-basis:100%;color:#bbb}#raptorBox input[type=number]{width:50px}#raptorBox select{width:auto}
   input[type=range]{flex:1;min-width:110px}
   input[type=number],input[type=text],select{background:#2a3038;color:#eee;border:1px solid #445;border-radius:4px;padding:2px 4px;font:inherit;width:96px}
   .sec{border-top:1px solid #333;margin-top:8px;padding-top:6px}
@@ -1449,12 +1450,19 @@
 "Coastal lagoons": "Kystlaguner",
 "Coastal wave exposure": "Bølgeeksponering ved kysten",
 "Raptor nesting sites": "Hekkeplasser for rovfugl",
+"Sun Jan–Apr": "Sol jan–apr",
+"Defaults": "Standard",
+"50 % here": "50 % her",
+"above (>) or below (<) the value scores high": "over (>) eller under (<) tallet gir høy verdi",
+"softness: the score goes from 10 to 90 % over the value ± 2.2 × this": "mykhet: verdien går fra 10 til 90 % over tallet ± 2,2 × denne",
+"the settings the layer starts with": "innstillingene laget starter med",
+"Slope": "Helling",
 "Layer: Raptor nesting sites…": "Kartlag: Hekkeplasser for rovfugl…",
 "golden eagle, gyrfalcon, eagle-owl: steep (S-curve, 50 % at 45°) × sun in January–April (50 % at 2 kWh/m² received in all) × not wind-exposed (50 % at an exposure of 20°, the wind as chosen under Wind exposure)": "kongeørn, jaktfalk, hubro: bratt (S-kurve, 50 % ved 45°) × sol i januar–april (50 % ved 2 kWh/m² mottatt i alt) × ikke vindutsatt (50 % ved en eksponering på 20°, vinden som valgt under Vindeksponering)",
 "likely": "sannsynlig",
 "possible": "mulig",
 "unlikely": "lite sannsynlig",
-"Where the terrain suits a cliff nest of golden eagle, gyrfalcon or eagle-owl: steep ground that gets the late-winter sun and is not exposed to the wind. Three smooth S-curves, each running from 0 to 100 % with 50 % at its threshold, are multiplied: slope (50 % at 45°, 10–90 % between about 36° and 54°), the direct sun's energy received over January–April in all (50 % at 2 kWh/m², 10–90 % between 1.45 and 2.55) and wind exposure (100 % below, 50 % at 20°, 10–90 % between 29° and 11°). Wind exposure is the Wind exposure layer's shelter angle turned round: how far the ground falls away within 300 m upwind, from the wind chosen there (every direction, the winds here, or one compass point). The colour deepens and grows more opaque with the score; hovering gives the percentage.": "Der terrenget passer for et reir i stup for kongeørn, jaktfalk eller hubro: bratt mark som får sola på senvinteren og ikke er vindutsatt. Tre jevne S-kurver, hver fra 0 til 100 % med 50 % ved sin terskel, ganges sammen: helning (50 % ved 45°, 10–90 % mellom om lag 36° og 54°), energien fra direkte sol mottatt i januar–april i alt (50 % ved 2 kWh/m², 10–90 % mellom 1,45 og 2,55) og vindeksponering (100 % under, 50 % ved 20°, 10–90 % mellom 29° og 11°). Vindeksponeringen er Vindeksponering-lagets lévinkel snudd: hvor mye marka faller bort innen 300 m mot vinden, fra vinden som er valgt der (alle retninger, vindene her eller ett kompasspunkt). Fargen blir dypere og tettere med verdien; pekeren viser prosenten.",
+"Where the terrain suits a cliff nest of golden eagle, gyrfalcon or eagle-owl: steep ground that gets the late-winter sun and is not exposed to the wind. Three smooth S-curves, each running from 0 to 100 % with 50 % at its threshold, are multiplied: slope (50 % at 45°, 10–90 % between about 36° and 54°), the direct sun's energy received over January–April in all (50 % at 2 kWh/m², 10–90 % between 1.45 and 2.55) and wind exposure (100 % below, 50 % at 20°, 10–90 % between 29° and 11°). Wind exposure is the Wind exposure layer's shelter angle turned round: how far the ground falls away within 300 m upwind, from the wind chosen there (every direction, the winds here, or one compass point). The colour deepens and grows more opaque with the score; hovering gives the percentage. The panel under the row sets each term: its direction (&gt; scores high above the value, &lt; below), its 50 % point and its softness (the score goes from 10 to 90 % over the point ± 2.2 × the softness); <b>Defaults</b> restores them, and a view link carries the changed ones.": "Der terrenget passer for et reir i stup for kongeørn, jaktfalk eller hubro: bratt mark som får sola på senvinteren og ikke er vindutsatt. Tre jevne S-kurver, hver fra 0 til 100 % med 50 % ved sin terskel, ganges sammen: helning (50 % ved 45°, 10–90 % mellom om lag 36° og 54°), energien fra direkte sol mottatt i januar–april i alt (50 % ved 2 kWh/m², 10–90 % mellom 1,45 og 2,55) og vindeksponering (100 % under, 50 % ved 20°, 10–90 % mellom 29° og 11°). Vindeksponeringen er Vindeksponering-lagets lévinkel snudd: hvor mye marka faller bort innen 300 m mot vinden, fra vinden som er valgt der (alle retninger, vindene her eller ett kompasspunkt). Fargen blir dypere og tettere med verdien; pekeren viser prosenten. Panelet under raden stiller hvert ledd: retningen (&gt; gir høy verdi over tallet, &lt; under), 50 %-punktet og mykheten (verdien går fra 10 til 90 % over punktet ± 2,2 × mykheten); <b>Standard</b> setter dem tilbake, og en visningslenke tar med de endrede.",
 "A score from the shape of the ground alone: no ledge, overhang, prey, disturbance or past nests are in it, and the thresholds are a starting point, not fitted to known nests. The sun and the wind come from the coarse grid (at most 250 × 250 cells: 8 m on a 1 km view), so a narrow face takes the sun and wind of the slope it sits in; the slope is the fine grid's. The sun is clear-sky. Changing the wind under Wind exposure recomputes it.": "En verdi ut fra terrengformen alene: hyller, overheng, byttedyr, forstyrrelser og tidligere reir er ikke med, og tersklene er et utgangspunkt, ikke tilpasset kjente reir. Sol og vind regnes på det grove rutenettet (høyst 250 × 250 ruter: 8 m i en visning på 1 km), så en smal stupvegg får sola og vinden til lia den står i; helningen er fra det fine rutenettet. Sola er klarvær. Endres vinden under Vindeksponering, regnes laget på nytt.",
 "Complex cultivation patterns": "Komplekse dyrkingsmønstre",
 "Conglomerate": "Konglomerat",
@@ -3115,11 +3123,7 @@ async function windOn() {
   repaint();
 }
 $("lyWind").onchange = windOn;
-$("windDir").onchange = async () => {   // the raptor layer judges shelter from this wind too
-  if (S) for (const G of S.out ? [S, S.out] : [S]) if (G.grad) delete G.grad.raptor;
-  if (S && $("ft_raptor").checked) { busy("Layer: Raptor nesting sites…"); await tick(); await gradedOn(GRADED.find(g => g.id === "raptor")); busy(false); }
-  windOn();
-};
+$("windDir").onchange = async () => { await raptorRedo(); windOn(); };   // the raptor layer judges shelter from this wind too
 // ---- terrain features (owner, 2026-10-17): masks on a grid, from its heights, slopes, a terrain position index (height
 // above the mean within 25 m) and, for the last three, the sun model's monthly maps and horizons. Thresholds are plain
 // and stated in each feature's note; they are starting points, not calibrated habitat models.
@@ -3153,15 +3157,21 @@ const EDGE_RAMP = [[0, [255, 150, 0]], [0.5, [235, 232, 220]], [1, [30, 70, 200]
 // exposure the shelter angle turned round (−angle: the ground falling away upwind), from the wind chosen under Wind exposure.
 const RAPTOR_RAMP = [[0, [255, 236, 179]], [0.5, [255, 112, 67]], [1, [136, 14, 79]]];
 const sStep = (x, x0, w) => 1 / (1 + Math.exp(-(x - x0) / w));   // 50 % at x0; w > 0 rises, w < 0 falls; 10 → 90 % over x0 ± 2.2 |w|
+// the three terms' settings (owner, 2026-11-26: "For those 3 params: add a control setting the limits etc in a subpanel"):
+// each its direction (> rises, < falls), the 50 % point and the softness w (10 → 90 % over the point ± 2.2 w)
+const RAPTOR_P = [{ id: "rpSlope", name: "Slope", unit: "°", dir: ">", x0: 45, w: 4, step: 1 },
+  { id: "rpSun", name: "Sun Jan–Apr", unit: "kWh/m²", dir: ">", x0: 2, w: 0.25, step: 1 },
+  { id: "rpWind", name: "Wind exposure", unit: "°", dir: "<", x0: 20, w: 4, step: 1 }];
+const raptorTerm = P => { const x0 = +$(P.id).value, w = Math.max(1e-6, +$(P.id + "W").value) * ($(P.id + "D").value === "<" ? -1 : 1); return v => sStep(v, isFinite(x0) ? x0 : P.x0, w); };
 async function raptorOf(G) {
   const n = G.n, c = G.c, R = G.R, slope = G.slope, bad = G.bad, N = n * n, out = new Float32Array(N);
   const M = await sunMonthly(G), sun = new Float32Array(M.m * M.m);
   for (const mo of [0, 1, 2, 3]) { const a = M.months[mo]; for (let k = 0; k < sun.length; k++) sun[k] += a[k] * MDAYS[mo] / 1000; }   // kWh/m² over January–April
-  const { w } = await windWeights(), wind = await windMean(G, w), X = G.wsx;
+  const { w } = await windWeights(), wind = await windMean(G, w), X = G.wsx, [tSl, tSun, tWi] = RAPTOR_P.map(raptorTerm);
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const k = j * n + i; if (bad[k]) { out[k] = NaN; continue; }
     const x = (i + 0.5) * c - R, y = R - (j + 0.5) * c;
-    out[k] = sStep(slope[k], 45, 4) * sStep(atCoarse(G, M, sun, x, y), 2, 0.25) * sStep(-atCoarse(G, X, wind, x, y), 20, -4);
+    out[k] = tSl(slope[k]) * tSun(atCoarse(G, M, sun, x, y)) * tWi(-atCoarse(G, X, wind, x, y));
   }
   return out;
 }
@@ -3427,8 +3437,17 @@ async function featuresOn() {   // the masks of every ticked feature, for every 
   busy(false);
 }
 FEATURES.forEach(f => { $("ft_" + f.id).onchange = async () => { if (!$("ft_" + f.id).checked) $("ftx_" + f.id).textContent = ""; await featuresOn(); repaint(); }; });
+$("lg_raptor").insertAdjacentHTML("afterend", '<div id="raptorBox" hidden>' + RAPTOR_P.map(P => '<div class="row w rp"><span class="rpn">' + P.name + '</span><select id="' + P.id + 'D" title="above (&gt;) or below (&lt;) the value scores high"><option' + (P.dir === ">" ? " selected" : "") + '>&gt;</option><option' + (P.dir === "<" ? " selected" : "") + '>&lt;</option></select><input id="' + P.id + '" type="number" step="' + P.step + '" value="' + P.x0 + '" title="50 % here"> ' + P.unit + ' <span title="softness: the score goes from 10 to 90 % over the value ± 2.2 × this">±</span><input id="' + P.id + 'W" type="number" min="0.01" step="any" value="' + P.w + '" title="softness: the score goes from 10 to 90 % over the value ± 2.2 × this"></div>').join("") +
+  '<div class="row"><button id="rpDef" title="the settings the layer starts with">Defaults</button></div></div>');
+let raptorT = 0;
+async function raptorRedo() {   // a setting or the wind changed: the layer again, if it is on
+  if (S) for (const G of S.out ? [S, S.out] : [S]) if (G.grad) delete G.grad.raptor;
+  if (S && $("ft_raptor").checked) { busy("Layer: Raptor nesting sites…"); await tick(); await gradedOn(GRADED.find(g => g.id === "raptor")); busy(false); repaint(); }
+}
+for (const P of RAPTOR_P) for (const id of [P.id, P.id + "D", P.id + "W"]) $(id).addEventListener("change", () => { clearTimeout(raptorT); raptorT = setTimeout(raptorRedo, 300); });
+$("rpDef").onclick = () => { for (const P of RAPTOR_P) { $(P.id).value = P.x0; $(P.id + "W").value = P.w; $(P.id + "D").value = P.dir; } raptorRedo(); };
 $("ft_cliffs").onchange = async () => { const on = $("ft_cliffs").checked; $("cliffRows").hidden = !on; for (const f of CLIFFS) $("ft_" + f.id).checked = on; await featuresOn(); repaint(); };
-GRADED.forEach(g => { $("ft_" + g.id).onchange = async () => { $("lg_" + g.id).hidden = !$("ft_" + g.id).checked; await featuresOn(); repaint(); }; });
+GRADED.forEach(g => { $("ft_" + g.id).onchange = async () => { $("lg_" + g.id).hidden = !$("ft_" + g.id).checked; $("raptorBox").hidden = !$("ft_raptor").checked; await featuresOn(); repaint(); }; });
 const cellOf = (G, x, y) => { const n = G.n, i = Math.max(0, Math.min(n - 1, Math.floor((x + G.R) / G.c))), j = Math.max(0, Math.min(n - 1, Math.floor((G.R - y) / G.c))); return j * n + i; };
 function featuresAt(G, x, y) {   // the ticked features under a point
   if (!G.feat) return [];
@@ -5009,7 +5028,8 @@ function viewState() {
   const on = [], off = [], sv = [], hid = [];
   for (const el of CK_ALL()) if (el.checked !== CK_DEF.has(el.id)) (el.checked ? on : off).push(el.id);
   for (const id of VW_IDS) if ($(id).value !== VW_DEF[id] && !(id === "lmode" && $("lySun").checked)) sv.push(id + ":" + $(id).value);   // the average sun forces fixed light: not a choice
-  if ($("lyWind").checked) sv.push("windDir:" + $("windDir").value);
+  if ($("lyWind").checked || $("ft_raptor").checked) sv.push("windDir:" + $("windDir").value);
+  if ($("ft_raptor").checked) for (const P of RAPTOR_P) for (const [id, d] of [[P.id, P.x0], [P.id + "W", P.w], [P.id + "D", P.dir]]) if ($(id).value !== String(d)) sv.push(id + ":" + $(id).value);
   if ($("basemap").value === "wayback" && S.wb && S.wb.some(p => p.rel === $("wbSel").value)) sv.push("wbSel:" + $("wbSel").value);
   if ($("basemap").value === "sat" && S.sat && S.sat.some(p => p.k + ":" + p.day === $("satSel").value)) sv.push("satSel:" + $("satSel").value);
   if ($("lyRr7").checked || $("lyTg7").checked) sv.push("wxDay:" + $("wxDay").value);
@@ -5055,7 +5075,7 @@ function applyViewState(st) {   // before the terrain is built: the panel's choi
       for (const el of document.querySelectorAll("#lgSlope .tg, #lgFacing .tg")) el.classList.toggle("off", clsOff[el.dataset.k].has(+el.dataset.i));
       saveCls();
     }
-    if (CLIFFS.some(f => $("ft_" + f.id).checked)) $("ft_cliffs").checked = true; $("cliffRows").hidden = !$("ft_cliffs").checked;
+    if (CLIFFS.some(f => $("ft_" + f.id).checked)) $("ft_cliffs").checked = true; $("cliffRows").hidden = !$("ft_cliffs").checked; $("raptorBox").hidden = !$("ft_raptor").checked;
     $("lgSlope").hidden = !$("lySlope").checked; $("lgFacing").hidden = !$("lyFacing").checked; $("sunBox").hidden = !$("lySun").checked; $("exv").textContent = (+$("ex").value).toFixed(1); monthUI(); updateSun();
     if (st.cam && st.cam.length === 6) pendingCam = st.cam;
     if (st.v && st.v.vs) { const p = st.v.vs.split("/").map(Number); if (p.length === 2 && p.every(isFinite)) pendingVs = { x: p[0], y: p[1] }; }
@@ -5877,7 +5897,7 @@ const FEAT_HELP = {   // row checkbox id → [title, what it shows, the assumpti
     "Open-water fetch. From every water cell — the sea, which the model holds at 0 m — the distance of open water is measured in 16 directions, up to 3 km, and the exposure is the mean of the 16: a few hundred metres in a sheltered bay or a narrow sound, towards 3 km on an open coast. The shore takes the value of the most exposed water beside it; cells away from the water are left unpainted. Coloured from 0 (blue, sheltered) to 3 km (red, exposed); the value and its reading under the pointer.",
     "Fetch alone: every direction counts alike — the winds, the swell and the depth are not in it. A ray that leaves the view counts as open water, so the sea at the view's edge reads as exposed. The sea is the model's 0 m; cells without data count as water. Worked out on a coarse grid of at most 250 × 250 cells (6 m on a 1.5 km view, 120 m on a 15 km view), so a sound narrower than a cell is missed, and lakes at 0 m would count as sea."],
   ft_raptor: ["Raptor nesting sites",
-    "Where the terrain suits a cliff nest of golden eagle, gyrfalcon or eagle-owl: steep ground that gets the late-winter sun and is not exposed to the wind. Three smooth S-curves, each running from 0 to 100 % with 50 % at its threshold, are multiplied: slope (50 % at 45°, 10–90 % between about 36° and 54°), the direct sun's energy received over January–April in all (50 % at 2 kWh/m², 10–90 % between 1.45 and 2.55) and wind exposure (100 % below, 50 % at 20°, 10–90 % between 29° and 11°). Wind exposure is the Wind exposure layer's shelter angle turned round: how far the ground falls away within 300 m upwind, from the wind chosen there (every direction, the winds here, or one compass point). The colour deepens and grows more opaque with the score; hovering gives the percentage.",
+    "Where the terrain suits a cliff nest of golden eagle, gyrfalcon or eagle-owl: steep ground that gets the late-winter sun and is not exposed to the wind. Three smooth S-curves, each running from 0 to 100 % with 50 % at its threshold, are multiplied: slope (50 % at 45°, 10–90 % between about 36° and 54°), the direct sun's energy received over January–April in all (50 % at 2 kWh/m², 10–90 % between 1.45 and 2.55) and wind exposure (100 % below, 50 % at 20°, 10–90 % between 29° and 11°). Wind exposure is the Wind exposure layer's shelter angle turned round: how far the ground falls away within 300 m upwind, from the wind chosen there (every direction, the winds here, or one compass point). The colour deepens and grows more opaque with the score; hovering gives the percentage. The panel under the row sets each term: its direction (&gt; scores high above the value, &lt; below), its 50 % point and its softness (the score goes from 10 to 90 % over the point ± 2.2 × the softness); <b>Defaults</b> restores them, and a view link carries the changed ones.",
     "A score from the shape of the ground alone: no ledge, overhang, prey, disturbance or past nests are in it, and the thresholds are a starting point, not fitted to known nests. The sun and the wind come from the coarse grid (at most 250 × 250 cells: 8 m on a 1 km view), so a narrow face takes the sun and wind of the slope it sits in; the slope is the fine grid's. The sun is clear-sky. Changing the wind under Wind exposure recomputes it."],
   ft_spring: ["Sun-warmed slopes in spring",
     "The quarter of the view with the most direct sun in March–April, on slopes of 5° and steeper: the first ground bare of snow.",

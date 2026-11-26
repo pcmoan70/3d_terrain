@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-26 · Raptor nesting sites: settings panel
+
+Owner: "For those 3 params: add a control setting the limits etc in a subpanel". While the layer is ticked, a panel under its row holds, for each term (Slope, Sun Jan–Apr, Wind exposure), its direction (> scores high above the value, < below), the 50 % point and the softness (10 → 90 % over the point ± 2.2 × softness), plus a *Defaults* button (45° · 2 kWh/m² · 20°; ±4°, ±0.25, ±4°). A change recomputes the layer after 0.3 s, and so does a new wind under Wind exposure. A view link carries the settings that were changed and the wind choice. Help and Norwegian updated. Checked headless: sun at 200 kWh/m² → 14 % of Preikestolen scores ≥ 50 % (21 % at 2); Defaults brings 21 % back; the link includes the change; at phone width each term fits on two lines.
+
 ## 2026-11-26 · Raptor nesting sites
 
 Owner: "Make a new terrain feature: indicating S(slope,>45%) * S(sun exposure(Jan-April),>2kwh/m²) * S(wind exposure, <20) where S is an S-function … Call this raptor nesting site (Golden Eagle, Gyr falcon, Eagle Owl in help text)", then "Sun exposure should be energy flux from sun during January->April". A graded layer under Terrain features, 0–100 %: the product of three logistic S-curves, 50 % at each threshold:
