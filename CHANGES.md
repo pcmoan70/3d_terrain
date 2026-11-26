@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-26 · Raptor nesting sites: the sun per day again
+
+Owner: "sol strålingen skal være snitt per dag". The sun term is the direct sun averaged per day over January–April (kWh/m² per day, day-weighted by month), not the January–April total. The 50 % point of 2 now falls inside the range seen (at Preikestolen the 5th–95th percentile is 0.23–3.44 kWh/m² per day, median 1.94). The panel's unit is kWh/m²/d, in steps of 0.1; the help, the Norwegian text and README are updated. Checked headless: 12.8 % of Preikestolen scores ≥ 50 % with the defaults, 10.3 % with the sun at 2.5.
+
 ## 2026-11-26 · Raptor nesting sites: settings panel
 
 Owner: "For those 3 params: add a control setting the limits etc in a subpanel". While the layer is ticked, a panel under its row holds, for each term (Slope, Sun Jan–Apr, Wind exposure), its direction (> scores high above the value, < below), the 50 % point and the softness (10 → 90 % over the point ± 2.2 × softness), plus a *Defaults* button (45° · 2 kWh/m² · 20°; ±4°, ±0.25, ±4°). A change recomputes the layer after 0.3 s, and so does a new wind under Wind exposure. A view link carries the settings that were changed and the wind choice. Help and Norwegian updated. Checked headless: sun at 200 kWh/m² → 14 % of Preikestolen scores ≥ 50 % (21 % at 2); Defaults brings 21 % back; the link includes the change; at phone width each term fits on two lines.
