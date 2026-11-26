@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-11-26 · Raptor nesting sites
+
+Owner: "Make a new terrain feature: indicating S(slope,>45%) * S(sun exposure(Jan-April),>2kwh/m²) * S(wind exposure, <20) where S is an S-function … Call this raptor nesting site (Golden Eagle, Gyr falcon, Eagle Owl in help text)", then "Sun exposure should be energy flux from sun during January->April". A graded layer under Terrain features, 0–100 %: the product of three logistic S-curves, 50 % at each threshold:
+- **slope:** 50 % at 45° (degrees, as confirmed), 10–90 % between about 36° and 54°;
+- **sun:** the direct sun's energy received over January–April in all, from the sun model, 50 % at 2 kWh/m²;
+- **wind exposure:** the Wind exposure layer's shelter angle turned round (how far the ground falls away within 300 m upwind), from the wind chosen there, as confirmed; 100 % below 20°, 50 % at 20°. Changing the wind recomputes the layer.
+
+The colour runs from pale to deep red and grows more opaque with the score, so low values leave the map clear. Help entry (Norwegian too) names golden eagle, gyrfalcon and eagle-owl and the limits: terrain shape only; sun and wind on the coarse grid. `windWeights` / `windMean` were split out of the wind layer so both use the same code. Checked headless at Preikestolen (1000 m): it computes with no errors, 21 % of the cells score ≥ 50 %, and switching the wind from all directions to west recomputes it. As specified, the sun and wind terms barely limit there: January–April sums run 28–413 kWh/m² (5th–95th percentile), so the score is mostly the slope term.
+
 ## 2026-11-26 · Speed, stage 2: drawing what is in sight
 
 - **3-D trees in chunks:** the forest is built as a 4 × 4 grid of chunks, each with a bounding sphere of its own trees, and frustum culling is on again (r128's `InstancedMesh` turns it off in its constructor, and culls by one tree's shape alone, which is why it was off). At most 16 × 7 draw calls. Checked headless with 150 000 synthetic trees on Preikestolen (1000 m): from the overview everything is drawn as before (screenshot identical but for 38 anti-aliased pixels); in the ground view 30 of 48 chunks are in sight, 22.8 → 15.1 M triangles a frame, 9.1 → 6.3 s a camera-only frame in software rendering.

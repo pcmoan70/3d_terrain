@@ -393,6 +393,14 @@
 "Coastal heath": "Kystlynghei",
 "Coastal lagoons": "Kystlaguner",
 "Coastal wave exposure": "Bølgeeksponering ved kysten",
+"Raptor nesting sites": "Hekkeplasser for rovfugl",
+"Layer: Raptor nesting sites…": "Kartlag: Hekkeplasser for rovfugl…",
+"golden eagle, gyrfalcon, eagle-owl: steep (S-curve, 50 % at 45°) × sun in January–April (50 % at 2 kWh/m² received in all) × not wind-exposed (50 % at an exposure of 20°, the wind as chosen under Wind exposure)": "kongeørn, jaktfalk, hubro: bratt (S-kurve, 50 % ved 45°) × sol i januar–april (50 % ved 2 kWh/m² mottatt i alt) × ikke vindutsatt (50 % ved en eksponering på 20°, vinden som valgt under Vindeksponering)",
+"likely": "sannsynlig",
+"possible": "mulig",
+"unlikely": "lite sannsynlig",
+"Where the terrain suits a cliff nest of golden eagle, gyrfalcon or eagle-owl: steep ground that gets the late-winter sun and is not exposed to the wind. Three smooth S-curves, each running from 0 to 100 % with 50 % at its threshold, are multiplied: slope (50 % at 45°, 10–90 % between about 36° and 54°), the direct sun's energy received over January–April in all (50 % at 2 kWh/m², 10–90 % between 1.45 and 2.55) and wind exposure (100 % below, 50 % at 20°, 10–90 % between 29° and 11°). Wind exposure is the Wind exposure layer's shelter angle turned round: how far the ground falls away within 300 m upwind, from the wind chosen there (every direction, the winds here, or one compass point). The colour deepens and grows more opaque with the score; hovering gives the percentage.": "Der terrenget passer for et reir i stup for kongeørn, jaktfalk eller hubro: bratt mark som får sola på senvinteren og ikke er vindutsatt. Tre jevne S-kurver, hver fra 0 til 100 % med 50 % ved sin terskel, ganges sammen: helning (50 % ved 45°, 10–90 % mellom om lag 36° og 54°), energien fra direkte sol mottatt i januar–april i alt (50 % ved 2 kWh/m², 10–90 % mellom 1,45 og 2,55) og vindeksponering (100 % under, 50 % ved 20°, 10–90 % mellom 29° og 11°). Vindeksponeringen er Vindeksponering-lagets lévinkel snudd: hvor mye marka faller bort innen 300 m mot vinden, fra vinden som er valgt der (alle retninger, vindene her eller ett kompasspunkt). Fargen blir dypere og tettere med verdien; pekeren viser prosenten.",
+"A score from the shape of the ground alone: no ledge, overhang, prey, disturbance or past nests are in it, and the thresholds are a starting point, not fitted to known nests. The sun and the wind come from the coarse grid (at most 250 × 250 cells: 8 m on a 1 km view), so a narrow face takes the sun and wind of the slope it sits in; the slope is the fine grid's. The sun is clear-sky. Changing the wind under Wind exposure recomputes it.": "En verdi ut fra terrengformen alene: hyller, overheng, byttedyr, forstyrrelser og tidligere reir er ikke med, og tersklene er et utgangspunkt, ikke tilpasset kjente reir. Sol og vind regnes på det grove rutenettet (høyst 250 × 250 ruter: 8 m i en visning på 1 km), så en smal stupvegg får sola og vinden til lia den står i; helningen er fra det fine rutenettet. Sola er klarvær. Endres vinden under Vindeksponering, regnes laget på nytt.",
 "Complex cultivation patterns": "Komplekse dyrkingsmønstre",
 "Conglomerate": "Konglomerat",
 "Coniferous forest": "Barskog",
@@ -1708,8 +1716,8 @@ function paintBase(G, base, noCont) {   // G: the fine grid S or the coarse surr
   }
   for (const g of GRADED) {   // the graded layers at 68 % over the map, the view's one colour range
     if (!$("ft_" + g.id).checked || !G.grad || !G.grad[g.id] || !S.gradRng || !S.gradRng[g.id]) continue;
-    const A = G.grad[g.id], [lo, hi] = S.gradRng[g.id], al = 0.68;
-    for (let k = 0; k < n * n; k++) { if (bad[k] || A[k] !== A[k]) continue; const t = (A[k] - lo) / ((hi - lo) || 1), col = ramp(g.ramp, g.rev ? 1 - t : t), o = 4 * k; d[o] = d[o] * (1 - al) + col[0] * al; d[o + 1] = d[o + 1] * (1 - al) + col[1] * al; d[o + 2] = d[o + 2] * (1 - al) + col[2] * al; }
+    const A = G.grad[g.id], [lo, hi] = S.gradRng[g.id];
+    for (let k = 0; k < n * n; k++) { if (bad[k] || A[k] !== A[k]) continue; const t = (A[k] - lo) / ((hi - lo) || 1), col = ramp(g.ramp, g.rev ? 1 - t : t), o = 4 * k, al = g.fade ? 0.8 * Math.max(0, Math.min(1, t)) : 0.68; d[o] = d[o] * (1 - al) + col[0] * al; d[o + 1] = d[o + 1] * (1 - al) + col[1] * al; d[o + 2] = d[o + 2] * (1 - al) + col[2] * al; }
   }
   if ($("lyClc").checked && G.clc) blendImg(d, G.clc.data, bad, n, .55);   // CORINE land cover at 55 % over the map
   for (const sk of snowOn()) if (G[sk] && G[sk].img) blendImg(d, G[sk].img.data, bad, n, .55);   // seNorge snow at 55 % over the map
@@ -2026,18 +2034,23 @@ async function windRose(S) {   // the view centre's winds: Open-Meteo's ERA5 arc
 }
 const windAt = (G, x, y) => atCoarse(G, G.wsx, G.windAvg, x, y);
 const windLbl = () => { const v = $("windDir").value; return v === "all" ? "all directions" : v === "rose" ? "the winds here" : "from " + FACE_CL[v / 45][0]; };
+async function windWeights() {   // the wind chosen under Wind exposure, as weights over the WIND_NS directions, and a note on the winds here
+  const mode = $("windDir").value, w = new Float32Array(WIND_NS); let note = "";
+  if (mode === "all") w.fill(1 / WIND_NS);
+  else if (mode === "rose") { const r = await windRose(S); if (r) { w.set(r.w); note = "Winds here: " + r.text; } else w.fill(1 / WIND_NS); }
+  else w[Math.round(((+mode + S.gam) % 360 + 360) % 360 / (360 / WIND_NS)) % WIND_NS] = 1;
+  return { w, note };
+}
+async function windMean(G, w) {   // the shelter angle (°) on G's coarse cells, weighted over the directions
+  const X = await windSx(G), A = new Float32Array(X.m * X.m);
+  for (let k = 0; k < A.length; k++) { let v = 0; for (let q = 0; q < X.NS; q++) if (w[q]) v += w[q] * X.sx[k * X.NS + q]; A[k] = v; }
+  return A;
+}
 async function windOn() {
   const on = $("lyWind").checked; $("lgWind").hidden = !on;
   if (on && S) {
-    const mode = $("windDir").value, w = new Float32Array(WIND_NS); let note = "";
-    if (mode === "all") w.fill(1 / WIND_NS);
-    else if (mode === "rose") { const r = await windRose(S); if (r) { w.set(r.w); note = "Winds here: " + r.text; } else w.fill(1 / WIND_NS); }
-    else w[Math.round(((+mode + S.gam) % 360 + 360) % 360 / (360 / WIND_NS)) % WIND_NS] = 1;
-    for (const G of S.out ? [S, S.out] : [S]) {
-      const X = await windSx(G), A = new Float32Array(X.m * X.m);
-      for (let k = 0; k < A.length; k++) { let v = 0; for (let q = 0; q < X.NS; q++) if (w[q]) v += w[q] * X.sx[k * X.NS + q]; A[k] = v; }
-      G.windAvg = A;
-    }
+    const { w, note } = await windWeights();
+    for (const G of S.out ? [S, S.out] : [S]) G.windAvg = await windMean(G, w);
     const Gs = S.out ? [S, S.out] : [S], lo = Math.min(...Gs.map(G => pct(G.windAvg, 0.01))), hi = Math.max(...Gs.map(G => pct(G.windAvg, 0.99))), md = pct(Gs[Gs.length - 1].windAvg, 0.5);   // one colour range for both grids, pale at the median
     for (const G of Gs) { G.windLo = lo; G.windMed = md; G.windHi = hi; }
     const g = "linear-gradient(90deg," + [0, .5, 1].map(t => "rgb(" + ramp(WIND_RAMP, t).map(Math.round).join(",") + ")").join(",") + ")";
@@ -2046,7 +2059,12 @@ async function windOn() {
   }
   repaint();
 }
-$("lyWind").onchange = $("windDir").onchange = windOn;
+$("lyWind").onchange = windOn;
+$("windDir").onchange = async () => {   // the raptor layer judges shelter from this wind too
+  if (S) for (const G of S.out ? [S, S.out] : [S]) if (G.grad) delete G.grad.raptor;
+  if (S && $("ft_raptor").checked) { busy("Layer: Raptor nesting sites…"); await tick(); await gradedOn(GRADED.find(g => g.id === "raptor")); busy(false); }
+  windOn();
+};
 // ---- terrain features (owner, 2026-10-17): masks on a grid, from its heights, slopes, a terrain position index (height
 // above the mean within 25 m) and, for the last three, the sun model's monthly maps and horizons. Thresholds are plain
 // and stated in each feature's note; they are starting points, not calibrated habitat models.
@@ -2074,13 +2092,32 @@ const FEATURES = [
 // Graded layers (owner, 2026-10-19: "Topographic Openness", "Distance to Ridge / Cliff Edges", "Ruggedness (TRI/VRM)"): a value per
 // cell, coloured over the view's 1st–99th percentiles (or a fixed range), a legend with the numbers, the value under the pointer
 const EDGE_RAMP = [[0, [255, 150, 0]], [0.5, [235, 232, 220]], [1, [30, 70, 200]]], RUG_RAMP = [[0, [235, 232, 220]], [0.5, [255, 140, 0]], [1, [110, 0, 120]]], WAVE_RAMP = [[0, [70, 150, 240]], [0.5, [235, 232, 220]], [1, [190, 30, 80]]];
+// Raptor nesting sites (owner, 2026-11-26): "S(slope, >45) * S(sun exposure (Jan–April), >2 kWh/m²) * S(wind exposure, <20)",
+// each S a smooth step from 0 to 100 % with 50 % at the given value — slope in degrees, the sun as the energy received over
+// January–April in all ("Sun exposure should be energy flux from sun during January->April"), kWh/m²; the wind
+// exposure the shelter angle turned round (−angle: the ground falling away upwind), from the wind chosen under Wind exposure.
+const RAPTOR_RAMP = [[0, [255, 236, 179]], [0.5, [255, 112, 67]], [1, [136, 14, 79]]];
+const sStep = (x, x0, w) => 1 / (1 + Math.exp(-(x - x0) / w));   // 50 % at x0; w > 0 rises, w < 0 falls; 10 → 90 % over x0 ± 2.2 |w|
+async function raptorOf(G) {
+  const n = G.n, c = G.c, R = G.R, slope = G.slope, bad = G.bad, N = n * n, out = new Float32Array(N);
+  const M = await sunMonthly(G), sun = new Float32Array(M.m * M.m);
+  for (const mo of [0, 1, 2, 3]) { const a = M.months[mo]; for (let k = 0; k < sun.length; k++) sun[k] += a[k] * MDAYS[mo] / 1000; }   // kWh/m² over January–April
+  const { w } = await windWeights(), wind = await windMean(G, w), X = G.wsx;
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const k = j * n + i; if (bad[k]) { out[k] = NaN; continue; }
+    const x = (i + 0.5) * c - R, y = R - (j + 0.5) * c;
+    out[k] = sStep(slope[k], 45, 4) * sStep(atCoarse(G, M, sun, x, y), 2, 0.25) * sStep(-atCoarse(G, X, wind, x, y), 20, -4);
+  }
+  return out;
+}
 const GRADED = [
   { id: "open", name: "Topographic openness", note: "positive openness (Yokoyama): 90° less the mean, over eight directions, of the highest angle to the ground within 500 m — above 90° convex and open, below it enclosed", ramp: WIND_RAMP, rev: true, fmt: v => v.toFixed(0) + "°", read: v => v >= 95 ? "convex, open" : v <= 85 ? "enclosed" : "about level", calc: G => openness(G) },
   { id: "edge", name: "Distance to ridge or cliff edge", note: "metres to the nearest ridge crest or cliff brink (a cell under 30° with a lower neighbour of 45° or more)", rng: [0, 250], ramp: EDGE_RAMP, fmt: v => v > 999 ? "> 1 km" : Math.round(v) + " m", calc: G => edgeDist(G) },
   { id: "tri", name: "Ruggedness, TRI", note: "terrain ruggedness index (Riley): the mean height difference to the eight neighbouring cells, in metres", ramp: RUG_RAMP, fmt: v => v.toFixed(2) + " m", calc: G => triOf(G) },
   { id: "vrm", name: "Ruggedness, VRM", note: "vector ruggedness measure (Sappington): how much the surface normals within 5 m (one cell on coarse grids) disagree, 0 smooth … 1 chaotic", ramp: RUG_RAMP, fmt: v => v.toFixed(3), calc: G => vrmOf(G) },
   // owner, 2026-10-20: "implement coastal wave exposure" — open-water fetch; water and shore cells only, the rest unpainted (NaN)
-  { id: "wave", name: "Coastal wave exposure", note: "open-water fetch: the mean distance of open sea in 16 directions, up to 3 km, from the water and the shore beside it — low in a sheltered bay, high on an open coast", rng: [0, 3000], ramp: WAVE_RAMP, none: "no sea in this view", fmt: v => v !== v ? "—" : v >= 2990 ? "≥ 3 km" : Math.round(v) + " m", read: v => v >= 2000 ? "exposed" : v >= 700 ? "moderately exposed" : "sheltered", calc: G => waveFetch(G) }];
+  { id: "wave", name: "Coastal wave exposure", note: "open-water fetch: the mean distance of open sea in 16 directions, up to 3 km, from the water and the shore beside it — low in a sheltered bay, high on an open coast", rng: [0, 3000], ramp: WAVE_RAMP, none: "no sea in this view", fmt: v => v !== v ? "—" : v >= 2990 ? "≥ 3 km" : Math.round(v) + " m", read: v => v >= 2000 ? "exposed" : v >= 700 ? "moderately exposed" : "sheltered", calc: G => waveFetch(G) },
+  { id: "raptor", name: "Raptor nesting sites", note: "golden eagle, gyrfalcon, eagle-owl: steep (S-curve, 50 % at 45°) × sun in January–April (50 % at 2 kWh/m² received in all) × not wind-exposed (50 % at an exposure of 20°, the wind as chosen under Wind exposure)", rng: [0, 1], ramp: RAPTOR_RAMP, fade: true, fmt: v => Math.round(100 * v) + " %", read: v => v >= 0.5 ? "likely" : v >= 0.2 ? "possible" : "unlikely", calc: raptorOf }];
 const ftRow = f => '<div class="row"><label class="ly" title="' + f.note + '"><input type="checkbox" id="ft_' + f.id + '"> <span class="sw" style="background:' + f.col + '"></span> ' + (f.row || f.name) + '<span class="ftx" id="ftx_' + f.id + '"></span></label></div>';   // the texts are the page's own
 // the five cliff-drop classes sit under one "Cliff drops" toggle, shown (all ticked) when it is on, hidden when off; their rows
 // give the range alone (owner, 2026-10-20: "do not repeat cliff drops inside the ranges") — the pointer and popup keep the full name
@@ -2257,7 +2294,7 @@ function vrmOf(G) {   // vector ruggedness measure (Sappington 2007): 1 − the 
   return out;
 }
 async function gradedOn(g) {   // the field on every grid, one colour range (the fine grid's 1st–99th percentiles, or the layer's fixed one), the legend
-  for (const G of S.out ? [S, S.out] : [S]) { G.grad = G.grad || {}; if (!G.grad[g.id]) G.grad[g.id] = g.calc(G); }
+  for (const G of S.out ? [S, S.out] : [S]) { G.grad = G.grad || {}; if (!G.grad[g.id]) G.grad[g.id] = await g.calc(G); }
   const A = S.grad[g.id], st = Math.max(1, Math.floor(A.length / 200000)), sel = k => k % st === 0 && !S.bad[k];
   const lo = g.rng ? g.rng[0] : pct(A, 0.01, sel), hi = g.rng ? g.rng[1] : pct(A, 0.99, sel);
   S.gradRng = S.gradRng || {}; S.gradRng[g.id] = [lo, hi];
@@ -4784,6 +4821,9 @@ const FEAT_HELP = {   // row checkbox id → [title, what it shows, the assumpti
   ft_wave: ["Coastal wave exposure",
     "Open-water fetch. From every water cell — the sea, which the model holds at 0 m — the distance of open water is measured in 16 directions, up to 3 km, and the exposure is the mean of the 16: a few hundred metres in a sheltered bay or a narrow sound, towards 3 km on an open coast. The shore takes the value of the most exposed water beside it; cells away from the water are left unpainted. Coloured from 0 (blue, sheltered) to 3 km (red, exposed); the value and its reading under the pointer.",
     "Fetch alone: every direction counts alike — the winds, the swell and the depth are not in it. A ray that leaves the view counts as open water, so the sea at the view's edge reads as exposed. The sea is the model's 0 m; cells without data count as water. Worked out on a coarse grid of at most 250 × 250 cells (6 m on a 1.5 km view, 120 m on a 15 km view), so a sound narrower than a cell is missed, and lakes at 0 m would count as sea."],
+  ft_raptor: ["Raptor nesting sites",
+    "Where the terrain suits a cliff nest of golden eagle, gyrfalcon or eagle-owl: steep ground that gets the late-winter sun and is not exposed to the wind. Three smooth S-curves, each running from 0 to 100 % with 50 % at its threshold, are multiplied: slope (50 % at 45°, 10–90 % between about 36° and 54°), the direct sun's energy received over January–April in all (50 % at 2 kWh/m², 10–90 % between 1.45 and 2.55) and wind exposure (100 % below, 50 % at 20°, 10–90 % between 29° and 11°). Wind exposure is the Wind exposure layer's shelter angle turned round: how far the ground falls away within 300 m upwind, from the wind chosen there (every direction, the winds here, or one compass point). The colour deepens and grows more opaque with the score; hovering gives the percentage.",
+    "A score from the shape of the ground alone: no ledge, overhang, prey, disturbance or past nests are in it, and the thresholds are a starting point, not fitted to known nests. The sun and the wind come from the coarse grid (at most 250 × 250 cells: 8 m on a 1 km view), so a narrow face takes the sun and wind of the slope it sits in; the slope is the fine grid's. The sun is clear-sky. Changing the wind under Wind exposure recomputes it."],
   ft_spring: ["Sun-warmed slopes in spring",
     "The quarter of the view with the most direct sun in March–April, on slopes of 5° and steeper: the first ground bare of snow.",
     "From the sun model: clear-sky direct radiation with the terrain's own horizons — no clouds, no vegetation. A quarter of the view by rank, so there is always one."],
