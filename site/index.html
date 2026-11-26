@@ -2564,13 +2564,16 @@ async function makeGrid(tiles, X, Y, R, c, sig, label, raw) {   // raw: the heig
     catch (e) { console.warn(t.name, e); busy(tl() + ": could not be read (" + e.message + ") — skipped"); ti++; continue; }   // a damaged tile: its ground is filled
     if (!rd) { busy(tl() + ": not read in 60 s — skipped"); ti++; continue; }
     const ras = rd[0], ww = c1 - c0;
+    // the tile's column for each grid column, once; the rows then loop over only the columns the tile covers
+    const cc = new Int32Array(n); let i0 = n, i1 = 0;
+    for (let i = 0; i < n; i++) { const xx = x0 + (i + 0.5) * c; cc[i] = Math.floor((xx - b[0]) / rx) - c0; if (cc[i] >= 0 && cc[i] < ww) { if (i < i0) i0 = i; i1 = i + 1; } }
     for (let j = 0; j < n; j++) {
       if (j && j % 400 === 0) { busy(tl(), (ti + j / n) / inGrid.length); await tick(); }
       const yy = y1 - (j + 0.5) * c, rr = Math.floor((b[3] - yy) / ry) - r0; if (rr < 0 || rr >= r1 - r0) continue;
-      for (let i = 0; i < n; i++) {
+      const row = rr * ww;
+      for (let i = i0; i < i1; i++) {
         const k = j * n + i; if (h[k] === h[k]) continue;
-        const xx = x0 + (i + 0.5) * c, cc = Math.floor((xx - b[0]) / rx) - c0; if (cc < 0 || cc >= ww) continue;
-        const v = ras[rr * ww + cc]; if (v > -1000 && v < 9000 && v !== t.nodata) h[k] = v;
+        const v = ras[row + cc[i]]; if (v > -1000 && v < 9000 && v !== t.nodata) h[k] = v;
       }
     }
     ti++; await tick();
@@ -3148,7 +3151,21 @@ function boxMean(a, n, r) {   // the mean over a (2r+1)² box, running sums (edg
   for (let i = 0; i < n; i++) { let s = 0, c = 0; for (let j = 0; j < Math.min(n, r); j++) { s += t[j * n + i]; c++; } for (let j = 0; j < n; j++) { if (j + r < n) { s += t[(j + r) * n + i]; c++; } if (j - r - 1 >= 0) { s -= t[(j - r - 1) * n + i]; c--; } out[j * n + i] = s / c; } }
   return out;
 }
-const pct = (arr, q, sel) => { const v = []; for (let k = 0; k < arr.length; k++) if (!sel || sel(k)) v.push(arr[k]); if (!v.length) return NaN; v.sort((a, b) => a - b); return v[Math.min(v.length - 1, Math.floor(q * v.length))]; };
+// the q-quantile of arr (the cells sel picks), NaN left out: the element a sort would put there, found by quickselect
+// (Hoare partitions round a median of three) — a sort of 9 M cells took seconds
+function pct(arr, q, sel) {
+  const v = new (arr instanceof Float32Array ? Float32Array : Float64Array)(arr.length); let m = 0;
+  for (let k = 0; k < arr.length; k++) if ((!sel || sel(k)) && arr[k] === arr[k]) v[m++] = arr[k];
+  if (!m) return NaN;
+  const K = Math.min(m - 1, Math.floor(q * m)); let lo = 0, hi = m - 1;
+  while (hi > lo) {
+    const mid = (lo + hi) >> 1, a = v[lo], b = v[mid], c = v[hi], p = a < b ? (b < c ? b : a < c ? c : a) : (a < c ? a : b < c ? c : b);
+    let i = lo, j = hi;
+    while (i <= j) { while (v[i] < p) i++; while (v[j] > p) j--; if (i <= j) { const t = v[i]; v[i] = v[j]; v[j] = t; i++; j--; } }
+    if (K <= j) hi = j; else if (K >= i) lo = i; else break;
+  }
+  return v[K];
+}
 // The cliff drops (owner, 2026-10-19): from every cell whose steepest step to a neighbour is 60° or more (the unsmoothed
 // heights), the face is followed up and down the steepest line while the steps stay that steep; its drop H and horizontal
 // run L give the face's angle. A vertical wall is smeared over one cell by the DTM's gridding, so one cell is taken off the
@@ -3161,11 +3178,20 @@ function cliffClasses(G) {
   if (G.cliffCls) return G.cliffCls;
   const n = G.n, c = G.c, h = G.h, bad = G.bad, N = n * n, out = new Uint8Array(N), edge = new Uint8Array(N), T = Math.tan(60 * RAD), T85 = Math.tan(85 * RAD), D = c * Math.SQRT2, smear = c <= 2 ? 2 * c : c;
   const NB = [[1, 0, c], [-1, 0, c], [0, 1, c], [0, -1, c], [1, 1, D], [1, -1, D], [-1, 1, D], [-1, -1, D]];
-  const step = (k, dir) => {   // the steepest neighbour up (dir 1) or down (−1) with a step of 60° or more, as [index, distance], else null
-    const i = k % n, j = (k - i) / n; let best = null, bg = T;
-    for (const [di, dj, d] of NB) { const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue; const q = jj * n + ii; if (bad[q]) continue; const g = dir * (h[q] - h[k]) / d; if (g >= bg) { bg = g; best = [q, d]; } }
-    return best;
-  };
+  // each cell's steepest neighbour up and down with a step of 60° or more (its NB index, 255 = none), worked out once: the
+  // walks along a face then follow these instead of searching the neighbours at every step from every cell
+  const UP = new Uint8Array(N).fill(255), DN = new Uint8Array(N).fill(255);
+  for (let k = 0; k < N; k++) {
+    if (bad[k]) continue;
+    const i = k % n, j = (k - i) / n; let bu = 255, bd = 255, gu = T, gd = T;
+    for (let e = 0; e < 8; e++) {
+      const ii = i + NB[e][0], jj = j + NB[e][1]; if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue; const q = jj * n + ii; if (bad[q]) continue;
+      const g = (h[q] - h[k]) / NB[e][2], g2 = -g;
+      if (g >= gu) { gu = g; bu = e; } if (g2 >= gd) { gd = g2; bd = e; }
+    }
+    UP[k] = bu; DN[k] = bd;
+  }
+  const to = (k, e) => k + NB[e][1] * n + NB[e][0];
   const beyond = (k, dir) => {   // the highest (dir 1) or lowest (−1) neighbour, whatever its slope: the first tile past the face
     const i = k % n, j = (k - i) / n; let best = -1, bh = -Infinity;
     for (const [di, dj] of NB) { const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii >= n || jj >= n) continue; const q = jj * n + ii; if (bad[q]) continue; const v = dir * h[q]; if (v > bh) { bh = v; best = q; } }
@@ -3173,10 +3199,10 @@ function cliffClasses(G) {
   };
   for (let k = 0; k < N; k++) {
     if (bad[k]) continue;
-    let up = step(k, 1), dn = step(k, -1); if (!up && !dn) continue;
+    if (UP[k] === 255 && DN[k] === 255) continue;
     let top = k, bot = k, L = 0, g = 0;
-    while (up && g++ < 300) { L += up[1]; top = up[0]; up = step(top, 1); }
-    g = 0; while (dn && g++ < 300) { L += dn[1]; bot = dn[0]; dn = step(bot, -1); }
+    while (UP[top] !== 255 && g++ < 300) { L += NB[UP[top]][2]; top = to(top, UP[top]); }
+    g = 0; while (DN[bot] !== 255 && g++ < 300) { L += NB[DN[bot]][2]; bot = to(bot, DN[bot]); }
     const H = h[top] - h[bot], Lf = L - smear;
     if (H < 5 || (Lf > 0 && H / Lf < T85)) continue;
     const cls = out[k] = H >= 50 ? 5 : H >= 25 ? 4 : H >= 15 ? 3 : H >= 10 ? 2 : 1;
@@ -3926,8 +3952,8 @@ async function repaint() {
   const wb = (await wbUI(S)) || (await satUI(S)), id = wb || $("basemap").value;
   for (const G of S.out ? [S, S.out] : [S]) {
     G.tex = paintBase(G, await getBase(G, id));
-    const mesh = G === S ? terrain : S.out.mesh, old = mesh.material.map; mesh.material.map = new THREE.CanvasTexture(G.tex); mesh.material.map.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    mesh.material.needsUpdate = true; if (old) { old.dispose(); if (old.image !== G.tex) cvFree(old.image); }
+    const map = (G === S ? terrain : S.out.mesh).material.map, old = map.image;   // the same texture, a new picture: no new texture or shader
+    map.image = G.tex; map.needsUpdate = true; if (old !== G.tex) cvFree(old);
   }
   S.baseId = id; waterSync(); draw(); if (v2d) paint2d();
 }
@@ -5089,6 +5115,14 @@ async function tiffWhole(b) {
 // the Height server for the rest of the session (the saved choice is kept for the next visit). Only when both fail does
 // it wait (1 … 60 s) and try the pair again. "No data here" from one server is checked with the other too, since
 // Geonorge answered its outage with HTTP 404.
+// Three tiles at a time (the review, 2026-11-26: one by one left the line idle between tiles). A failure stops the others
+// from starting more; one wait (wcsHold) holds every fetch while the servers ask for a pause.
+async function wcsPool(list, fn) {
+  let i = 0;
+  const run = async () => { while (i < list.length) { const k = i++; try { await fn(list[k], k); } catch (e) { i = list.length; throw e; } } };
+  await Promise.all(Array.from({ length: Math.min(3, list.length) }, run));
+}
+let wcsHold = 0;   // Date.now() before which no tile is asked for
 async function wcsFetch(it, onBytes) {   // onBytes(n): the bytes in so far (the servers send no length, so the caller knows the size)
   let cache = null; try { cache = await caches.open(DTM_CACHE); } catch (e) {}
   if (cache) for (const s of [srvOf(), srvOther(srvOf())]) {
@@ -5098,7 +5132,7 @@ async function wcsFetch(it, onBytes) {   // onBytes(n): the bytes in so far (the
   }
   const waits = [1, 2, 4, 8, 16, 32, 60];
   async function ask(srv) {   // → { b } a tile, { none } no data there, or { why } failed
-    const url = tileUrl(srv, it.q);
+    const url = tileUrl(srv, it.q), wait = wcsHold - Date.now(); if (wait > 0) await new Promise(r => setTimeout(r, wait));
     try {
       const r = await fetch(url);
       if (r.ok) {
@@ -5130,7 +5164,7 @@ async function wcsFetch(it, onBytes) {   // onBytes(n): the bytes in so far (the
     }
     if (a.none || b.none) { logLine("Terrain tile " + it.name + ": skipped — " + (a.none || b.none)); return null; }   // one says no data, the other has none either
     if (k >= waits.length) throw new Error(it.name + ": " + a.why + "; " + b.why + ". Both of Kartverket's height servers fail — try again later");
-    busy("Terrain tile " + it.name + ": " + a.why + "; " + b.why + " — retry in " + waits[k] + " s"); await new Promise(r => setTimeout(r, waits[k] * 1000));
+    busy("Terrain tile " + it.name + ": " + a.why + "; " + b.why + " — retry in " + waits[k] + " s"); wcsHold = Math.max(wcsHold, Date.now() + waits[k] * 1000);
   }
 }
 // Points sent along in the link (owner, 2026-10-18: "rich params allowing … to specify dots with descriptive text
@@ -5168,14 +5202,15 @@ async function domGrid(reading) {   // the surface model on the fine grid: { h }
       if (domTiles.has(name)) { if (domTiles.get(name)) tiles.push(domTiles.get(name)); continue; }
       todo.push({ name, q: { x0: e * T, y0: n * T, x1: (e + 1) * T, y1: (n + 1) * T, w, dom: true } });
     }
-  let done = 0;
-  for (const it of todo) {
-    const msg = "Fetching the surface model… " + (done + 1) + " / " + todo.length + " · " + it.name, size = 4 * w * w;   // float32 cells
-    busy(msg, done / todo.length);
-    const b = await wcsFetch(it, got => busy(msg, (done + Math.min(0.98, got / size)) / todo.length)); let t = null;
-    if (b) { const { img } = await sparseFix(b); t = { name: it.name, img, bbox: img.getBoundingBox(), res: img.getResolution(), nodata: img.getGDALNoData() }; tiles.push(t); }
-    domTiles.set(it.name, t); done++;
-  }
+  let done = 0; const part = new Float32Array(todo.length), size = 4 * w * w, got = new Array(todo.length);   // float32 cells
+  const show = () => busy("Fetching the surface model… " + done + " / " + todo.length, (done + part.reduce((a, v) => a + v, 0)) / todo.length);
+  show();
+  await wcsPool(todo, async (it, k) => {
+    const b = await wcsFetch(it, n_ => { part[k] = Math.min(0.98, n_ / size); show(); }); let t = null;
+    if (b) { const { img } = await sparseFix(b); t = { name: it.name, img, bbox: img.getBoundingBox(), res: img.getResolution(), nodata: img.getGDALNoData() }; }
+    got[k] = t; part[k] = 0; done++; show();
+  });
+  todo.forEach((it, k) => { if (got[k]) tiles.push(got[k]); domTiles.set(it.name, got[k]); });   // in the plan's order
   if (reading) reading();
   return tiles.length ? makeGrid(tiles, S.X, S.Y, S.R, S.c, 0, "Reading the surface model…", true) : null;
 }
@@ -5519,11 +5554,10 @@ async function wcsGather(lat, lon, R, res, R1) {   // the plan's tiles: those no
   const todo = plan.items.filter(it => !have.has(it.name) && !WCSV.skip.has(it.name)); let done = 0;
   const known = plan.items.filter(it => WCSV.skip.has(it.name)).length, reuse = plan.items.length - todo.length - known;
   logLine("Terrain plan: " + plan.items.length + " tile(s) — " + todo.length + " to fetch, " + reuse + " already in hand" + (known ? ", " + known + " skipped (no data, known from before)" : ""), "i");
-  for (const it of todo) {   // each tile named as it is asked for, so the log's time after its line is that tile's
-    busy("Fetching the terrain… " + (done + 1) + " / " + todo.length + " · " + it.name, done / todo.length);
-    const b = await wcsFetch(it); done++;
-    if (b) { const t = { name: it.name, blob: b, wcs: true }; WCSV.items.push(t); have.set(it.name, t); } else WCSV.skip.add(it.name);
-  }
+  const got = new Array(todo.length);
+  busy("Fetching the terrain… 0 / " + todo.length, 0);
+  await wcsPool(todo, async (it, k) => { got[k] = await wcsFetch(it); busy("Fetching the terrain… " + (++done) + " / " + todo.length + " · " + it.name, done / todo.length); });
+  todo.forEach((it, k) => { const b = got[k]; if (b) { const t = { name: it.name, blob: b, wcs: true }; WCSV.items.push(t); have.set(it.name, t); } else WCSV.skip.add(it.name); });   // in the plan's order
   busy(false);
   const items = plan.items.filter(it => have.has(it.name)).map(it => have.get(it.name));
   return { items, missing: plan.items.length - items.length, fetched: todo.length };

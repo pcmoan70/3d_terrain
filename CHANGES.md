@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-11-26 · Speed, stage 1: same output, less waiting
+
+From the second review and the plan (owner: "make a plan to improve the code, focusing on efficient clean implementation and speed" → "execute stages in order"). Every change gives identical results, checked headless (Preikestolen at 500 / 1000 / 1500 m and a fetched 1 m + 10 m view at 5 km): the height grids, the cliff classes and the percentiles have the same checksums before and after, the screenshots are identical, also after the cliff layers are painted.
+- **Cliff drops:** each cell's steepest step up and down is found once (two byte arrays), and the walks along a face follow those instead of searching the eight neighbours at every step from every cell — 1.9 → 0.16 s, 5.3 → 0.59 s (2000²).
+- **Percentiles** (colour ranges, sun thresholds, wind legend): quickselect on a typed copy instead of sorting every cell — 3 percentiles of 9 M cells 9.7 → 0.22 s. NaN cells are left out (before, a NaN in the sort gave an undefined order; only the wave-exposure layer has them).
+- **Fetching from Kartverket:** three tiles at a time instead of one by one, kept in the plan's order; one shared wait when both servers ask for a pause. 13 tiles (5 km mixed view, nothing in the cache): 32 → 17 s. The surface model for the 3-D objects is fetched the same way.
+- **Reading the grid:** each tile's columns are looked up once and the rows loop only over the columns the tile covers. Measured: no real change — the time is in decoding the GeoTIFF, filling and smoothing, not in this loop.
+- **Repainting the map:** the terrain's texture is kept and only its picture swapped, no new texture and no shader rebuild (68 → 50 ms at 1000², otherwise within noise).
+
 ## 2026-11-26 · Performance review: shadows drawn only when the scene changes
 
 Owner asked to check four common terrain-rendering costs against the viewer:
