@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-26 · Log: the ⚠ count filters
+
+Owner: "on the log-bar: make the \"!\" errors clickable thus showing only the messages that produced them". The ⚠ count in the log bar is a button: a tap opens the log showing only the amber and red lines (skips, failures, errors), lit while it filters; a second tap shows every line again; Clear resets it. The no-graphics-acceleration warning now counts as one of them. Checked headless: 4 lines → 1 shown → 4 again.
+
 ## 2026-11-25 · Warning without graphics acceleration
 
 Owner: "if no GPU accelerated web browser render is not available show a warning message when page opens". At open the viewer tries a WebGL context: none → *No 3-D in this browser* (WebGL off or missing); a software renderer (SwiftShader, llvmpipe, Microsoft Basic Render, or a context refused with `failIfMajorPerformanceCaveat`) → *No graphics acceleration* — the view will be slow, with how to turn hardware acceleration on (Chrome/Edge: Settings → System) and the renderer's name. An amber box at the top with ×, also written to the log; Norwegian in i18n-no; the test contexts are released at once (iOS caps them). Checked headless (SwiftShader): the box shows, in Norwegian, within a phone-width screen.
