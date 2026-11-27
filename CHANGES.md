@@ -1,5 +1,19 @@
 # Changes
 
+## 2026-11-27 · Trees checked against NIBIO's maps, none on cliff walls (raptor layer and 3-D trees)
+
+Owner: "the "Raptor nesting sites" does not work double check", then "Map data overlays should be used to verify that there are trees. Also when rendering trees the map overlays should be used to detect trees. Currently on steep cliffs trees are shown, this is wrong and should be filtered by eg NIBIO overlays".
+
+What was wrong: the surface model less the terrain reads metres to tens of metres on a cliff wall and at its foot, with no tree there. At Preikestolen (1 km, 1 m) half the cells on 75–90° faces read as trees ≥ 3 m, so the raptor layer's tree term zeroed the walls (mean score 0.014 there; 1 % of the view ≥ 50 %), and the 3-D view drew 6 128 of its 24 390 trees on ground of 60° or more.
+
+Now, for both:
+- a crown is measured above the **highest ground within 2 m**, not its own cell (a real tree stands well above the ground beside it, a wall's smear does not);
+- trees only where **NIBIO's SR16** has a tree species or **AR5** shows forest; elsewhere (open firm ground, pasture, gardens, bogs) only on ground under 40°; never on water. If neither map answers, the slope and 2 m checks alone apply and the maps are asked again next time.
+- The raptor layer's background fetch fetches the two NIBIO maps too before it redraws; its log line says when the trees are in.
+- A local variable named `ok` in the tree finder shadowed the new parameter (caught in the headless test).
+
+Preikestolen, same view: 3-D trees 24 390 → 15 900; on 75°+ ground 2 585 → 142, 60–75° 3 543 → 854, under 40° 13 039 → 11 956. Raptor layer: mean score on 75–90° faces 0.014 → 0.40; cells ≥ 50 % 1 % → 7.7 %. A nested 5 km view (1 m centre) works too (the coarse surround without trees). No errors.
+
 ## 2026-11-27 · Raptor nesting sites: shown even when the surface model fails
 
 Owner: "The raptor nesting overlay is not shown while it was showing in prior renders. When DOM data is unavalable show warning, but exclude filtering on tree heights" and "any DOM error should trigger a retry later, which should trigger a rerender". The tree term awaited the surface-model (DOM) fetch inside the layer; when Kartverket's height servers stopped answering (seen 10:53 UTC today: both the Geonorge WCS and hoydedata.no timed out), the fetch went through its retry ladder and then threw, and the whole layer was lost. Now:
