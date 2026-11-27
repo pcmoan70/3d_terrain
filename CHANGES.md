@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-27 · Raptor nesting sites: new defaults for the two height terms
+
+Owner: "Nye Defaults: Høyde over flat mark 5m (2m feil), høyde over tett skog 3m (1m)". Height above flat ground 50 % at 5 m, softness 2 (was 20 m, 5); height above dense trees 50 % at 3 m, softness 1 (was 5 m, 2). Hover text, help (en + no) and README follow. Preikestolen 1 m: cells ≥ 50 % 0.7 % → 0.8 % (the tree term still dominates).
+
 ## 2026-11-27 · Raptor nesting sites: height above flat ground and above the trees
 
 Owner: "a forth filter: number of meters above neighbouring ground that slopes less than 20 degrees. Also a fift filter number of meters above dense trees (dsm dtm?)". Two more S-curves in the product, each with its row in the panel (direction, 50 % point, softness; Defaults and view links as before):
