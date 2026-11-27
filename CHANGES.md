@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-11-27 · Raptor nesting sites: on top of the other layers, never missing during a redraw
+
+Owner: "make sure the overlay is not overwritten by other map overlays. It seems like that now, using "Kartverket topo" the raptor overlay dissapears as one of the last steps of the rendering process". Two causes:
+- **Painted over:** the graded layers were blended early, so NIBIO / CORINE / snow overlays, the 3-D mode's fields, the slope and facing classes, the terrain features and — solid — the cliff drops were painted on top. The raptor colour sits on cliffs, so the cliff drops hid most of it. It is now painted last, over everything but the red level curves and the user's areas (the other graded layers keep their place).
+- **A gap while recomputing:** when the trees came in (or a setting changed) the layer was deleted and then recomputed for a few seconds; a repaint in that window (a base map's tiles arriving — the topo map is slow to drape) painted the map without it. The old layer now stays until the new one is ready.
+
+Headless, Preikestolen 1 km, Kartverket topo + cliff drops + slope classes, the layer ticked while the surface model was still being fetched: cells scoring ≥ 80 % that show the raptor colour, before 13 097 / 32 841 (40 %), now 32 224 / 32 841 (98 %), at every 2 s sample from 6 s to 66 s; no errors.
+
 ## 2026-11-27 · Trees checked against NIBIO's maps, none on cliff walls (raptor layer and 3-D trees)
 
 Owner: "the "Raptor nesting sites" does not work double check", then "Map data overlays should be used to verify that there are trees. Also when rendering trees the map overlays should be used to detect trees. Currently on steep cliffs trees are shown, this is wrong and should be filtered by eg NIBIO overlays".
