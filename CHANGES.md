@@ -1,5 +1,13 @@
 # Changes
 
+## 2026-11-27 · Raptor nesting sites: height above flat ground and above the trees
+
+Owner: "a forth filter: number of meters above neighbouring ground that slopes less than 20 degrees. Also a fift filter number of meters above dense trees (dsm dtm?)". Two more S-curves in the product, each with its row in the panel (direction, 50 % point, softness; Defaults and view links as before):
+- **Height above flat ground:** the cell's height less the lowest ground under 20° within 250 m (the lowest ground there if none is flat), 50 % at 20 m, softness 5. A square-window minimum (monotone queue), 0.7 s on 2000².
+- **Height above dense trees:** canopy = surface model (DOM) − terrain, as for the 3-D trees (reused when they are loaded, else fetched once). In 5 m blocks, dense = at least half the cells 3 m or taller; the clearance is the cell's height less the highest crown within 50 m of a dense block whose ground is lower than the cell, so a forest on the plateau above a cliff does not count; none → full score. 50 % at 5 m, softness 2. Only on the fine grid of 1–2 m views in zone 33; elsewhere left out (the log says so). Skipped where the other four terms are already under 0.5 %.
+
+Preikestolen 2 km 1 m view: the layer takes 2.3 s; ≥ 50 % fell from 12.8 % to 0.7 % of cells. Of the cells that scored ≥ 50 % before, 96.5 % pass the flat-ground term but only 6 % stand 5 m above the trees — a third of them lie under their own canopy (steep forested slopes).
+
 ## 2026-11-27 · Ground view: eyes at 2 m, look anywhere
 
 Owner: "the groundlevel view does not allow to look upwards: eyes (viewpoint) should be 2m above ground and tilt of view not restricted". The ground view orbited a point 60 m ahead with the map's tilt limit, so the camera could not go below that point and the view could not turn upward. Now, while standing:
