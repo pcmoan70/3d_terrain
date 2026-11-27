@@ -1,5 +1,9 @@
 # Changes
 
+## 2026-11-27 · Minimised panel is narrow
+
+Owner: "when left control pane is minimized also minimize the horisontal width … location does not need to be shown when minimized". Minimised, the left column shrinks to the title's 📍 and the ⧉ ? + buttons (310 → 143 px); the place name and coordinates are hidden until it is restored. CSS only (`#side:has(#info.min)`). Checked headless at 1400 × 900 and 390 × 640.
+
 ## 2026-11-27 · Raptor nesting sites: new defaults for the two height terms
 
 Owner: "Nye Defaults: Høyde over flat mark 5m (2m feil), høyde over tett skog 3m (1m)". Height above flat ground 50 % at 5 m, softness 2 (was 20 m, 5); height above dense trees 50 % at 3 m, softness 1 (was 5 m, 2). Hover text, help (en + no) and README follow. Preikestolen 1 m: cells ≥ 50 % 0.7 % → 0.8 % (the tree term still dominates).

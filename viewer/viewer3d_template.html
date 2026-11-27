@@ -32,6 +32,8 @@
   details:not([open])>summary.set::marker{color:#64b5f6}details:not([open])>summary.set::-webkit-details-marker{color:#64b5f6}
   details.nb{margin:2px 0}details.nb>summary{font-size:13px;cursor:pointer;padding:2px 0;color:#cfd8dc}details.nb .row{padding-left:16px}details.nb .lg img{background:#fff;border-radius:3px;padding:2px}
   .min .body{display:none}
+  /* minimised: the column only as wide as the title's pin and the buttons, no place name or coordinates (owner, 2026-11-27: "when left control pane is minimized also minimize the horisontal width … location does not need to be shown when minimized") */
+  #side:has(#info.min){width:auto}#info.min #ttlName,#info.min #ttlPos{display:none}#info.min h1{padding-right:96px;margin:0}
   #side{position:absolute;top:10px;left:10px;max-height:calc(100% - 20px - var(--logh,0px));width:min(310px,calc(100% - 64px));display:flex;flex-direction:column;gap:8px;pointer-events:none;z-index:5}
   #side>.panel{position:relative;top:auto;left:auto;bottom:auto;width:auto;max-width:none;pointer-events:auto}
   #side>#info{flex:0 1 auto;min-height:0;max-height:none}
