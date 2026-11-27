@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-11-27 · Raptor nesting sites: shown even when the surface model fails
+
+Owner: "The raptor nesting overlay is not shown while it was showing in prior renders. When DOM data is unavalable show warning, but exclude filtering on tree heights" and "any DOM error should trigger a retry later, which should trigger a rerender". The tree term awaited the surface-model (DOM) fetch inside the layer; when Kartverket's height servers stopped answering (seen 10:53 UTC today: both the Geonorge WCS and hoydedata.no timed out), the fetch went through its retry ladder and then threw, and the whole layer was lost. Now:
+- the layer is drawn at once without the trees, the legend carrying an orange ⚠ line with the reason (being fetched · could not be fetched, trying again in … · no surface model here · cells over 2 m · outside zone 33);
+- the surface model is fetched in the background; when it is in, the layer is computed again with the trees;
+- a failed fetch is retried after 30 s, doubling up to 10 min, as long as the view is the same; each attempt redraws the layer (or just its legend reason).
+
+Checked headless with a stubbed fetch that fails once: the layer showed at once (12.7 % ≥ 50 %) with the warning, then "trying again in 30 s", then after the retry the trees were in (9.2 %) and the warning gone; no errors.
+
 ## 2026-11-27 · Minimised panel is narrow
 
 Owner: "when left control pane is minimized also minimize the horisontal width … location does not need to be shown when minimized". Minimised, the left column shrinks to the title's 📍 and the ⧉ ? + buttons (310 → 143 px); the place name and coordinates are hidden until it is restored. CSS only (`#side:has(#info.min)`). Checked headless at 1400 × 900 and 390 × 640.
